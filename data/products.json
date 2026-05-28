@@ -1,0 +1,76 @@
+{
+    "products": [
+          {
+                  "name": "Stol z krzeslami do ogrodu i jadalni",
+                  "category": "Wyposazenie ogrodu",
+                  "catalogPrice": "do uzupelnienia",
+                  "outletPrice": "cena outletowa",
+                  "status": "Nowosc",
+                  "image": "product-table.jpeg",
+                  "description": "Realny zestaw z ekspozycji w showroomie. Jasny blat, wygodne krzesla i naturalny klimat do domu lub ogrodu.",
+                  "dimensions": "Wymiary: do uzupelnienia po pomiarze produktu",
+                  "featured": true,
+                  "order": 10
+          },
+          {
+                  "name": "Naroznik wypoczynkowy",
+                  "category": "Wyposazenie domu",
+                  "catalogPrice": "do uzupelnienia",
+                  "outletPrice": "cena outletowa",
+                  "status": "Ostatnia sztuka",
+                  "image": "product-sofa.jpeg",
+                  "description": "Jasny naroznik z ekspozycji. Zdjecie wykonane na miejscu, bez sztucznych wizualizacji.",
+                  "dimensions": "Wymiary: do uzupelnienia",
+                  "featured": true,
+                  "order": 20
+          },
+          {
+                  "name": "Zestaw foteli z podnozkami",
+                  "category": "Wyposazenie ogrodu",
+                  "catalogPrice": "do uzupelnienia",
+                  "outletPrice": "cena outletowa",
+                  "status": "Rezerwacja",
+                  "image": "product-chaise.jpeg",
+                  "description": "Drewniane fotele wypoczynkowe z podnozkami. Dobra propozycja na taras, werande lub ogrod.",
+                  "dimensions": "Wymiary: do uzupelnienia",
+                  "featured": true,
+                  "order": 30
+          },
+          {
+                  "name": "Zestaw wypoczynkowy z fotelami",
+                  "category": "Wyposazenie ogrodu",
+                  "catalogPrice": "do uzupelnienia",
+                  "outletPrice": "cena outletowa",
+                  "status": "Nowosc",
+                  "image": "product-chair.jpeg",
+                  "description": "Komplet wypoczynkowy z fotelami, stolikiem i sofa. Produkt dostepny do obejrzenia na miejscu.",
+                  "dimensions": "Wymiary: do uzupelnienia",
+                  "featured": true,
+                  "order": 40
+          },
+          {
+                  "name": "Lezaki ogrodowe",
+                  "category": "Wyposazenie ogrodu",
+                  "catalogPrice": "do uzupelnienia",
+                  "outletPrice": "cena outletowa",
+                  "status": "Nowosc",
+                  "image": "product-lamp.jpeg",
+                  "description": "Lezaki z ekspozycji outletowej. Zdjecie pokazuje realny stan i ustawienie produktu w showroomie.",
+                  "dimensions": "Wymiary: do uzupelnienia",
+                  "featured": true,
+                  "order": 50
+          },
+          {
+                  "name": "Donice i dekoracje do ogrodu",
+                  "category": "Wyposazenie ogrodu",
+                  "catalogPrice": "do uzupelnienia",
+                  "outletPrice": "cena outletowa",
+                  "status": "Ostatnia sztuka",
+                  "image": "product-pots.jpeg",
+                  "description": "Donice i dodatki ogrodowe dostepne w outlecie. Dobry przyklad zywego katalogu z prawdziwymi zdjeciami.",
+                  "dimensions": "Wymiary: do uzupelnienia",
+                  "featured": true,
+                  "order": 60
+          }
+    ]
+}
