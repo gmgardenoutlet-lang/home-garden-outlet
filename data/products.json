@@ -82,6 +82,17 @@
       "outletPrice": "1000",
       "description": "Krzesła ogrodowe kompozyt i stal nierdzewna ",
       "category": "Wyposazenie ogrodu"
+    },
+    {
+      "name": "kanapa 3 osobowa ",
+      "featured": true,
+      "order": 0,
+      "catalogPrice": "5400",
+      "status": "Nowosc",
+      "image": "/uploads/img_5663.jpeg",
+      "outletPrice": "2600",
+      "description": "Skóra",
+      "category": "Wyposazenie domu"
     }
   ]
 }
