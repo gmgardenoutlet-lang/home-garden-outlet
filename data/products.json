@@ -71,6 +71,17 @@
       "outletPrice": "cena outletowa",
       "description": "Donice i dodatki ogrodowe dostepne w outlecie. Dobry przyklad zywego katalogu z prawdziwymi zdjeciami.",
       "category": "Wyposazenie ogrodu"
+    },
+    {
+      "name": "Krzesła ogrodowe ",
+      "featured": true,
+      "order": 0,
+      "catalogPrice": "2700",
+      "status": "Dostepne",
+      "image": "/uploads/img_5670.jpeg",
+      "outletPrice": "1000",
+      "description": "Krzesła ogrodowe kompozyt i stal nierdzewna ",
+      "category": "Wyposazenie ogrodu"
     }
   ]
 }
