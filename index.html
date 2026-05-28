@@ -44,7 +44,7 @@
 
     <nav id="main-menu" class="main-nav" aria-label="Menu główne">
       <a href="#start">Strona główna</a>
-      <a href="#produkty">Produkty</a>
+      <a href="#nowosci">Produkty</a>
       <a href="#kategorie">Kategorie</a>
       <a href="#nowosci">Nowości</a>
       <a href="#outlet">Outlet</a>
@@ -95,11 +95,11 @@
       </div>
 
       <div class="category-grid">
-        <a href="#produkty" class="category-card">
+        <a href="ogrod.html" class="category-card">
           <span>Wyposażenie ogrodu</span>
           <small>Meble ogrodowe, zestawy tarasowe, leżaki, donice i dekoracje</small>
         </a>
-        <a href="#produkty" class="category-card">
+        <a href="dom.html" class="category-card">
           <span>Wyposażenie domu</span>
           <small>Sofy, narożniki, fotele, stoły, dodatki i pojedyncze okazje outletowe</small>
         </a>
@@ -112,7 +112,7 @@
           <p class="eyebrow">Nowości w outlecie</p>
           <h2>Aktualne produkty z realnymi statusami</h2>
         </div>
-        <p>Produkty poniżej są przykładowe. Docelowo właściciel dodaje tu własne zdjęcia z telefonu, ceny i dostępność.</p>
+        <p>Na stronie głównej pokazujemy krótki wybór: maksymalnie 3 produkty z ogrodu i 3 produkty do domu. Pełne listy są w podstronach kategorii.</p>
       </div>
 
       <div class="filter-row" aria-label="Filtry produktów">
@@ -122,6 +122,10 @@
       </div>
 
       <div id="produkty" class="product-grid" aria-live="polite"></div>
+      <div class="category-actions">
+        <a class="btn btn-primary" href="ogrod.html">Zobacz wyposażenie ogrodu</a>
+        <a class="btn btn-outline" href="dom.html">Zobacz wyposażenie domu</a>
+      </div>
     </section>
 
     <section id="outlet" class="section outlet-section">
@@ -259,46 +263,6 @@
       <a class="reviews-link" href="https://maps.app.goo.gl/SJ9LvQcub6rzQKAs5" target="_blank" rel="noopener">Zobacz opinie w Google</a>
     </section>
 
-    <section class="section admin-concept">
-      <div class="section-heading split-heading">
-        <div>
-          <p class="eyebrow">Koncepcja panelu</p>
-          <h2>Prosty panel administratora do żywego katalogu</h2>
-        </div>
-        <p>W kolejnym etapie można zrobić panel, w którym właściciel dodaje produkty z telefonu bez znajomości kodu.</p>
-      </div>
-
-      <div class="admin-grid">
-        <div class="admin-preview">
-          <div class="admin-bar">
-            <span>Panel produktu</span>
-            <button type="button">Zapisz</button>
-          </div>
-          <label>Nazwa produktu <input type="text" value="Zestaw ogrodowy premium" readonly /></label>
-          <label>Cena katalogowa <input type="text" value="2490 zł" readonly /></label>
-          <label>Cena outletowa <input type="text" value="1350 zł" readonly /></label>
-          <label>Status
-            <select disabled>
-              <option>Nowość</option>
-              <option>Ostatnia sztuka</option>
-              <option>Rezerwacja</option>
-              <option>Sprzedane</option>
-            </select>
-          </label>
-          <div class="upload-box">Dodaj zdjęcia z telefonu</div>
-        </div>
-
-        <ul class="admin-list">
-          <li>Dodawanie produktu z nazwą, kategorią, opisem i wymiarami.</li>
-          <li>Dodawanie galerii zdjęć wykonanych telefonem.</li>
-          <li>Szybka edycja ceny katalogowej i outletowej.</li>
-          <li>Zmiana statusu: nowość, ostatnia sztuka, rezerwacja, sprzedane.</li>
-          <li>Ukrywanie lub usuwanie produktów po sprzedaży.</li>
-          <li>Przycisk kontaktowy przy każdym produkcie, bez koszyka i płatności online.</li>
-        </ul>
-      </div>
-    </section>
-
     <section id="kontakt" class="location-section">
       <div class="location-card">
         <p class="eyebrow">Lokalizacja</p>
@@ -369,6 +333,20 @@
     </div>
   </footer>
 
+  <script src="https://identity.netlify.com/v1/netlify-identity-widget.js"></script>
+  <script>
+    if (window.netlifyIdentity) {
+      window.netlifyIdentity.on("init", function(user) {
+        if (!user && window.location.hash.includes("invite_token")) {
+          window.netlifyIdentity.open("signup");
+        }
+        if (!user && window.location.hash.includes("recovery_token")) {
+          window.netlifyIdentity.open("recovery");
+        }
+      });
+    }
+  </script>
   <script src="script.js"></script>
 </body>
 </html>
+
