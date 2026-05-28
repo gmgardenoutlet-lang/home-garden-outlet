@@ -1,0 +1,374 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="description" content="Home&Garden outlet w Kębłowicach pod Wrocławiem. Meble domowe i ogrodowe w cenach outletowych, realne produkty dostępne na miejscu." />
+  <meta name="keywords" content="outlet mebli Wrocław, meble ogrodowe outlet, meble domowe outlet, Kębłowice, Home&Garden outlet" />
+  <meta name="author" content="Home&Garden outlet" />
+  <meta property="og:title" content="Home&Garden outlet | Meble domowe i ogrodowe" />
+  <meta property="og:description" content="Żywy katalog outletowy z realnymi zdjęciami produktów dostępnych pod Wrocławiem." />
+  <meta property="og:type" content="website" />
+  <title>Home&Garden outlet | Meble domowe i ogrodowe pod Wrocławiem</title>
+  <link rel="stylesheet" href="styles.css" />
+  <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "FurnitureStore",
+      "name": "Home&Garden outlet",
+      "address": {
+        "@type": "PostalAddress",
+        "streetAddress": "ul. Przelotowa 16",
+        "postalCode": "55-080",
+        "addressLocality": "Kębłowice",
+        "addressCountry": "PL"
+      },
+      "telephone": "+48577210777",
+      "areaServed": ["Wrocław", "Kębłowice", "Dolny Śląsk"],
+      "priceRange": "$$",
+      "description": "Outlet mebli domowych i ogrodowych z produktami dostępnymi do obejrzenia na miejscu."
+    }
+  </script>
+</head>
+<body>
+  <header class="site-header">
+    <a class="logo" href="#start" aria-label="Home&Garden outlet - strona główna">
+      <img src="logo.png" alt="Home & Garden Outlet - meble do domu i ogrodu" />
+    </a>
+
+    <button class="menu-toggle" type="button" aria-expanded="false" aria-controls="main-menu">
+      <span></span>
+      <span></span>
+      <span></span>
+    </button>
+
+    <nav id="main-menu" class="main-nav" aria-label="Menu główne">
+      <a href="#start">Strona główna</a>
+      <a href="#produkty">Produkty</a>
+      <a href="#kategorie">Kategorie</a>
+      <a href="#nowosci">Nowości</a>
+      <a href="#outlet">Outlet</a>
+      <a href="#onas">O nas</a>
+      <a href="#kontakt">Kontakt</a>
+    </nav>
+  </header>
+
+  <main id="start">
+    <section class="hero">
+      <div class="hero-media" aria-label="Showroom z meblami domowymi i ogrodowymi"></div>
+      <div class="hero-content">
+        <img class="hero-logo" src="logo.png" alt="" aria-hidden="true" />
+        <p class="eyebrow">Outlet mebli pod Wrocławiem</p>
+        <h1>Meble domowe i ogrodowe w cenach outletowych</h1>
+        <p>Oglądasz realne produkty dostępne na miejscu: pojedyncze sztuki, końcówki kolekcji i nowe dostawy fotografowane telefonem w naszym outlecie.</p>
+        <div class="hero-actions">
+          <a class="btn btn-primary" href="#nowosci">Zobacz nowości</a>
+          <a class="btn btn-light" href="#kontakt">Przyjedź i zobacz na żywo</a>
+        </div>
+      </div>
+    </section>
+
+    <section class="trust-strip" aria-label="Najważniejsze korzyści">
+      <div>
+        <strong>Realne zdjęcia</strong>
+        <span>towar fotografowany na miejscu</span>
+      </div>
+      <div>
+        <strong>Outletowe ceny</strong>
+        <span>niższe od cen katalogowych</span>
+      </div>
+      <div>
+        <strong>Blisko Wrocławia</strong>
+        <span>Kębłowice, ul. Przelotowa 16</span>
+      </div>
+      <div>
+        <strong>Szybka dostępność</strong>
+        <span>produkty gotowe do odbioru</span>
+      </div>
+    </section>
+
+    <section id="kategorie" class="section section-warm">
+      <div class="section-heading">
+        <p class="eyebrow">Kategorie</p>
+        <h2>Produkty, które możesz obejrzeć na żywo</h2>
+        <p>Strona działa jak żywy katalog outletowy: klient widzi aktualny podział na wyposażenie domu i ogrodu, status produktu i wie, że warto zadzwonić lub przyjechać.</p>
+      </div>
+
+      <div class="category-grid">
+        <a href="#produkty" class="category-card">
+          <span>Wyposażenie ogrodu</span>
+          <small>Meble ogrodowe, zestawy tarasowe, leżaki, donice i dekoracje</small>
+        </a>
+        <a href="#produkty" class="category-card">
+          <span>Wyposażenie domu</span>
+          <small>Sofy, narożniki, fotele, stoły, dodatki i pojedyncze okazje outletowe</small>
+        </a>
+      </div>
+    </section>
+
+    <section id="nowosci" class="section">
+      <div class="section-heading split-heading">
+        <div>
+          <p class="eyebrow">Nowości w outlecie</p>
+          <h2>Aktualne produkty z realnymi statusami</h2>
+        </div>
+        <p>Produkty poniżej są przykładowe. Docelowo właściciel dodaje tu własne zdjęcia z telefonu, ceny i dostępność.</p>
+      </div>
+
+      <div class="filter-row" aria-label="Filtry produktów">
+        <button class="filter-btn active" type="button" data-filter="all">Wszystkie</button>
+        <button class="filter-btn" type="button" data-filter="Wyposażenie ogrodu">Wyposażenie ogrodu</button>
+        <button class="filter-btn" type="button" data-filter="Wyposażenie domu">Wyposażenie domu</button>
+      </div>
+
+      <div id="produkty" class="product-grid" aria-live="polite"></div>
+    </section>
+
+    <section id="outlet" class="section outlet-section">
+      <div class="section-heading">
+        <p class="eyebrow">Dlaczego outlet</p>
+        <h2>Dlaczego warto odwiedzić nasz outlet</h2>
+      </div>
+
+      <div class="benefit-grid">
+        <article>
+          <h3>Możesz obejrzeć produkt na żywo</h3>
+          <p>Klient nie kupuje w ciemno. Może usiąść, dotknąć materiału, sprawdzić kolor i zobaczyć rzeczywisty rozmiar.</p>
+        </article>
+        <article>
+          <h3>Realne zdjęcia zamiast wizualizacji</h3>
+          <p>Katalog ma pokazywać towar tak, jak wygląda naprawdę: w showroomie, magazynie lub podczas świeżej dostawy.</p>
+        </article>
+        <article>
+          <h3>Pojedyncze unikalne sztuki</h3>
+          <p>W outlecie często pojawiają się ostatnie egzemplarze, końcówki kolekcji i okazje, których nie ma w regularnej sprzedaży.</p>
+        </article>
+        <article>
+          <h3>Szybka dostępność</h3>
+          <p>Produkty są dostępne lokalnie, więc klient może szybko zadzwonić, zarezerwować i przyjechać obejrzeć wybrany model.</p>
+        </article>
+      </div>
+    </section>
+
+    <section id="onas" class="showroom-section">
+      <div class="showroom-copy">
+        <p class="eyebrow">Showroom i magazyn</p>
+        <h2>Autentyczne miejsce, prawdziwy towar, konkretna rozmowa</h2>
+        <p>Home&amp;Garden outlet powinien pokazywać codzienną pracę outletu: świeże dostawy, ekspozycję, produkty ustawione w realnym świetle i zdjęcia wykonywane telefonem. To buduje zaufanie mocniej niż idealne, sztuczne wizualizacje.</p>
+        <a class="text-link" href="#kontakt">Sprawdź dojazd do outletu</a>
+      </div>
+
+      <div class="showroom-gallery" aria-label="Galeria showroomu">
+        <img src="showroom-gallery-1.jpeg" alt="Showroom Home&Garden outlet z meblami domowymi i ogrodowymi" />
+        <img src="showroom-gallery-2.jpeg" alt="Prawdziwa ekspozycja mebli w outlecie pod Wrocławiem" />
+        <img src="showroom-gallery-3.jpeg" alt="Dekoracje i wyposażenie ogrodu dostępne w showroomie" />
+      </div>
+    </section>
+
+    <section class="section reviews-section" aria-label="Opinie klientów z Google">
+      <div class="section-heading split-heading">
+        <div>
+          <p class="eyebrow">Opinie klientów</p>
+          <h2>Tak będzie wyglądać sekcja opinii z Google</h2>
+        </div>
+        <div class="google-rating-card">
+          <span class="google-label">Google</span>
+          <strong>4.9 / 5</strong>
+          <div class="stars" aria-label="Ocena pięć gwiazdek">★★★★★</div>
+          <p>Wybrane opinie klientów z profilu Google. Pełną i aktualną listę można sprawdzić w Google Maps.</p>
+        </div>
+      </div>
+
+      <div class="reviews-marquee">
+        <div class="reviews-track">
+          <article class="review-card">
+            <div class="stars">★★★★★</div>
+            <p>Świetny sklep, otrzymałem bardzo profesjonalną pomoc w wyborze od pana sprzedawcy. Serdecznie polecam!</p>
+            <strong>Filip Majchrzak</strong>
+            <span>tydzień temu</span>
+          </article>
+          <article class="review-card">
+            <div class="stars">★★★★☆</div>
+            <p>Ocena klienta z Google.</p>
+            <strong>Tomasz Filip</strong>
+            <span>3 lata temu</span>
+          </article>
+          <article class="review-card">
+            <div class="stars">★★★★★</div>
+            <p>Polecam.</p>
+            <strong>Agnieszka Polok</strong>
+            <span>2 lata temu</span>
+          </article>
+          <article class="review-card">
+            <div class="stars">★★★★★</div>
+            <p>Super miejsce jeśli chcesz kupić rzeczy do domu czy ogrodu w cenie o wiele mniejszej niż rynkowa. Gorąco polecam zajrzeć, a zawsze coś ciekawego się znajdzie.</p>
+            <strong>Concept Customs</strong>
+            <span>rok temu</span>
+          </article>
+          <article class="review-card">
+            <div class="stars">★★★★★</div>
+            <p>Mega miejsce. Polecam zajechać i coś sobie wybrać - do domu, do ogrodu itd. Właściciele mega pomocni.</p>
+            <strong>Tomasz Woźny</strong>
+            <span>10 miesięcy temu</span>
+          </article>
+          <article class="review-card">
+            <div class="stars">★★★★★</div>
+            <p>Kupiłem tutaj prawie nowy zestaw mebli ogrodowych, za połowę ceny producenta. Do tego super obsługa która pomogła w wyborze.</p>
+            <strong>Jędrzej Grześkowiak</strong>
+            <span>4 lata temu</span>
+          </article>
+          <article class="review-card">
+            <div class="stars">★★★★★</div>
+            <p>Polecam. Miejsce pełne perełek. W jednym miejscu znajdziecie tu rzeczy do domu i do ogrodu.</p>
+            <strong>Michalina Pożarowska</strong>
+            <span>2 lata temu</span>
+          </article>
+          <article class="review-card">
+            <div class="stars">★★★★★</div>
+            <p>Śmiało mogę polecić każdemu, kto planuje zakup mebli ogrodowych w doskonałej jakości za atrakcyjną cenę.</p>
+            <strong>Izabela</strong>
+            <span>4 lata temu</span>
+          </article>
+          <article class="review-card">
+            <div class="stars">★★★★★</div>
+            <p>Sklep polecili mi znajomi i się nie zawiodłem. Duży wybór, świetna jakość mebli i bardzo miła obsługa. Polecam.</p>
+            <strong>Karol Mach</strong>
+            <span>4 lata temu</span>
+          </article>
+          <article class="review-card">
+            <div class="stars">★★★★★</div>
+            <p>Świetny sklep, otrzymałem bardzo profesjonalną pomoc w wyborze od pana sprzedawcy. Serdecznie polecam!</p>
+            <strong>Filip Majchrzak</strong>
+            <span>tydzień temu</span>
+          </article>
+          <article class="review-card">
+            <div class="stars">★★★★★</div>
+            <p>Super miejsce jeśli chcesz kupić rzeczy do domu czy ogrodu w cenie o wiele mniejszej niż rynkowa. Gorąco polecam zajrzeć.</p>
+            <strong>Concept Customs</strong>
+            <span>rok temu</span>
+          </article>
+          <article class="review-card">
+            <div class="stars">★★★★★</div>
+            <p>Sklep polecili mi znajomi i się nie zawiodłem. Duży wybór, świetna jakość mebli i bardzo miła obsługa. Polecam.</p>
+            <strong>Karol Mach</strong>
+            <span>4 lata temu</span>
+          </article>
+        </div>
+      </div>
+
+      <a class="reviews-link" href="https://maps.app.goo.gl/SJ9LvQcub6rzQKAs5" target="_blank" rel="noopener">Zobacz opinie w Google</a>
+    </section>
+
+    <section class="section admin-concept">
+      <div class="section-heading split-heading">
+        <div>
+          <p class="eyebrow">Koncepcja panelu</p>
+          <h2>Prosty panel administratora do żywego katalogu</h2>
+        </div>
+        <p>W kolejnym etapie można zrobić panel, w którym właściciel dodaje produkty z telefonu bez znajomości kodu.</p>
+      </div>
+
+      <div class="admin-grid">
+        <div class="admin-preview">
+          <div class="admin-bar">
+            <span>Panel produktu</span>
+            <button type="button">Zapisz</button>
+          </div>
+          <label>Nazwa produktu <input type="text" value="Zestaw ogrodowy premium" readonly /></label>
+          <label>Cena katalogowa <input type="text" value="2490 zł" readonly /></label>
+          <label>Cena outletowa <input type="text" value="1350 zł" readonly /></label>
+          <label>Status
+            <select disabled>
+              <option>Nowość</option>
+              <option>Ostatnia sztuka</option>
+              <option>Rezerwacja</option>
+              <option>Sprzedane</option>
+            </select>
+          </label>
+          <div class="upload-box">Dodaj zdjęcia z telefonu</div>
+        </div>
+
+        <ul class="admin-list">
+          <li>Dodawanie produktu z nazwą, kategorią, opisem i wymiarami.</li>
+          <li>Dodawanie galerii zdjęć wykonanych telefonem.</li>
+          <li>Szybka edycja ceny katalogowej i outletowej.</li>
+          <li>Zmiana statusu: nowość, ostatnia sztuka, rezerwacja, sprzedane.</li>
+          <li>Ukrywanie lub usuwanie produktów po sprzedaży.</li>
+          <li>Przycisk kontaktowy przy każdym produkcie, bez koszyka i płatności online.</li>
+        </ul>
+      </div>
+    </section>
+
+    <section id="kontakt" class="location-section">
+      <div class="location-card">
+        <p class="eyebrow">Lokalizacja</p>
+        <h2>Przyjedź i zobacz produkty na żywo</h2>
+        <address>
+          <strong>Home&amp;Garden outlet</strong><br />
+          ul. Przelotowa 16<br />
+          55-080 Kębłowice
+        </address>
+        <p>Telefon: <a href="tel:+48577210777">577 210 777</a></p>
+        <p class="social-inline">
+          Social media:
+          <a href="https://www.facebook.com/mgoutletpl/?locale=pl_PL" target="_blank" rel="noopener">Facebook</a>
+          <a href="https://www.instagram.com/_mygardenoutlet_/" target="_blank" rel="noopener">Instagram</a>
+          <a href="https://www.tiktok.com/@my_garden_outlet" target="_blank" rel="noopener">TikTok</a>
+        </p>
+        <div class="hours-card" aria-label="Godziny otwarcia">
+          <strong>Godziny otwarcia</strong>
+          <p>Poniedziałek: nieczynne</p>
+          <p>Wtorek: 10:00-16:00</p>
+          <p>Środa-piątek: 10:00-18:00</p>
+          <p>Sobota-niedziela: 10:00-14:00</p>
+        </div>
+        <div class="contact-actions">
+          <a class="btn btn-primary" href="tel:+48577210777">Zadzwoń teraz</a>
+          <a class="btn btn-outline" href="https://maps.app.goo.gl/SJ9LvQcub6rzQKAs5" target="_blank" rel="noopener">Pokaż trasę</a>
+        </div>
+      </div>
+
+      <div class="map-wrap" title="Mapa dojazdu do Home&Garden outlet">
+        <iframe
+          src="https://www.google.com/maps?q=Home%20%26%20Garden%20Outlet%2C%20ul.%20Przelotowa%2016%2C%2055-080%20K%C4%99b%C5%82owice&output=embed"
+          loading="lazy"
+          referrerpolicy="no-referrer-when-downgrade"
+          title="Mapa: Home&Garden outlet, ul. Przelotowa 16, 55-080 Kębłowice"></iframe>
+      </div>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <div>
+      <strong>Home&amp;Garden outlet</strong>
+      <p>Outlet mebli domowych i ogrodowych pod Wrocławiem.</p>
+    </div>
+    <div>
+      <span>Kontakt</span>
+      <a href="tel:+48577210777">577 210 777</a>
+      <a href="#kontakt">ul. Przelotowa 16, Kębłowice</a>
+    </div>
+    <div>
+      <span>Godziny otwarcia</span>
+      <p>Poniedziałek: nieczynne</p>
+      <p>Wtorek: 10:00-16:00</p>
+      <p>Środa-piątek: 10:00-18:00</p>
+      <p>Sobota-niedziela: 10:00-14:00</p>
+    </div>
+    <div>
+      <span>Social media</span>
+      <a href="https://www.facebook.com/mgoutletpl/?locale=pl_PL" target="_blank" rel="noopener">Facebook</a>
+      <a href="https://www.instagram.com/_mygardenoutlet_/" target="_blank" rel="noopener">Instagram</a>
+      <a href="https://www.tiktok.com/@my_garden_outlet" target="_blank" rel="noopener">TikTok</a>
+    </div>
+    <div>
+      <span>Linki SEO</span>
+      <a href="#produkty">Outlet mebli Wrocław</a>
+      <a href="#kategorie">Wyposażenie ogrodu outlet</a>
+      <a href="#nowosci">Nowości w outlecie</a>
+    </div>
+  </footer>
+
+  <script src="script.js"></script>
+</body>
+</html>
