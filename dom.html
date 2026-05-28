@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="description" content="Wyposażenie domu w Home&Garden outlet pod Wrocławiem. Sofy, narożniki, stoły, fotele i dodatki dostępne na miejscu." />
+  <title>Wyposażenie domu | Home&Garden outlet</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body data-category="Wyposażenie domu">
+  <header class="site-header">
+    <a class="logo" href="index.html" aria-label="Home&Garden outlet - strona główna">
+      <img src="logo.png" alt="Home & Garden Outlet - meble do domu i ogrodu" />
+    </a>
+
+    <button class="menu-toggle" type="button" aria-expanded="false" aria-controls="main-menu">
+      <span></span>
+      <span></span>
+      <span></span>
+    </button>
+
+    <nav id="main-menu" class="main-nav" aria-label="Menu główne">
+      <a href="index.html">Strona główna</a>
+      <a href="ogrod.html">Wyposażenie ogrodu</a>
+      <a href="dom.html">Wyposażenie domu</a>
+      <a href="index.html#onas">O nas</a>
+      <a href="index.html#kontakt">Kontakt</a>
+    </nav>
+  </header>
+
+  <main>
+    <section class="category-hero category-hero-home">
+      <div>
+        <p class="eyebrow">Kategoria</p>
+        <h1>Wyposażenie domu</h1>
+        <p>Sofy, narożniki, stoły, fotele, dodatki i pojedyncze okazje outletowe dostępne do obejrzenia na miejscu.</p>
+        <div class="hero-actions">
+          <a class="btn btn-primary" href="#produkty">Zobacz produkty</a>
+          <a class="btn btn-light" href="index.html#kontakt">Zapytaj o dostępność</a>
+        </div>
+      </div>
+    </section>
+
+    <section class="section">
+      <div class="section-heading split-heading">
+        <div>
+          <p class="eyebrow">Aktualny katalog</p>
+          <h2>Produkty do domu</h2>
+        </div>
+        <p>Lista pobiera się z panelu administracyjnego. Po dodaniu produktu z kategorią „Wyposażenie domu” pojawi się tutaj automatycznie.</p>
+      </div>
+      <div id="produkty" class="product-grid" aria-live="polite"></div>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <div>
+      <strong>Home&amp;Garden outlet</strong>
+      <p>Outlet mebli domowych i ogrodowych pod Wrocławiem.</p>
+    </div>
+    <div>
+      <span>Kontakt</span>
+      <a href="tel:+48577210777">577 210 777</a>
+      <a href="index.html#kontakt">ul. Przelotowa 16, Kębłowice</a>
+    </div>
+    <div>
+      <span>Kategorie</span>
+      <a href="ogrod.html">Wyposażenie ogrodu</a>
+      <a href="dom.html">Wyposażenie domu</a>
+    </div>
+  </footer>
+
+  <script src="script.js"></script>
+</body>
+</html>
