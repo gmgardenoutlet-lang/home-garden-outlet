@@ -93,6 +93,16 @@
       "outletPrice": "2600",
       "description": "Skóra",
       "category": "Wyposazenie domu"
+    },
+    {
+      "featured": true,
+      "order": 0,
+      "name": "Stół alabama ",
+      "category": "Wyposazenie domu",
+      "outletPrice": "500",
+      "status": "Ostatnia sztuka",
+      "image": "/uploads/img_5713.jpeg",
+      "description": "Stół rozjkładany "
     }
   ]
 }
