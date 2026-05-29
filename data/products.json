@@ -82,6 +82,17 @@
       "outletPrice": "2600",
       "description": "Skóra",
       "category": "Wyposazenie domu"
+    },
+    {
+      "name": "Stół alabama ",
+      "featured": true,
+      "order": 0,
+      "catalogPrice": "1200",
+      "status": "Ostatnia sztuka",
+      "image": "/uploads/img_5713.jpeg",
+      "outletPrice": "750",
+      "description": "Stół z płyty mdf i stali ",
+      "category": "Wyposazenie domu"
     }
   ]
 }
