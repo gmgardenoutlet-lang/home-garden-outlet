@@ -21,6 +21,17 @@
       "status": "Ostatnia sztuka",
       "description": "Nowoczesny zestaw wypoczynkowy na taras, balkon lub do ogrodu. W komplecie znajdują się dwa wygodne fotele z miękkimi poduszkami oraz niski stolik kawowy. Lekka, elegancka forma i stonowana kolorystyka sprawiają, że zestaw pasuje do wielu aranżacji zewnętrznych.",
       "image": "/uploads/img_5802.jpeg"
+    },
+    {
+      "name": "Ławka ogrodowa ",
+      "featured": true,
+      "order": 0,
+      "catalogPrice": "829 zł",
+      "status": "Ostatnia sztuka",
+      "image": "/uploads/img_5820.jpeg",
+      "outletPrice": "490",
+      "description": "Stylowa ławka ogrodowa z drewnianym siedziskiem i ozdobnymi metalowymi bokami. Idealna do ogrodu, na taras, patio lub przed dom. Klasyczny wygląd i solidna konstrukcja sprawiają, że świetnie pasuje do klimatycznych aranżacji zewnętrznych.",
+      "category": "Wyposażenie ogrodu"
     }
   ]
 }
