@@ -1,1 +1,67 @@
-{"backend":{"name":"git-gateway","repo":"gmgardenoutlet-lang/home-garden-outlet","branch":"main"},"locale":"pl","media_folder":"uploads","public_folder":"/uploads","collections":[{"name":"catalog","label":"Katalog","files":[{"name":"products","label":"Produkty","file":"data/products.json","fields":[{"label":"Produkty","name":"products","widget":"list","summary":"{{fields.name}}","fields":[{"label":"Nazwa","name":"name","widget":"string"},{"label":"Kategoria","name":"category","widget":"select","options":["Wyposazenie ogrodu","Wyposazenie domu"]},{"label":"Cena katalogowa","name":"catalogPrice","widget":"string","required":false},{"label":"Cena outletowa","name":"outletPrice","widget":"string"},{"label":"Status","name":"status","widget":"select","options":["Nowosc","Dostepne","Ostatnia sztuka","Rezerwacja","Sprzedane"]},{"label":"Zdjecie","name":"image","widget":"image"},{"label":"Opis","name":"description","widget":"text"},{"label":"Wymiary","name":"dimensions","widget":"string","required":false},{"label":"Pokaz na stronie glownej","name":"featured","widget":"boolean","default":true},{"label":"Kolejnosc","name":"order","widget":"number","default":0,"value_type":"int"}]}]}]}]}
+backend:
+  name: git-gateway
+  repo: gmgardenoutlet-lang/home-garden-outlet
+  branch: main
+
+locale: pl
+media_folder: "uploads"
+public_folder: "/uploads"
+
+collections:
+  - name: "catalog"
+    label: "Katalog"
+    files:
+      - name: "products"
+        label: "Produkty"
+        file: "data/products.json"
+        fields:
+          - label: "Produkty"
+            name: "products"
+            widget: "list"
+            summary: "{{fields.name}}"
+            fields:
+              - label: "Nazwa"
+                name: "name"
+                widget: "string"
+              - label: "Kategoria"
+                name: "category"
+                widget: "select"
+                options:
+                  - "Wyposażenie ogrodu"
+                  - "Wyposażenie domu"
+              - label: "Cena katalogowa"
+                name: "catalogPrice"
+                widget: "string"
+                required: false
+              - label: "Cena outletowa / cena sprzedaży"
+                name: "outletPrice"
+                widget: "string"
+                required: false
+              - label: "Status"
+                name: "status"
+                widget: "select"
+                options:
+                  - "Nowość"
+                  - "Dostępne"
+                  - "Ostatnia sztuka"
+                  - "Rezerwacja"
+                  - "Sprzedane"
+              - label: "Zdjęcie"
+                name: "image"
+                widget: "image"
+              - label: "Opis"
+                name: "description"
+                widget: "text"
+              - label: "Wymiary"
+                name: "dimensions"
+                widget: "string"
+                required: false
+              - label: "Pokaż na stronie głównej"
+                name: "featured"
+                widget: "boolean"
+                default: true
+              - label: "Kolejność"
+                name: "order"
+                widget: "number"
+                default: 0
+                value_type: "int"
