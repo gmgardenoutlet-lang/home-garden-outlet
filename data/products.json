@@ -64,6 +64,17 @@
       "status": "Ostatnia sztuka",
       "description": "Wygodny fotel wypoczynkowy wykonany ze skóry bawolej, wyposażony w elektrycznie wysuwany podnóżek. Idealny do salonu, pokoju dziennego lub strefy relaksu. Miękkie siedzisko, wysokie oparcie i szerokie podłokietniki zapewniają komfort podczas odpoczynku, a czarna tapicerka z jasnymi akcentami nadaje mu nowoczesny wygląd.",
       "image": "/uploads/fotel-elektryczny-ze-skóry-bawolej-z-wysuwanym-podnóżkiem-home-garden-outlet-kębłowice.jpeg"
+    },
+    {
+      "name": "Sofa 3os",
+      "featured": true,
+      "order": 0,
+      "catalogPrice": "2799 zł",
+      "status": "Ostatnia sztuka",
+      "image": "/uploads/sofa-3-osobowa-tapicerowana-kremowa-home-garden-outlet.jpeg",
+      "outletPrice": "1400",
+      "description": "Elegancka sofa 3-osobowa w jasnym, kremowym kolorze, wyróżniająca się nowoczesną, zaokrągloną formą. Miękkie siedzisko, wysokie boczne oparcia i przyjemna tapicerka zapewniają komfort podczas codziennego odpoczynku. Sofa dobrze sprawdzi się w salonie, pokoju dziennym lub eleganckiej strefie relaksu. Produkt dostępny w Home&Garden Outlet w Kębłowicach pod Wrocławiem.",
+      "category": "Wyposażenie domu"
     }
   ]
 }
