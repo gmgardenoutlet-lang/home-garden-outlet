@@ -130,6 +130,17 @@
       "outletPrice": "160",
       "description": "Praktyczny zestaw 5 koszy wiklinowych w różnych rozmiarach, idealny do przechowywania i dekoracji wnętrza. Kosze sprawdzą się w salonie, łazience, garderobie, sypialni lub przedpokoju — na tekstylia, drobiazgi, zabawki, kosmetyki albo akcesoria domowe. Jasne wykończenie i pleciona forma nadają im lekki, naturalny wygląd. Produkt dostępny w Home&Garden Outlet w Kębłowicach pod Wrocławiem.",
       "category": "Wyposażenie domu"
+    },
+    {
+      "name": "Zestaw modułowy EGERIS",
+      "featured": true,
+      "order": 0,
+      "catalogPrice": "2400 zł",
+      "status": "Nowość",
+      "image": "/uploads/kanapa-modulowa-tapicerowana-jasna-home-garden-outlet.jpeg",
+      "outletPrice": "990 zł",
+      "description": "Jasna kanapa modułowa tapicerowana, idealna do salonu, pokoju dziennego lub przestronnej strefy wypoczynkowej. Modułowa forma pozwala wygodnie dopasować układ mebla do wnętrza, a szerokie siedzisko i miękkie poduszki zapewniają komfort podczas codziennego odpoczynku. Prosty, nowoczesny wygląd sprawia, że kanapa dobrze pasuje do eleganckich i minimalistycznych aranżacji. Produkt dostępny w Home&Garden Outlet w Kębłowicach pod Wrocławiem.",
+      "category": "Wyposażenie domu"
     }
   ]
 }
