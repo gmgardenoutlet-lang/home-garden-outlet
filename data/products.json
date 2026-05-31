@@ -32,6 +32,17 @@
       "outletPrice": "490",
       "description": "Stylowa ławka ogrodowa z drewnianym siedziskiem i ozdobnymi metalowymi bokami. Idealna do ogrodu, na taras, patio lub przed dom. Klasyczny wygląd i solidna konstrukcja sprawiają, że świetnie pasuje do klimatycznych aranżacji zewnętrznych.",
       "category": "Wyposażenie ogrodu"
+    },
+    {
+      "name": "Leżak z drewna Teak",
+      "featured": true,
+      "order": 0,
+      "catalogPrice": "1486 zł",
+      "status": "Ostatnia sztuka",
+      "image": "/uploads/img_5804.jpeg",
+      "outletPrice": "630 zł",
+      "description": "Wygodny drewniany leżak z regulowanym oparciem i wysuwanym podnóżkiem. Idealny do odpoczynku w ogrodzie, na tarasie lub balkonie. Naturalne drewno i klasyczny wygląd sprawiają, że świetnie pasuje do aranżacji w stylu ogrodowym, rustykalnym i boho.",
+      "category": "Wyposażenie ogrodu"
     }
   ]
 }
