@@ -85,6 +85,18 @@
       "status": "Dostępne",
       "image": "/uploads/dekoracyjna-glowa-oslonka-twarz-home-garden-outlet.jpeg",
       "description": "Oryginalna dekoracja w formie głowy z motywem twarzy, która świetnie sprawdzi się jako ozdoba do salonu, ogrodu, na taras lub do strefy wejściowej. Nowoczesna forma przyciąga wzrok i może być wykorzystana samodzielnie albo jako dekoracyjna osłonka na roślinę. Dostępne różne warianty kolorystyczne. Produkt dostępny w Home&Garden Outlet w Kębłowicach pod Wrocławiem."
+    },
+    {
+      "name": "Stolik kawowy POZZA",
+      "dimensions": "117",
+      "featured": true,
+      "order": 0,
+      "catalogPrice": "1439",
+      "status": "Dostępne",
+      "image": "/uploads/bialy-stol-ogrodowy-ryflowany-home-garden-outlet.jpeg",
+      "outletPrice": "850",
+      "description": "Stylowy biały stół ogrodowy o nowoczesnej formie, z dekoracyjnym ryflowanym wykończeniem po bokach. Świetnie sprawdzi się na tarasie, w ogrodzie, na patio lub w strefie wypoczynkowej. Jego jasny kolor i ozdobna forma dobrze komponują się z meblami ogrodowymi oraz roślinami, tworząc eleganckie miejsce do relaksu. Produkt dostępny w Home&Garden Outlet w Kębłowicach pod Wrocławiem.",
+      "category": "Wyposażenie ogrodu"
     }
   ]
 }
