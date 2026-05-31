@@ -17,7 +17,7 @@
       "order": 0,
       "name": "Zestaw 2xfotel + stolik",
       "category": "Wyposażenie ogrodu",
-      "outletPrice": "1200",
+      "outletPrice": "1200 zł",
       "status": "Ostatnia sztuka",
       "description": "Nowoczesny zestaw wypoczynkowy na taras, balkon lub do ogrodu. W komplecie znajdują się dwa wygodne fotele z miękkimi poduszkami oraz niski stolik kawowy. Lekka, elegancka forma i stonowana kolorystyka sprawiają, że zestaw pasuje do wielu aranżacji zewnętrznych.",
       "image": "/uploads/img_5802.jpeg"
@@ -29,7 +29,7 @@
       "catalogPrice": "829 zł",
       "status": "Ostatnia sztuka",
       "image": "/uploads/img_5820.jpeg",
-      "outletPrice": "490",
+      "outletPrice": "490 zł",
       "description": "Stylowa ławka ogrodowa z drewnianym siedziskiem i ozdobnymi metalowymi bokami. Idealna do ogrodu, na taras, patio lub przed dom. Klasyczny wygląd i solidna konstrukcja sprawiają, że świetnie pasuje do klimatycznych aranżacji zewnętrznych.",
       "category": "Wyposażenie ogrodu"
     },
@@ -48,10 +48,10 @@
       "name": "Szezlong Chevannes",
       "featured": true,
       "order": 0,
-      "catalogPrice": "1159",
+      "catalogPrice": "1159 zł",
       "status": "Ostatnia sztuka",
       "image": "/uploads/img_5806.jpeg",
-      "outletPrice": "650",
+      "outletPrice": "650 zł",
       "description": "Elegancki szezlong w modnym musztardowym kolorze, idealny do salonu, pokoju dziennego lub strefy relaksu. Miękkie siedzisko, boczne oparcia i dekoracyjna poduszka zapewniają wygodę, a nowoczesna forma sprawia, że mebel świetnie wyróżnia się we wnętrzu.",
       "category": "Wyposażenie domu"
     },
@@ -60,7 +60,7 @@
       "order": 0,
       "name": "Fotel elektryczny ze skóry bawolej z wysuwanym podnóżkiem",
       "category": "Wyposażenie domu",
-      "outletPrice": "1850",
+      "outletPrice": "1850 zł",
       "status": "Ostatnia sztuka",
       "description": "Wygodny fotel wypoczynkowy wykonany ze skóry bawolej, wyposażony w elektrycznie wysuwany podnóżek. Idealny do salonu, pokoju dziennego lub strefy relaksu. Miękkie siedzisko, wysokie oparcie i szerokie podłokietniki zapewniają komfort podczas odpoczynku, a czarna tapicerka z jasnymi akcentami nadaje mu nowoczesny wygląd.",
       "image": "/uploads/fotel-elektryczny-ze-skóry-bawolej-z-wysuwanym-podnóżkiem-home-garden-outlet-kębłowice.jpeg"
@@ -72,7 +72,7 @@
       "catalogPrice": "2799 zł",
       "status": "Ostatnia sztuka",
       "image": "/uploads/sofa-3-osobowa-tapicerowana-kremowa-home-garden-outlet.jpeg",
-      "outletPrice": "1400",
+      "outletPrice": "1400 zł",
       "description": "Elegancka sofa 3-osobowa w jasnym, kremowym kolorze, wyróżniająca się nowoczesną, zaokrągloną formą. Miękkie siedzisko, wysokie boczne oparcia i przyjemna tapicerka zapewniają komfort podczas codziennego odpoczynku. Sofa dobrze sprawdzi się w salonie, pokoju dziennym lub eleganckiej strefie relaksu. Produkt dostępny w Home&Garden Outlet w Kębłowicach pod Wrocławiem.",
       "category": "Wyposażenie domu"
     },
@@ -81,7 +81,7 @@
       "order": 0,
       "name": "Rzeźba ogrodowa twarz mała/ dostępne w różnych barwach ",
       "category": "Wyposażenie ogrodu",
-      "outletPrice": "250",
+      "outletPrice": "250 zł",
       "status": "Dostępne",
       "image": "/uploads/dekoracyjna-glowa-oslonka-twarz-home-garden-outlet.jpeg",
       "description": "Oryginalna dekoracja w formie głowy z motywem twarzy, która świetnie sprawdzi się jako ozdoba do salonu, ogrodu, na taras lub do strefy wejściowej. Nowoczesna forma przyciąga wzrok i może być wykorzystana samodzielnie albo jako dekoracyjna osłonka na roślinę. Dostępne różne warianty kolorystyczne. Produkt dostępny w Home&Garden Outlet w Kębłowicach pod Wrocławiem."
@@ -91,10 +91,10 @@
       "dimensions": "117",
       "featured": true,
       "order": 0,
-      "catalogPrice": "1439",
+      "catalogPrice": "1439 zł",
       "status": "Dostępne",
       "image": "/uploads/bialy-stol-ogrodowy-ryflowany-home-garden-outlet.jpeg",
-      "outletPrice": "850",
+      "outletPrice": "850 zł",
       "description": "Stylowy biały stół ogrodowy o nowoczesnej formie, z dekoracyjnym ryflowanym wykończeniem po bokach. Świetnie sprawdzi się na tarasie, w ogrodzie, na patio lub w strefie wypoczynkowej. Jego jasny kolor i ozdobna forma dobrze komponują się z meblami ogrodowymi oraz roślinami, tworząc eleganckie miejsce do relaksu. Produkt dostępny w Home&Garden Outlet w Kębłowicach pod Wrocławiem.",
       "category": "Wyposażenie ogrodu"
     }
