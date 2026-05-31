@@ -11,6 +11,16 @@
       "outletPrice": "1185 zł / Komplet",
       "description": "Komfortowy zestaw ogrodowy składający się z dwóch foteli, dwóch podnóżków oraz małego stolika. Idealny do relaksu na tarasie, balkonie lub w ogrodzie. Miękkie poduszki i praktyczne podnóżki zapewniają wygodny wypoczynek, a kompaktowy stolik świetnie sprawdzi się na kawę lub dekoracje.",
       "category": "Wyposażenie ogrodu"
+    },
+    {
+      "featured": true,
+      "order": 0,
+      "name": "Zestaw 2xfotel + stolik",
+      "category": "Wyposażenie ogrodu",
+      "outletPrice": "1200",
+      "status": "Ostatnia sztuka",
+      "description": "Nowoczesny zestaw wypoczynkowy na taras, balkon lub do ogrodu. W komplecie znajdują się dwa wygodne fotele z miękkimi poduszkami oraz niski stolik kawowy. Lekka, elegancka forma i stonowana kolorystyka sprawiają, że zestaw pasuje do wielu aranżacji zewnętrznych.",
+      "image": "/uploads/img_5802.jpeg"
     }
   ]
 }
