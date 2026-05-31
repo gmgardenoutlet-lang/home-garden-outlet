@@ -108,6 +108,17 @@
       "outletPrice": "2300 zł",
       "description": "Biała wanna narożna z hydromasażem, idealna do większej łazienki lub domowej strefy relaksu. Zaokrąglona forma i narożny kształt pozwalają wygodnie wykorzystać przestrzeń, a dwa zagłówki zwiększają komfort podczas kąpieli. Jasne wykończenie sprawia, że wanna dobrze pasuje do nowoczesnych i eleganckich aranżacji łazienkowych. Produkt dostępny w Home&Garden Outlet w Kębłowicach pod Wrocławiem.",
       "category": "Wyposażenie domu"
+    },
+    {
+      "name": "Fotel ze skóry bawolej z funkcją relax",
+      "featured": true,
+      "order": 0,
+      "catalogPrice": "2285 zł",
+      "status": "Dostępne",
+      "image": "/uploads/fotel-skora-bawola-funkcja-relax-home-garden-outlet.jpeg",
+      "outletPrice": "1750 zł",
+      "description": "Wygodny fotel wypoczynkowy wykonany ze skóry bawolej, wyposażony w funkcję relax, która zapewnia jeszcze większy komfort podczas odpoczynku. Miękkie siedzisko, wysokie oparcie oraz szerokie podłokietniki sprawiają, że fotel świetnie sprawdzi się w salonie, pokoju dziennym lub strefie relaksu. Elegancki wygląd i solidne wykonanie czynią go praktycznym i stylowym dodatkiem do wnętrza.",
+      "category": "Wyposażenie domu"
     }
   ]
 }
