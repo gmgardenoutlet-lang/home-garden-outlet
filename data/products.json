@@ -54,6 +54,16 @@
       "outletPrice": "650",
       "description": "Elegancki szezlong w modnym musztardowym kolorze, idealny do salonu, pokoju dziennego lub strefy relaksu. Miękkie siedzisko, boczne oparcia i dekoracyjna poduszka zapewniają wygodę, a nowoczesna forma sprawia, że mebel świetnie wyróżnia się we wnętrzu.",
       "category": "Wyposażenie domu"
+    },
+    {
+      "featured": true,
+      "order": 0,
+      "name": "Fotel elektryczny ze skóry bawolej z wysuwanym podnóżkiem",
+      "category": "Wyposażenie domu",
+      "outletPrice": "1850",
+      "status": "Ostatnia sztuka",
+      "description": "Wygodny fotel wypoczynkowy wykonany ze skóry bawolej, wyposażony w elektrycznie wysuwany podnóżek. Idealny do salonu, pokoju dziennego lub strefy relaksu. Miękkie siedzisko, wysokie oparcie i szerokie podłokietniki zapewniają komfort podczas odpoczynku, a czarna tapicerka z jasnymi akcentami nadaje mu nowoczesny wygląd.",
+      "image": "/uploads/img_5809.jpeg"
     }
   ]
 }
