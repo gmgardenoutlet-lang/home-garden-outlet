@@ -422,31 +422,6 @@ h3 {
   color: var(--muted);
 }
 
-.filter-row {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 10px;
-  margin-bottom: 26px;
-}
-
-.filter-btn {
-  min-height: 42px;
-  padding: 9px 15px;
-  border: 1px solid var(--line);
-  border-radius: 14px;
-  background: var(--white);
-  color: var(--heading-deep);
-  cursor: pointer;
-  font-weight: 800;
-}
-
-.filter-btn.active,
-.filter-btn:hover {
-  border-color: var(--green-700);
-  background: var(--green-700);
-  color: var(--white);
-}
-
 .product-grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
