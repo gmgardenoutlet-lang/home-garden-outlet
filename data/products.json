@@ -1,30 +1,6 @@
 {
   "products": [
     {
-      "name": "Stół z krzesłami do ogrodu i jadalni",
-      "dimensions": "",
-      "featured": true,
-      "order": 10,
-      "catalogPrice": "1350 zł",
-      "status": "Nowość",
-      "image": "product-table.jpeg",
-      "outletPrice": "",
-      "description": "Realny zestaw z ekspozycji w showroomie. Jasny blat, wygodne krzesła i naturalny klimat do domu lub ogrodu.",
-      "category": "Wyposażenie ogrodu"
-    },
-    {
-      "name": "Narożnik wypoczynkowy",
-      "dimensions": "",
-      "featured": true,
-      "order": 20,
-      "catalogPrice": "2300 zł",
-      "status": "Ostatnia sztuka",
-      "image": "product-sofa.jpeg",
-      "outletPrice": "",
-      "description": "Jasny narożnik z ekspozycji. Zdjęcie wykonane na miejscu, bez sztucznych wizualizacji.",
-      "category": "Wyposażenie domu"
-    },
-    {
       "name": "Zestaw foteli z podnóżkami",
       "dimensions": "",
       "featured": true,
@@ -34,42 +10,6 @@
       "image": "product-chaise.jpeg",
       "outletPrice": "1000",
       "description": "Drewniane fotele wypoczynkowe z podnóżkami. Dobra propozycja na taras, werandę lub ogród.",
-      "category": "Wyposażenie ogrodu"
-    },
-    {
-      "name": "Zestaw wypoczynkowy z fotelami",
-      "dimensions": "",
-      "featured": true,
-      "order": 40,
-      "catalogPrice": "1350 zł",
-      "status": "Nowość",
-      "image": "product-chair.jpeg",
-      "outletPrice": "",
-      "description": "Komplet wypoczynkowy z fotelami, stolikiem i sofą. Produkt dostępny do obejrzenia na miejscu.",
-      "category": "Wyposażenie ogrodu"
-    },
-    {
-      "name": "Leżaki ogrodowe",
-      "dimensions": "",
-      "featured": true,
-      "order": 50,
-      "catalogPrice": "1185 zł / komplet",
-      "status": "Nowość",
-      "image": "product-lamp.jpeg",
-      "outletPrice": "",
-      "description": "Leżaki z ekspozycji outletowej. Zdjęcie pokazuje realny stan i ustawienie produktu w showroomie.",
-      "category": "Wyposażenie ogrodu"
-    },
-    {
-      "name": "Donice i dekoracje do ogrodu",
-      "dimensions": "",
-      "featured": true,
-      "order": 60,
-      "catalogPrice": "ceny od 80 zł",
-      "status": "Ostatnia sztuka",
-      "image": "product-pots.jpeg",
-      "outletPrice": "",
-      "description": "Donice i dodatki ogrodowe dostępne w outlecie. Dobry przykład żywego katalogu z prawdziwymi zdjęciami.",
       "category": "Wyposażenie ogrodu"
     }
   ]
