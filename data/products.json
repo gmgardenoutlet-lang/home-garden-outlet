@@ -43,6 +43,17 @@
       "outletPrice": "630 zł",
       "description": "Wygodny drewniany leżak z regulowanym oparciem i wysuwanym podnóżkiem. Idealny do odpoczynku w ogrodzie, na tarasie lub balkonie. Naturalne drewno i klasyczny wygląd sprawiają, że świetnie pasuje do aranżacji w stylu ogrodowym, rustykalnym i boho.",
       "category": "Wyposażenie ogrodu"
+    },
+    {
+      "name": "Szezlong Chevannes",
+      "featured": true,
+      "order": 0,
+      "catalogPrice": "1159",
+      "status": "Ostatnia sztuka",
+      "image": "/uploads/img_5806.jpeg",
+      "outletPrice": "650",
+      "description": "Elegancki szezlong w modnym musztardowym kolorze, idealny do salonu, pokoju dziennego lub strefy relaksu. Miękkie siedzisko, boczne oparcia i dekoracyjna poduszka zapewniają wygodę, a nowoczesna forma sprawia, że mebel świetnie wyróżnia się we wnętrzu.",
+      "category": "Wyposażenie domu"
     }
   ]
 }
