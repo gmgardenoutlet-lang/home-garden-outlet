@@ -5,6 +5,43 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <meta name="robots" content="noindex" />
   <title>Panel produktów | Home & Garden Outlet</title>
+  <style>
+    html,
+    body,
+    #nc-root {
+      max-width: 100%;
+      overflow-x: hidden;
+    }
+
+    body {
+      min-width: 0;
+    }
+
+    #nc-root input,
+    #nc-root textarea,
+    #nc-root select,
+    #nc-root button {
+      max-width: 100%;
+      font-size: 16px;
+    }
+
+    #nc-root img {
+      max-width: 100%;
+      height: auto;
+    }
+
+    @media (max-width: 720px) {
+      #nc-root {
+        width: 100vw;
+      }
+
+      #nc-root main,
+      #nc-root form,
+      #nc-root section {
+        max-width: 100vw;
+      }
+    }
+  </style>
   <script>
     if (window.location.pathname.endsWith("/admin")) {
       window.location.replace(`${window.location.pathname}/${window.location.search}${window.location.hash}`);
@@ -13,6 +50,26 @@
 </head>
 <body>
   <script src="https://identity.netlify.com/v1/netlify-identity-widget.js"></script>
+  <script>
+    const maxRecommendedUploadSize = 2.5 * 1024 * 1024;
+
+    document.addEventListener("change", (event) => {
+      const input = event.target;
+
+      if (!(input instanceof HTMLInputElement) || input.type !== "file") {
+        return;
+      }
+
+      const largeFiles = [...input.files].filter((file) => file.size > maxRecommendedUploadSize);
+
+      if (largeFiles.length) {
+        window.alert(
+          "Zdjecie jest duze i zapis z telefonu moze sie nie udac przy slabszym internecie. " +
+          "Najbezpieczniej dodawac zdjecia zmniejszone do okolo 2000 px lub ponizej 2,5 MB."
+        );
+      }
+    });
+  </script>
   <script src="https://unpkg.com/decap-cms@^3/dist/decap-cms.js"></script>
 </body>
 </html>
