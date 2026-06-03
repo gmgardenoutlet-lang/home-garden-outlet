@@ -87,10 +87,11 @@ const menuToggle = document.querySelector(".menu-toggle");
 const mainMenu = document.querySelector("#main-menu");
 const pageCategory = document.body.dataset.category || "";
 const isCategoryPage = Boolean(pageCategory);
+const homepageProductLimit = 6;
 let products = [...fallbackProducts];
 
 function normalizeImagePath(path) {
-  if (!path) {
+  if (!hasDisplayValue(path)) {
     return "product-table.jpeg";
   }
 
@@ -126,7 +127,10 @@ function hasDisplayValue(value) {
   const normalized = normalizeText(value).trim();
   return Boolean(normalized)
     && !normalized.includes("do uzupelnienia")
-    && normalized !== "cena outletowa";
+    && normalized !== "cena outletowa"
+    && normalized !== "brak"
+    && normalized !== "xxx"
+    && normalized !== "-";
 }
 
 function parsePrice(value) {
@@ -193,11 +197,20 @@ function sortProducts(items) {
   return [...items].sort((a, b) => Number(a.order || 0) - Number(b.order || 0));
 }
 
+function shuffleProducts(items) {
+  const shuffled = [...items];
+
+  for (let index = shuffled.length - 1; index > 0; index -= 1) {
+    const randomIndex = Math.floor(Math.random() * (index + 1));
+    [shuffled[index], shuffled[randomIndex]] = [shuffled[randomIndex], shuffled[index]];
+  }
+
+  return shuffled;
+}
+
 function pickHomepageProducts(items) {
-  const featured = sortProducts(items.filter((product) => product.featured !== false));
-  const garden = featured.filter((product) => matchesCategory(product.category, "Wyposażenie ogrodu")).slice(0, 3);
-  const home = featured.filter((product) => matchesCategory(product.category, "Wyposażenie domu")).slice(0, 3);
-  return [...garden, ...home];
+  const featured = items.filter((product) => product.featured !== false);
+  return shuffleProducts(featured).slice(0, homepageProductLimit);
 }
 
 function renderProducts(filter = "all") {
@@ -212,8 +225,9 @@ function renderProducts(filter = "all") {
   const visibleProducts = !isCategoryPage && filter !== "all"
     ? baseProducts.filter((product) => matchesCategory(product.category, filter))
     : baseProducts;
+  const productsToRender = isCategoryPage ? sortProducts(visibleProducts) : visibleProducts;
 
-  productGrid.innerHTML = sortProducts(visibleProducts).map(productTemplate).join("");
+  productGrid.innerHTML = productsToRender.map(productTemplate).join("");
 }
 
 async function loadProducts() {
