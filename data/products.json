@@ -152,6 +152,17 @@
       "outletPrice": "1650",
       "description": "Elegancki i praktyczny zestaw ogrodowy w kolorze szarym, wykonany w stylu technorattanowym. Idealny na taras, balkon, do ogrodu lub strefy wypoczynkowej przy domu. Kompaktowa konstrukcja pozwala wsunąć siedziska pod stół, dzięki czemu zestaw zajmuje mniej miejsca, kiedy nie jest używany.\n\nStół posiada szklany blat, który nadaje całości nowoczesny wygląd i ułatwia codzienne użytkowanie. Siedziska wyposażone są w wygodne poduszki, zapewniające komfort podczas odpoczynku, kawy na tarasie czy spotkań w ogrodzie.",
       "category": "Wyposażenie ogrodu"
+    },
+    {
+      "name": "Krzesła rattanowe do jadalni — komplet 6 sztuk",
+      "featured": true,
+      "order": 0,
+      "catalogPrice": "3060 /komplet",
+      "status": "Dostępne",
+      "image": "/uploads/krzesla-rattanowe-do-jadalni-komplet-6-sztuk-home-garden-outlet.jpeg",
+      "outletPrice": "1260 / komplet",
+      "description": "Stylowe krzesła rattanowe do jadalni w naturalnym kolorze, osadzone na smukłych, czarnych nogach. Połączenie rattanu i metalowej podstawy daje lekki, nowoczesny wygląd, który dobrze pasuje zarówno do wnętrz w stylu boho, rustykalnym, jak i loftowym.",
+      "category": "Wyposażenie domu"
     }
   ]
 }
