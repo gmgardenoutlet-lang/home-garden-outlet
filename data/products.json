@@ -141,6 +141,15 @@
       "outletPrice": "990 zł",
       "description": "Jasna kanapa modułowa tapicerowana, idealna do salonu, pokoju dziennego lub przestronnej strefy wypoczynkowej. Modułowa forma pozwala wygodnie dopasować układ mebla do wnętrza, a szerokie siedzisko i miękkie poduszki zapewniają komfort podczas codziennego odpoczynku. Prosty, nowoczesny wygląd sprawia, że kanapa dobrze pasuje do eleganckich i minimalistycznych aranżacji. Produkt dostępny w Home&Garden Outlet w Kębłowicach pod Wrocławiem.",
       "category": "Wyposażenie domu"
+    },
+    {
+      "featured": true,
+      "order": 0,
+      "name": "Stolik",
+      "category": "Wyposażenie ogrodu",
+      "status": "Dostępne",
+      "image": "/uploads/img_5893.jpeg",
+      "description": "Test"
     }
   ]
 }
