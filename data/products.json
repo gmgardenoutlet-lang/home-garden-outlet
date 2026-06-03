@@ -143,13 +143,15 @@
       "category": "Wyposażenie domu"
     },
     {
+      "name": "Zestaw mebli wypoczynkowych Merano szary 11-częściowy z poduszkami",
       "featured": true,
       "order": 0,
-      "name": "Stolik",
-      "category": "Wyposażenie ogrodu",
+      "catalogPrice": "2739",
       "status": "Dostępne",
-      "image": "/uploads/img_5893.jpeg",
-      "description": "Test"
+      "image": "/uploads/kompaktowy-zestaw-ogrodowy-z-technorattanu-w-kolorze-szarym-ze-szklanym-blatem-oraz-wsuwanymi-siedziskami-z-poduszkami.-idealny-na-balkon-taras-patio-lub-do-ogrodu.-produkt-dostępny-w-home-garden-outlet.jpeg",
+      "outletPrice": "1650",
+      "description": "Elegancki i praktyczny zestaw ogrodowy w kolorze szarym, wykonany w stylu technorattanowym. Idealny na taras, balkon, do ogrodu lub strefy wypoczynkowej przy domu. Kompaktowa konstrukcja pozwala wsunąć siedziska pod stół, dzięki czemu zestaw zajmuje mniej miejsca, kiedy nie jest używany.\n\nStół posiada szklany blat, który nadaje całości nowoczesny wygląd i ułatwia codzienne użytkowanie. Siedziska wyposażone są w wygodne poduszki, zapewniające komfort podczas odpoczynku, kawy na tarasie czy spotkań w ogrodzie.",
+      "category": "Wyposażenie ogrodu"
     }
   ]
 }
