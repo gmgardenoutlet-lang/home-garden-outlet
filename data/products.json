@@ -171,7 +171,8 @@
       "category": "Wyposażenie ogrodu",
       "description": "Praktyczny zestaw ogrodowy składający się ze stołu oraz 4 krzeseł. Stół wykonany jest z drewna akacjowego, które wyróżnia się naturalnym wyglądem, ciepłym kolorem i dobrą trwałością w codziennym użytkowaniu. Krzesła wykonane są z tworzywa sztucznego, dzięki czemu są lekkie, wygodne w przestawianiu i łatwe do utrzymania w czystości.",
       "image": "/uploads/zestaw-ogrodowy-stol-akacjowy-4-krzesla-home-garden-outlet.jpeg",
-      "status": "Dostępne"
+      "status": "Dostępne",
+      "outletPrice": "1650 zł"
     }
   ]
 }
