@@ -163,6 +163,15 @@
       "outletPrice": "1260 / komplet",
       "description": "Stylowe krzesła rattanowe do jadalni w naturalnym kolorze, osadzone na smukłych, czarnych nogach. Połączenie rattanu i metalowej podstawy daje lekki, nowoczesny wygląd, który dobrze pasuje zarówno do wnętrz w stylu boho, rustykalnym, jak i loftowym.",
       "category": "Wyposażenie domu"
+    },
+    {
+      "featured": true,
+      "order": 0,
+      "name": "Zestaw ogrodowy z drewnianym stołem i 4 krzesłami",
+      "category": "Wyposażenie ogrodu",
+      "description": "Praktyczny zestaw ogrodowy składający się ze stołu oraz 4 krzeseł. Stół wykonany jest z drewna akacjowego, które wyróżnia się naturalnym wyglądem, ciepłym kolorem i dobrą trwałością w codziennym użytkowaniu. Krzesła wykonane są z tworzywa sztucznego, dzięki czemu są lekkie, wygodne w przestawianiu i łatwe do utrzymania w czystości.",
+      "image": "/uploads/zestaw-ogrodowy-stol-akacjowy-4-krzesla-home-garden-outlet.jpeg",
+      "status": "Dostępne"
     }
   ]
 }
