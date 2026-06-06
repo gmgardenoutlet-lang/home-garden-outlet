@@ -166,14 +166,15 @@
       "category": "Wyposażenie domu"
     },
     {
+      "name": "Zestaw ogrodowy z drewnianym stołem i 4 krzesłami",
       "featured": true,
       "order": 0,
-      "name": "Zestaw ogrodowy z drewnianym stołem i 4 krzesłami",
-      "category": "Wyposażenie ogrodu",
-      "description": "Praktyczny zestaw ogrodowy składający się ze stołu oraz 4 krzeseł. Stół wykonany jest z drewna akacjowego, które wyróżnia się naturalnym wyglądem, ciepłym kolorem i dobrą trwałością w codziennym użytkowaniu. Krzesła wykonane są z tworzywa sztucznego, dzięki czemu są lekkie, wygodne w przestawianiu i łatwe do utrzymania w czystości.",
-      "image": "/uploads/zestaw-ogrodowy-stol-akacjowy-4-krzesla-home-garden-outlet.jpeg",
+      "gallery": [],
       "status": "Dostępne",
-      "outletPrice": "1650 zł"
+      "image": "/uploads/zestaw-ogrodowy-stol-akacjowy-4-krzesla-home-garden-outlet.jpeg",
+      "outletPrice": "1650 zł",
+      "description": "Praktyczny zestaw ogrodowy składający się ze stołu oraz 4 krzeseł. Stół wykonany jest z drewna akacjowego, które wyróżnia się naturalnym wyglądem, ciepłym kolorem i dobrą trwałością w codziennym użytkowaniu. Krzesła wykonane są z tworzywa sztucznego, dzięki czemu są lekkie, wygodne w przestawianiu i łatwe do utrzymania w czystości.",
+      "category": "Wyposażenie ogrodu"
     },
     {
       "name": "Łóżko dzienne z szufladami Drewno sosnowe ROYVILLE 90 x 200 cm Biały",
@@ -185,6 +186,21 @@
       "outletPrice": "880",
       "description": "Praktyczne łóżko dzienne ROYVILLE w kolorze białym, wykonane z drewna sosnowego. Model łączy funkcję klasycznego łóżka jednoosobowego z wygodną leżanką do pokoju dziecięcego, młodzieżowego, gościnnego lub niewielkiego mieszkania.\n\nŁóżko posiada wysuwane szuflady, które zapewniają dodatkowe miejsce do przechowywania pościeli, koców, zabawek lub innych domowych akcesoriów. Biała kolorystyka sprawia, że mebel łatwo dopasować do różnych aranżacji wnętrz — od klasycznych po skandynawskie.\n\nNajważniejsze cechy:",
       "category": "Wyposażenie domu"
+    },
+    {
+      "name": "Rzeźba betonowa do ogrodu — dekoracyjna głowa 140 cm",
+      "dimensions": "140 cm",
+      "featured": true,
+      "order": 0,
+      "catalogPrice": "",
+      "gallery": [
+        "/uploads/2rzezba-betonowa-do-ogrodu-glowa-140cm-home-garden-outlet.webp.jpeg"
+      ],
+      "status": "Dostępne",
+      "image": "/uploads/rzezba-betonowa-do-ogrodu-glowa-140cm-home-garden-outlet.webp.jpeg",
+      "outletPrice": "1400 zł",
+      "description": "Efektowna rzeźba betonowa do ogrodu w formie dekoracyjnej głowy o wysokości około 140 cm. To wyjątkowa ozdoba, która nadaje przestrzeni mocny, artystyczny charakter i świetnie sprawdzi się jako centralny punkt aranżacji ogrodu, tarasu, patio lub wejścia do posesji.\n\nCiemne wykończenie oraz wyrazista forma sprawiają, że rzeźba dobrze komponuje się zarówno z zielenią, naturalnym kamieniem, drewnem, jak i nowoczesną architekturą ogrodową. To propozycja dla osób, które szukają nietypowej dekoracji ogrodowej zamiast klasycznych donic, figurek czy standardowych ozdób.\n\nNajważniejsze cechy:\ntyp: rzeźba ogrodowa / dekoracja ogrodowa\nmateriał: beton\nwysokość: ok. 140 cm\nforma: dekoracyjna głowa / twarz\nkolorystyka: ciemna, artystyczna\nwyrazisty element aranżacji ogrodu\nidealna do ogrodu, na taras, patio lub przy wejściu\nprodukt dostępny od ręki w Home & Garden Outlet pod Wrocławiem",
+      "category": "Wyposażenie ogrodu"
     }
   ]
 }
