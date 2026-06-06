@@ -139,11 +139,26 @@ function parsePrice(value) {
   return match ? Number(match[0]) : null;
 }
 
+function getProductImages(product) {
+  const gallery = Array.isArray(product.gallery) ? product.gallery : [];
+  const galleryPaths = gallery.map((item) => typeof item === "string" ? item : item?.image);
+  const images = [product.image, ...galleryPaths]
+    .filter(hasDisplayValue)
+    .map(normalizeImagePath);
+
+  return [...new Set(images.length ? images : ["product-table.jpeg"])];
+}
+
 function productTemplate(product) {
   const name = product.name || "Produkt outletowy";
   const category = product.category || "Wyposażenie ogrodu";
   const status = product.status || "Dostępne";
-  const image = normalizeImagePath(product.image);
+  const images = getProductImages(product);
+  const image = images[0];
+  const galleryData = escapeHtml(JSON.stringify(images));
+  const galleryCount = images.length > 1
+    ? `<span class="gallery-count">${images.length} zdjęć</span>`
+    : "";
   const badgeClass = statusClasses[status] || "";
   const dimensions = hasDisplayValue(product.dimensions) ? `<p class="dimensions">${escapeHtml(product.dimensions)}</p>` : "";
   const hasCatalogPrice = hasDisplayValue(product.catalogPrice);
@@ -166,8 +181,11 @@ function productTemplate(product) {
   return `
     <article class="product-card">
       <div class="product-image">
-        <img src="${escapeHtml(image)}" width="600" height="450" loading="lazy" alt="${escapeHtml(name)}">
+        <button class="product-gallery-trigger" type="button" data-gallery="${galleryData}" data-gallery-name="${escapeHtml(name)}" aria-label="Zobacz zdjęcia produktu: ${escapeHtml(name)}">
+          <img src="${escapeHtml(image)}" width="600" height="450" loading="lazy" alt="${escapeHtml(name)}">
+        </button>
         <span class="badge ${badgeClass}">${escapeHtml(status)}</span>
+        ${galleryCount}
       </div>
       <div class="product-body">
         <div class="product-meta">
@@ -186,6 +204,72 @@ function productTemplate(product) {
       </div>
     </article>
   `;
+}
+
+const galleryModal = document.createElement("div");
+galleryModal.className = "gallery-modal";
+galleryModal.setAttribute("aria-hidden", "true");
+galleryModal.innerHTML = `
+  <div class="gallery-backdrop" data-gallery-close></div>
+  <section class="gallery-dialog" role="dialog" aria-modal="true" aria-labelledby="gallery-title">
+    <div class="gallery-toolbar">
+      <h2 id="gallery-title">Galeria produktu</h2>
+      <button class="gallery-close" type="button" data-gallery-close aria-label="Zamknij galerię">&times;</button>
+    </div>
+    <div class="gallery-main">
+      <button class="gallery-nav gallery-prev" type="button" data-gallery-prev aria-label="Poprzednie zdjęcie">&#8592;</button>
+      <img class="gallery-main-image" src="" alt="" width="1200" height="900">
+      <button class="gallery-nav gallery-next" type="button" data-gallery-next aria-label="Następne zdjęcie">&#8594;</button>
+    </div>
+    <div class="gallery-thumbnails" aria-label="Miniatury zdjęć"></div>
+  </section>
+`;
+document.body.appendChild(galleryModal);
+
+const galleryMainImage = galleryModal.querySelector(".gallery-main-image");
+const galleryTitle = galleryModal.querySelector("#gallery-title");
+const galleryThumbnails = galleryModal.querySelector(".gallery-thumbnails");
+let activeGalleryImages = [];
+let activeGalleryIndex = 0;
+let galleryTouchStartX = 0;
+
+function updateGallery() {
+  const image = activeGalleryImages[activeGalleryIndex] || "product-table.jpeg";
+  galleryMainImage.src = image;
+  galleryMainImage.alt = `${galleryTitle.textContent} - zdjęcie ${activeGalleryIndex + 1}`;
+  galleryThumbnails.innerHTML = activeGalleryImages.map((path, index) => `
+    <button class="gallery-thumbnail${index === activeGalleryIndex ? " active" : ""}" type="button" data-gallery-index="${index}" aria-label="Pokaż zdjęcie ${index + 1}">
+      <img src="${escapeHtml(path)}" alt="" width="120" height="90" loading="lazy">
+    </button>
+  `).join("");
+
+  galleryModal.classList.toggle("single-image", activeGalleryImages.length < 2);
+}
+
+function openGallery(images, name) {
+  activeGalleryImages = images;
+  activeGalleryIndex = 0;
+  galleryTitle.textContent = name;
+  updateGallery();
+  galleryModal.classList.add("open");
+  galleryModal.setAttribute("aria-hidden", "false");
+  document.body.classList.add("gallery-open");
+  galleryModal.querySelector(".gallery-close").focus();
+}
+
+function closeGallery() {
+  galleryModal.classList.remove("open");
+  galleryModal.setAttribute("aria-hidden", "true");
+  document.body.classList.remove("gallery-open");
+}
+
+function moveGallery(direction) {
+  if (activeGalleryImages.length < 2) {
+    return;
+  }
+
+  activeGalleryIndex = (activeGalleryIndex + direction + activeGalleryImages.length) % activeGalleryImages.length;
+  updateGallery();
 }
 
 function getActiveFilter() {
@@ -256,6 +340,69 @@ filterButtons.forEach((button) => {
     renderProducts(button.dataset.filter);
   });
 });
+
+document.addEventListener("click", (event) => {
+  const target = event.target instanceof Element ? event.target : null;
+  if (!target) return;
+
+  const galleryTrigger = target.closest(".product-gallery-trigger");
+  const closeTrigger = target.closest("[data-gallery-close]");
+  const previousTrigger = target.closest("[data-gallery-prev]");
+  const nextTrigger = target.closest("[data-gallery-next]");
+  const thumbnailTrigger = target.closest("[data-gallery-index]");
+
+  if (galleryTrigger) {
+    try {
+      const images = JSON.parse(galleryTrigger.dataset.gallery || "[]");
+      openGallery(images, galleryTrigger.dataset.galleryName || "Galeria produktu");
+    } catch (error) {
+      openGallery(["product-table.jpeg"], galleryTrigger.dataset.galleryName || "Galeria produktu");
+    }
+  } else if (closeTrigger) {
+    closeGallery();
+  } else if (previousTrigger) {
+    moveGallery(-1);
+  } else if (nextTrigger) {
+    moveGallery(1);
+  } else if (thumbnailTrigger) {
+    activeGalleryIndex = Number(thumbnailTrigger.dataset.galleryIndex || 0);
+    updateGallery();
+  }
+});
+
+document.addEventListener("error", (event) => {
+  if (event.target instanceof HTMLImageElement && !event.target.dataset.fallbackApplied) {
+    event.target.dataset.fallbackApplied = "true";
+    event.target.src = "product-table.jpeg";
+  }
+}, true);
+
+document.addEventListener("keydown", (event) => {
+  if (!galleryModal.classList.contains("open")) {
+    return;
+  }
+
+  if (event.key === "Escape") {
+    closeGallery();
+  } else if (event.key === "ArrowLeft") {
+    moveGallery(-1);
+  } else if (event.key === "ArrowRight") {
+    moveGallery(1);
+  }
+});
+
+galleryModal.addEventListener("touchstart", (event) => {
+  galleryTouchStartX = event.changedTouches[0]?.clientX || 0;
+}, { passive: true });
+
+galleryModal.addEventListener("touchend", (event) => {
+  const touchEndX = event.changedTouches[0]?.clientX || 0;
+  const distance = touchEndX - galleryTouchStartX;
+
+  if (Math.abs(distance) > 50) {
+    moveGallery(distance > 0 ? -1 : 1);
+  }
+}, { passive: true });
 
 if (menuToggle && mainMenu) {
   menuToggle.addEventListener("click", () => {

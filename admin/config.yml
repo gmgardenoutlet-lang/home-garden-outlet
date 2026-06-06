@@ -49,6 +49,15 @@ collections:
               - label: "Zdjęcie"
                 name: "image"
                 widget: "image"
+              - label: "Galeria zdjęć"
+                name: "gallery"
+                widget: "list"
+                required: false
+                hint: "Dodaj dodatkowe zdjęcia produktu. Zdjęcie główne pozostaje pierwsze."
+                field:
+                  label: "Zdjęcie galerii"
+                  name: "image"
+                  widget: "image"
               - label: "Opis"
                 name: "description"
                 widget: "text"
