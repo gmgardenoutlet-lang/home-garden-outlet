@@ -139,6 +139,76 @@ function parsePrice(value) {
   return match ? Number(match[0]) : null;
 }
 
+function createProductSlug(value) {
+  return normalizeText(value)
+    .trim()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+}
+
+function shortenSeoDescription(value, maxLength = 160) {
+  const text = String(value || "").replace(/\s+/g, " ").trim();
+
+  if (text.length <= maxLength) {
+    return text;
+  }
+
+  const shortened = text.slice(0, maxLength - 1);
+  const lastSpace = shortened.lastIndexOf(" ");
+  return `${shortened.slice(0, lastSpace > 100 ? lastSpace : maxLength - 1).trim()}.`;
+}
+
+function getProductSeo(product) {
+  const name = hasDisplayValue(product.name) ? product.name.trim() : "Produkt outletowy";
+  const category = hasDisplayValue(product.category) ? product.category.trim() : "Meble do domu i ogrodu";
+  const description = hasDisplayValue(product.description) ? product.description.trim() : "";
+  const locationSuffix = `${category} dostępne w Home & Garden Outlet pod Wrocławiem.`;
+  const descriptionLimit = Math.max(50, 159 - locationSuffix.length);
+  const descriptionIntro = shortenSeoDescription(description || name, descriptionLimit).replace(/\.$/, "");
+  const generatedDescription = `${descriptionIntro}. ${locationSuffix}`;
+
+  return {
+    slug: hasDisplayValue(product.slug) ? createProductSlug(product.slug) : createProductSlug(name),
+    title: hasDisplayValue(product.seoTitle) ? product.seoTitle.trim() : `${name} | Home & Garden Outlet`,
+    description: hasDisplayValue(product.seoDescription)
+      ? shortenSeoDescription(product.seoDescription)
+      : shortenSeoDescription(generatedDescription),
+    imageAlt: hasDisplayValue(product.imageAlt)
+      ? product.imageAlt.trim()
+      : `${name} - ${category}, Home & Garden Outlet`
+  };
+}
+
+function setMetaContent(selector, content) {
+  let element = document.head.querySelector(selector);
+
+  if (!element) {
+    element = document.createElement("meta");
+    const nameMatch = selector.match(/\[name="([^"]+)"\]/);
+    const propertyMatch = selector.match(/\[property="([^"]+)"\]/);
+
+    if (nameMatch) element.setAttribute("name", nameMatch[1]);
+    if (propertyMatch) element.setAttribute("property", propertyMatch[1]);
+    document.head.appendChild(element);
+  }
+
+  element.setAttribute("content", content);
+}
+
+function applyProductSeo(product) {
+  const seo = getProductSeo(product);
+  document.title = seo.title;
+  setMetaContent('meta[name="description"]', seo.description);
+  setMetaContent('meta[property="og:title"]', seo.title);
+  setMetaContent('meta[property="og:description"]', seo.description);
+
+  document.querySelectorAll("[data-product-main-image]").forEach((image) => {
+    image.alt = seo.imageAlt;
+  });
+
+  return seo;
+}
+
 function getProductImages(product) {
   const gallery = Array.isArray(product.gallery) ? product.gallery : [];
   const galleryPaths = gallery.map((item) => typeof item === "string" ? item : item?.image);
@@ -154,6 +224,7 @@ function productTemplate(product) {
   const category = product.category || "Wyposażenie ogrodu";
   const status = product.status || "Dostępne";
   const images = getProductImages(product);
+  const seo = getProductSeo(product);
   const image = images[0];
   const galleryData = escapeHtml(JSON.stringify(images));
   const galleryCount = images.length > 1
@@ -181,8 +252,8 @@ function productTemplate(product) {
   return `
     <article class="product-card">
       <div class="product-image">
-        <button class="product-gallery-trigger" type="button" data-gallery="${galleryData}" data-gallery-name="${escapeHtml(name)}" aria-label="Zobacz zdjęcia produktu: ${escapeHtml(name)}">
-          <img src="${escapeHtml(image)}" width="600" height="450" loading="lazy" alt="${escapeHtml(name)}">
+        <button class="product-gallery-trigger" type="button" data-gallery="${galleryData}" data-gallery-name="${escapeHtml(name)}" data-gallery-alt="${escapeHtml(seo.imageAlt)}" aria-label="Zobacz zdjęcia produktu: ${escapeHtml(name)}">
+          <img src="${escapeHtml(image)}" width="600" height="450" loading="lazy" alt="${escapeHtml(seo.imageAlt)}">
         </button>
         <span class="badge ${badgeClass}">${escapeHtml(status)}</span>
         ${galleryCount}
@@ -232,11 +303,12 @@ const galleryThumbnails = galleryModal.querySelector(".gallery-thumbnails");
 let activeGalleryImages = [];
 let activeGalleryIndex = 0;
 let galleryTouchStartX = 0;
+let activeGalleryAlt = "";
 
 function updateGallery() {
   const image = activeGalleryImages[activeGalleryIndex] || "product-table.jpeg";
   galleryMainImage.src = image;
-  galleryMainImage.alt = `${galleryTitle.textContent} - zdjęcie ${activeGalleryIndex + 1}`;
+  galleryMainImage.alt = `${activeGalleryAlt || galleryTitle.textContent} - zdjęcie ${activeGalleryIndex + 1}`;
   galleryThumbnails.innerHTML = activeGalleryImages.map((path, index) => `
     <button class="gallery-thumbnail${index === activeGalleryIndex ? " active" : ""}" type="button" data-gallery-index="${index}" aria-label="Pokaż zdjęcie ${index + 1}">
       <img src="${escapeHtml(path)}" alt="" width="120" height="90" loading="lazy">
@@ -246,9 +318,10 @@ function updateGallery() {
   galleryModal.classList.toggle("single-image", activeGalleryImages.length < 2);
 }
 
-function openGallery(images, name) {
+function openGallery(images, name, imageAlt = "") {
   activeGalleryImages = images;
   activeGalleryIndex = 0;
+  activeGalleryAlt = imageAlt;
   galleryTitle.textContent = name;
   updateGallery();
   galleryModal.classList.add("open");
@@ -326,6 +399,14 @@ async function loadProducts() {
     products = Array.isArray(data.products) && data.products.length > 0
       ? data.products
       : fallbackProducts;
+
+    const productPageSlug = document.body.dataset.productSlug;
+    if (productPageSlug) {
+      const productPageItem = products.find((product) => getProductSeo(product).slug === createProductSlug(productPageSlug));
+      if (productPageItem) {
+        applyProductSeo(productPageItem);
+      }
+    }
   } catch (error) {
     products = [...fallbackProducts];
   }
@@ -354,7 +435,11 @@ document.addEventListener("click", (event) => {
   if (galleryTrigger) {
     try {
       const images = JSON.parse(galleryTrigger.dataset.gallery || "[]");
-      openGallery(images, galleryTrigger.dataset.galleryName || "Galeria produktu");
+      openGallery(
+        images,
+        galleryTrigger.dataset.galleryName || "Galeria produktu",
+        galleryTrigger.dataset.galleryAlt || ""
+      );
     } catch (error) {
       openGallery(["product-table.jpeg"], galleryTrigger.dataset.galleryName || "Galeria produktu");
     }
@@ -435,3 +520,9 @@ if (window.netlifyIdentity) {
 }
 
 loadProducts();
+
+window.HomeGardenProductSeo = {
+  applyProductSeo,
+  createProductSlug,
+  getProductSeo
+};

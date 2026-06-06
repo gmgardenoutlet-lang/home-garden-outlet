@@ -65,6 +65,26 @@ collections:
                 name: "dimensions"
                 widget: "string"
                 required: false
+              - label: "SEO - tytuł produktu"
+                name: "seoTitle"
+                widget: "string"
+                required: false
+                hint: "Opcjonalnie. Jeśli pozostawisz puste, powstanie automatycznie z nazwy produktu i marki."
+              - label: "SEO - opis produktu"
+                name: "seoDescription"
+                widget: "text"
+                required: false
+                hint: "Opcjonalnie. Zalecana długość: około 140-160 znaków. Jeśli pozostawisz puste, opis powstanie automatycznie."
+              - label: "Opis alternatywny zdjęcia"
+                name: "imageAlt"
+                widget: "string"
+                required: false
+                hint: "Krótko opisz, co znajduje się na głównym zdjęciu. Jeśli pozostawisz puste, użyta zostanie nazwa produktu."
+              - label: "Adres produktu (slug)"
+                name: "slug"
+                widget: "string"
+                required: false
+                hint: "Opcjonalnie, np. zestaw-ogrodowy-merano. Jeśli pozostawisz puste, adres powstanie automatycznie z nazwy."
               - label: "Pokaż na stronie głównej"
                 name: "featured"
                 widget: "boolean"

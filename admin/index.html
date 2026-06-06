@@ -30,6 +30,21 @@
       height: auto;
     }
 
+    .seo-character-counter {
+      margin-top: 6px;
+      color: #52625a;
+      font-size: 13px;
+      font-weight: 600;
+    }
+
+    .seo-character-counter.is-short {
+      color: #8a6b28;
+    }
+
+    .seo-character-counter.is-long {
+      color: #a33b32;
+    }
+
     @media (max-width: 720px) {
       #nc-root {
         width: 100vw;
@@ -69,6 +84,40 @@
         );
       }
     });
+
+    function updateSeoDescriptionCounter(textarea, counter) {
+      const length = textarea.value.length;
+      counter.textContent = `${length} znaków · zalecane około 140-160`;
+      counter.classList.toggle("is-short", length > 0 && length < 140);
+      counter.classList.toggle("is-long", length > 160);
+    }
+
+    function attachSeoDescriptionCounters() {
+      document.querySelectorAll("#nc-root label").forEach((label) => {
+        if (!label.textContent.includes("SEO - opis produktu")) return;
+
+        let container = label.parentElement;
+        let textarea = null;
+
+        for (let level = 0; level < 5 && container && !textarea; level += 1) {
+          textarea = container.querySelector("textarea");
+          container = container.parentElement;
+        }
+
+        if (!textarea || textarea.dataset.seoCounterAttached) return;
+        const counter = document.createElement("div");
+        counter.className = "seo-character-counter";
+        counter.setAttribute("aria-live", "polite");
+        textarea.insertAdjacentElement("afterend", counter);
+        textarea.dataset.seoCounterAttached = "true";
+        textarea.addEventListener("input", () => updateSeoDescriptionCounter(textarea, counter));
+        updateSeoDescriptionCounter(textarea, counter);
+      });
+    }
+
+    const seoCounterObserver = new MutationObserver(attachSeoDescriptionCounters);
+    seoCounterObserver.observe(document.documentElement, { childList: true, subtree: true });
+    document.addEventListener("DOMContentLoaded", attachSeoDescriptionCounters);
   </script>
   <script src="https://unpkg.com/decap-cms@^3/dist/decap-cms.js"></script>
 </body>
