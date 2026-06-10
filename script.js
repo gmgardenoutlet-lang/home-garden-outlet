@@ -367,7 +367,14 @@ function shuffleProducts(items) {
 
 function pickHomepageProducts(items) {
   const featured = items.filter((product) => product.featured !== false);
-  return shuffleProducts(featured).slice(0, homepageProductLimit);
+  const remaining = items.filter((product) => product.featured === false);
+  const selected = shuffleProducts(featured).slice(0, homepageProductLimit);
+
+  if (selected.length < homepageProductLimit) {
+    selected.push(...shuffleProducts(remaining).slice(0, homepageProductLimit - selected.length));
+  }
+
+  return selected;
 }
 
 function renderProducts(filter = "all") {
@@ -519,7 +526,9 @@ if (window.netlifyIdentity) {
   });
 }
 
-loadProducts();
+if (productGrid) {
+  loadProducts();
+}
 
 window.HomeGardenProductSeo = {
   applyProductSeo,

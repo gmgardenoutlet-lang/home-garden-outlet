@@ -1227,6 +1227,121 @@ body.gallery-open {
   display: none;
 }
 
+.review-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px 18px;
+  margin-top: 10px;
+}
+
+.reviews-link-secondary {
+  color: var(--green-800);
+}
+
+.seo-intro {
+  background: var(--white);
+}
+
+.editorial-copy {
+  max-width: 980px;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 28px;
+}
+
+.editorial-copy p {
+  color: var(--muted);
+  font-size: 17px;
+  line-height: 1.85;
+}
+
+.editorial-copy a,
+.faq-list a {
+  color: var(--green-800);
+  font-weight: 800;
+}
+
+.compact-benefits {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.faq-section {
+  border-top: 1px solid var(--line);
+  background: var(--sand-100);
+}
+
+.faq-list {
+  max-width: 980px;
+  display: grid;
+  gap: 12px;
+}
+
+.faq-list details {
+  padding: 20px 22px;
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  background: var(--white);
+  box-shadow: 0 10px 28px rgba(36, 69, 51, 0.06);
+}
+
+.faq-list summary {
+  cursor: pointer;
+  color: var(--heading-deep);
+  font-weight: 800;
+}
+
+.faq-list p {
+  margin-top: 12px;
+  color: var(--muted);
+}
+
+.seo-landing-hero {
+  min-height: 570px;
+  display: grid;
+  align-items: end;
+  padding: 120px 6vw 82px;
+  background:
+    linear-gradient(90deg, rgba(26, 50, 36, 0.92), rgba(36, 69, 51, 0.52), rgba(36, 69, 51, 0.16)),
+    url("showroom-best-optimized.jpg") center/cover;
+  color: var(--white);
+}
+
+.seo-landing-garden {
+  background:
+    linear-gradient(90deg, rgba(26, 50, 36, 0.9), rgba(36, 69, 51, 0.46), rgba(36, 69, 51, 0.12)),
+    url("ogrod-optimized.jpg") center/cover;
+}
+
+.seo-landing-hero > div {
+  max-width: 850px;
+}
+
+.seo-landing-hero h1,
+.seo-landing-hero .eyebrow {
+  color: var(--white);
+}
+
+.seo-landing-hero p:not(.eyebrow) {
+  max-width: 720px;
+  margin-bottom: 28px;
+  color: rgba(255, 255, 255, 0.9);
+  font-size: clamp(18px, 2vw, 22px);
+}
+
+.local-cta {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 40px;
+  align-items: center;
+  border-top: 1px solid var(--line);
+  background: var(--green-soft);
+}
+
+.local-cta p:not(.eyebrow) {
+  max-width: 720px;
+  color: var(--muted);
+}
+
 .category-card,
 .product-card,
 .benefit-grid article,
@@ -1332,7 +1447,9 @@ body.gallery-open {
   .reviews-layout,
   .showroom-section,
   .admin-grid,
-  .location-section {
+  .location-section,
+  .editorial-copy,
+  .local-cta {
     grid-template-columns: 1fr;
   }
 
@@ -1398,6 +1515,11 @@ body.gallery-open {
 
   .hero {
     min-height: 590px;
+  }
+
+  .seo-landing-hero {
+    min-height: 560px;
+    padding: 190px 6vw 58px;
   }
 
   .hero-actions,

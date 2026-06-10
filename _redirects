@@ -1,1 +1,7 @@
 https://www.mgoutlet.pl/* https://mgoutlet.pl/:splat 301!
+/ogrod.html /ogrod 301!
+/dom.html /dom 301!
+/ogrod/ /ogrod 301!
+/dom/ /dom 301!
+/ogrod /ogrod.html 200
+/dom /dom.html 200
