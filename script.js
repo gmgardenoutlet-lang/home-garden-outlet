@@ -415,6 +415,10 @@ async function loadProducts() {
       }
     }
   } catch (error) {
+    if (productGrid?.querySelector(".product-card-static")) {
+      return;
+    }
+
     products = [...fallbackProducts];
   }
 
