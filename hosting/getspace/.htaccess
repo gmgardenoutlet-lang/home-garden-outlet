@@ -1,0 +1,65 @@
+Options -Indexes
+DirectoryIndex index.html
+
+AddType application/xml .xml
+AddType application/manifest+json .webmanifest
+
+<IfModule mod_rewrite.c>
+  RewriteEngine On
+
+  # Jedna wersja domeny: HTTPS bez www. Nie przekierowuj adresu testowego hostingu.
+  RewriteCond %{HTTP_HOST} ^www\.mgoutlet\.pl$ [NC,OR]
+  RewriteCond %{HTTPS} !=on
+  RewriteCond %{HTTP_HOST} ^(?:www\.)?mgoutlet\.pl$ [NC]
+  RewriteRule ^ https://mgoutlet.pl%{REQUEST_URI} [R=301,L,NE]
+
+  # Panel pozostaje na Netlify, gdzie działa Identity i Git Gateway.
+  RewriteRule ^admini/?$ https://classy-lolly-b27cbc.netlify.app/admin/ [R=302,L,NE]
+  RewriteRule ^admin/?$ https://classy-lolly-b27cbc.netlify.app/admin/ [R=302,L,NE]
+
+  # Stare adresy HTML przekierowujemy na publiczne, czyste adresy.
+  RewriteCond %{THE_REQUEST} \s/+dom\.html(?:[\s?]) [NC]
+  RewriteRule ^dom\.html$ /dom [R=301,L,NE]
+  RewriteCond %{THE_REQUEST} \s/+ogrod\.html(?:[\s?]) [NC]
+  RewriteRule ^ogrod\.html$ /ogrod [R=301,L,NE]
+
+  # Czyste adresy kategorii.
+  RewriteRule ^dom/?$ dom.html [L]
+  RewriteRule ^ogrod/?$ ogrod.html [L]
+</IfModule>
+
+<IfModule mod_expires.c>
+  ExpiresActive On
+  ExpiresByType image/avif "access plus 1 year"
+  ExpiresByType image/webp "access plus 1 year"
+  ExpiresByType image/jpeg "access plus 1 year"
+  ExpiresByType image/png "access plus 1 year"
+  ExpiresByType image/x-icon "access plus 1 year"
+  ExpiresByType text/css "access plus 30 days"
+  ExpiresByType application/javascript "access plus 30 days"
+  ExpiresByType application/manifest+json "access plus 7 days"
+</IfModule>
+
+<IfModule mod_headers.c>
+  Header always set X-Content-Type-Options "nosniff"
+  Header always set X-Frame-Options "DENY"
+  Header always set Referrer-Policy "strict-origin-when-cross-origin"
+  Header always set Permissions-Policy "camera=(), microphone=(), geolocation=()"
+  Header always set Content-Security-Policy "default-src 'self'; img-src 'self' data: https:; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; script-src 'self' 'unsafe-inline'; frame-src https://www.google.com; connect-src 'self'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'; upgrade-insecure-requests"
+
+  <FilesMatch "\.(?:avif|webp|jpe?g|png|ico)$">
+    Header set Cache-Control "public, max-age=2592000"
+  </FilesMatch>
+
+  <FilesMatch "\.(?:css|js)$">
+    Header set Cache-Control "public, max-age=86400, must-revalidate"
+  </FilesMatch>
+
+  <Files "products.json">
+    Header set Cache-Control "no-store, max-age=0"
+  </Files>
+</IfModule>
+
+<IfModule mod_deflate.c>
+  AddOutputFilterByType DEFLATE text/html text/plain text/css application/javascript application/json application/xml image/svg+xml
+</IfModule>

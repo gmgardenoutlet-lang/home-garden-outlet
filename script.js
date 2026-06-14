@@ -436,7 +436,7 @@ function renderProducts(filter = "all") {
 
 async function loadProducts() {
   try {
-    const response = await fetch("data/products.json", { cache: "no-store" });
+    const response = await fetch("/data/products.json", { cache: "no-store" });
 
     if (!response.ok) {
       throw new Error("Nie można pobrać pliku produktów.");

@@ -2,7 +2,9 @@ import { readFile, writeFile } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
 import path from "node:path";
 
-const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
+const root = process.env.SITE_ROOT
+  ? path.resolve(process.env.SITE_ROOT)
+  : path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const data = JSON.parse(await readFile(path.join(root, "data", "products.json"), "utf8"));
 const products = Array.isArray(data.products) ? data.products : [];
 
