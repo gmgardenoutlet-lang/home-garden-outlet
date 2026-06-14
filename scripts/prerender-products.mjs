@@ -27,6 +27,36 @@ const parsePrice = (value) => {
   return match ? Number(match[0]) : null;
 };
 
+const normalize = (value) => String(value ?? "")
+  .normalize("NFD")
+  .replace(/[\u0300-\u036f]/g, "")
+  .trim()
+  .toLowerCase();
+
+const isPublic = (product) => product.visible !== false && normalize(product.productStatus) !== "ukryty";
+
+const displayStatus = (product) => {
+  const managementStatus = normalize(product.productStatus);
+  if (managementStatus === "sprzedany") return "Sprzedany";
+  if (managementStatus === "rezerwacja") return "Rezerwacja";
+  return hasValue(product.status) ? product.status : "Dostępny od ręki";
+};
+
+const matchesCategory = (productCategory, pageCategory) => {
+  const category = normalize(productCategory);
+  const page = normalize(pageCategory);
+
+  if (page === "wyposazenie domu") {
+    return ["wyposazenie domu", "dom", "dekoracje", "oswietlenie"].includes(category);
+  }
+
+  if (page === "wyposazenie ogrodu") {
+    return ["wyposazenie ogrodu", "ogrod"].includes(category);
+  }
+
+  return category === page;
+};
+
 const imagePath = (product) => {
   if (!hasValue(product.image) || String(product.image).includes("..")) {
     return "/product-table.jpeg";
@@ -48,7 +78,7 @@ const description = (value) => {
 const productCard = (product) => {
   const name = hasValue(product.name) ? product.name : "Produkt outletowy";
   const category = hasValue(product.category) ? product.category : "Meble do domu i ogrodu";
-  const status = hasValue(product.status) ? product.status : "Dostępne";
+  const status = displayStatus(product);
   const alt = hasValue(product.imageAlt)
     ? product.imageAlt
     : `${name} — ${category}, Home & Garden Outlet Kębłowice pod Wrocławiem`;
@@ -66,6 +96,12 @@ const productCard = (product) => {
     outletPrice ? `<span class="outlet-price">Cena outletowa: ${escapeHtml(outletPrice)}</span>` : "",
     saving ? `<span class="saving-badge">Oszczędzasz: ${saving} zł</span>` : ""
   ].filter(Boolean).join("");
+  const condition = hasValue(product.condition)
+    ? `<p class="dimensions">Stan: ${escapeHtml(product.condition)}</p>`
+    : "";
+  const dimensions = hasValue(product.dimensions)
+    ? `<p class="dimensions">${escapeHtml(product.dimensions)}</p>`
+    : "";
 
   return `
         <article class="product-card product-card-static">
@@ -78,6 +114,8 @@ const productCard = (product) => {
             <h3>${escapeHtml(name)}</h3>
             ${prices ? `<div class="price-row${outletPrice ? " has-outlet" : ""}">${prices}</div>` : '<p class="price-note">Zapytaj o cenę.</p>'}
             <p class="product-description">${escapeHtml(description(product.description))}</p>
+            ${condition}
+            ${dimensions}
             <div class="product-actions">
               <a class="btn btn-primary" href="tel:+48577210777">Zadzwoń</a>
               <a class="btn btn-outline" href="sms:+48577210777">Zapytaj o produkt</a>
@@ -87,12 +125,13 @@ const productCard = (product) => {
 };
 
 const homepageProducts = () => {
-  const featured = products.filter((product) => product.featured !== false && product.status !== "Sprzedane");
+  const publicProducts = products.filter(isPublic);
+  const featured = publicProducts.filter((product) => product.featured !== false && displayStatus(product) !== "Sprzedany" && displayStatus(product) !== "Sprzedane");
   const selected = featured.slice(0, 6);
 
   if (selected.length < 6) {
-    selected.push(...products
-      .filter((product) => !selected.includes(product) && product.status !== "Sprzedane")
+    selected.push(...publicProducts
+      .filter((product) => !selected.includes(product) && displayStatus(product) !== "Sprzedany" && displayStatus(product) !== "Sprzedane")
       .slice(0, 6 - selected.length));
   }
 
@@ -123,7 +162,7 @@ async function updatePage(file, pageProducts) {
 }
 
 await updatePage("index.html", homepageProducts());
-await updatePage("dom.html", products.filter((product) => product.category === "Wyposażenie domu"));
-await updatePage("ogrod.html", products.filter((product) => product.category === "Wyposażenie ogrodu"));
+await updatePage("dom.html", products.filter(isPublic).filter((product) => matchesCategory(product.category, "Wyposażenie domu")));
+await updatePage("ogrod.html", products.filter(isPublic).filter((product) => matchesCategory(product.category, "Wyposażenie ogrodu")));
 
 console.log(`Wygenerowano statyczny katalog z ${products.length} produktów.`);

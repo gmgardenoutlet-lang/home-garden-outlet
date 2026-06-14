@@ -15,6 +15,7 @@
 
     body {
       min-width: 0;
+      background: #f6f3ec;
     }
 
     #nc-root input,
@@ -43,6 +44,36 @@
 
     .seo-character-counter.is-long {
       color: #a33b32;
+    }
+
+    .admin-section-title {
+      margin: 28px 0 12px;
+      padding: 10px 14px;
+      border-left: 4px solid #3f6f45;
+      border-radius: 8px;
+      background: #edf3ec;
+      color: #244533;
+      font-size: 15px;
+      font-weight: 800;
+    }
+
+    .outlet-price-warning {
+      display: none;
+      margin-top: 7px;
+      padding: 8px 10px;
+      border-radius: 7px;
+      background: #fff4dc;
+      color: #775718;
+      font-size: 13px;
+      font-weight: 700;
+    }
+
+    .outlet-price-warning.is-visible {
+      display: block;
+    }
+
+    #nc-root button {
+      border-radius: 7px;
     }
 
     @media (max-width: 720px) {
@@ -87,14 +118,14 @@
 
     function updateSeoDescriptionCounter(textarea, counter) {
       const length = textarea.value.length;
-      counter.textContent = `${length} znaków · zalecane około 140-160`;
+      counter.textContent = `${length} znaków · zalecane około 140–160`;
       counter.classList.toggle("is-short", length > 0 && length < 140);
       counter.classList.toggle("is-long", length > 160);
     }
 
     function attachSeoDescriptionCounters() {
       document.querySelectorAll("#nc-root label").forEach((label) => {
-        if (!label.textContent.includes("SEO - opis produktu")) return;
+        if (!label.textContent.includes("Meta opis produktu")) return;
 
         let container = label.parentElement;
         let textarea = null;
@@ -115,10 +146,138 @@
       });
     }
 
-    const seoCounterObserver = new MutationObserver(attachSeoDescriptionCounters);
+    const formSections = new Map([
+      ["Numer produktu / ID", "A. Podstawowe informacje"],
+      ["Cena katalogowa producenta", "B. Cena"],
+      ["Zdjęcie główne", "C. Zdjęcia"],
+      ["Krótki opis na kartę produktu", "D. Opis produktu"],
+      ["Dostępność", "E. Dostępność i status"],
+      ["Nazwa SEO produktu", "F. SEO"],
+      ["Lokalizacja produktu w sklepie", "G. Informacje wewnętrzne"]
+    ]);
+
+    function attachFormSections() {
+      document.querySelectorAll("#nc-root label").forEach((label) => {
+        const section = [...formSections.entries()].find(([field]) => label.textContent.includes(field));
+        if (!section || label.dataset.sectionAttached) return;
+
+        const heading = document.createElement("div");
+        heading.className = "admin-section-title";
+        heading.textContent = section[1];
+        label.parentElement?.insertBefore(heading, label);
+        label.dataset.sectionAttached = "true";
+      });
+    }
+
+    function attachOutletPriceWarnings() {
+      document.querySelectorAll("#nc-root label").forEach((label) => {
+        if (!label.textContent.includes("Cena outletowa / cena sprzedaży") || label.dataset.priceWarningAttached) return;
+
+        let container = label.parentElement;
+        let input = null;
+
+        for (let level = 0; level < 5 && container && !input; level += 1) {
+          input = container.querySelector("input");
+          container = container.parentElement;
+        }
+
+        if (!input) return;
+        const warning = document.createElement("div");
+        warning.className = "outlet-price-warning";
+        warning.textContent = "Uwaga: nie wpisano ceny outletowej. Ukryj produkt do czasu ustalenia ceny.";
+        input.insertAdjacentElement("afterend", warning);
+        label.dataset.priceWarningAttached = "true";
+
+        const updateWarning = () => warning.classList.toggle("is-visible", !input.value.trim());
+        input.addEventListener("input", updateWarning);
+        updateWarning();
+      });
+    }
+
+    function enhanceAdminForm() {
+      attachSeoDescriptionCounters();
+      attachFormSections();
+      attachOutletPriceWarnings();
+    }
+
+    const seoCounterObserver = new MutationObserver(enhanceAdminForm);
     seoCounterObserver.observe(document.documentElement, { childList: true, subtree: true });
-    document.addEventListener("DOMContentLoaded", attachSeoDescriptionCounters);
+    document.addEventListener("DOMContentLoaded", enhanceAdminForm);
   </script>
   <script src="https://unpkg.com/decap-cms@^3/dist/decap-cms.js"></script>
+  <script>
+    function previewHasValue(value) {
+      const text = String(value || "").trim().toLowerCase();
+      return Boolean(text) && text !== "brak" && text !== "xxx" && text !== "-" && !text.includes("do uzupełnienia");
+    }
+
+    function previewPrice(value) {
+      const match = String(value || "").replace(/\s/g, "").replace(",", ".").match(/\d+(?:\.\d+)?/);
+      return match ? Number(match[0]) : null;
+    }
+
+    function ProductsPreview({ entry, getAsset }) {
+      const h = window.React.createElement;
+      const list = entry.getIn(["data", "products"]);
+      const products = list?.toJS ? list.toJS() : [];
+
+      return h("main", { style: { padding: "24px", background: "#f6f3ec", fontFamily: "Arial, sans-serif" } },
+        h("div", { style: { marginBottom: "18px" } },
+          h("strong", { style: { color: "#244533", fontSize: "22px" } }, "Podgląd katalogu produktów"),
+          h("p", { style: { color: "#52625a", margin: "6px 0 0" } }, "Zmiany w formularzu są widoczne na kartach poniżej.")
+        ),
+        h("div", { style: { display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))", gap: "18px" } },
+          ...products.map((product, index) => {
+            const catalog = previewHasValue(product.catalogPrice) ? product.catalogPrice : "";
+            const outlet = previewHasValue(product.outletPrice) ? product.outletPrice : "";
+            const catalogNumber = previewPrice(catalog);
+            const outletNumber = previewPrice(outlet);
+            const saving = catalogNumber && outletNumber && catalogNumber > outletNumber
+              ? Math.round(catalogNumber - outletNumber)
+              : null;
+            const effectiveStatus = product.productStatus === "Sprzedany"
+              ? "Sprzedany"
+              : product.productStatus === "Rezerwacja"
+                ? "Rezerwacja"
+                : product.status || "Dostępność do potwierdzenia";
+            const asset = previewHasValue(product.image) ? getAsset(product.image).toString() : "";
+
+            return h("article", {
+              key: `${product.productNumber || "produkt"}-${index}`,
+              style: {
+                overflow: "hidden",
+                border: "1px solid #dbe3d9",
+                borderRadius: "18px",
+                background: "#fff",
+                boxShadow: "0 12px 30px rgba(36,69,51,.08)"
+              }
+            },
+            asset
+              ? h("img", { src: asset, alt: product.imageAlt || product.name || "", style: { display: "block", width: "100%", aspectRatio: "4 / 3", objectFit: "cover" } })
+              : h("div", { style: { display: "grid", placeItems: "center", aspectRatio: "4 / 3", background: "#edf3ec", color: "#52625a" } }, "Dodaj zdjęcie główne"),
+            h("div", { style: { padding: "18px" } },
+              h("div", { style: { display: "flex", justifyContent: "space-between", gap: "10px", color: "#52625a", fontSize: "12px", fontWeight: "700" } },
+                h("span", null, product.category || "Bez kategorii"),
+                h("span", null, effectiveStatus)
+              ),
+              h("h2", { style: { margin: "10px 0 12px", color: "#244533", fontSize: "21px", lineHeight: "1.15" } }, product.name || "Nowy produkt"),
+              catalog ? h("p", { style: { margin: "0 0 4px", color: "#6b746d", fontSize: "13px", textDecoration: outlet ? "line-through" : "none" } }, `Cena katalogowa: ${catalog}`) : null,
+              outlet
+                ? h("p", { style: { margin: "0 0 6px", color: "#3f6f45", fontSize: "20px", fontWeight: "800" } }, `Cena outletowa: ${outlet}`)
+                : h("p", { style: { margin: "0 0 6px", color: "#8a6b28", fontWeight: "800" } }, "Zapytaj o cenę"),
+              saving ? h("p", { style: { display: "inline-block", margin: "0 0 12px", padding: "5px 8px", borderRadius: "999px", background: "#edf3ec", color: "#244533", fontSize: "12px", fontWeight: "800" } }, `Oszczędzasz: ${saving} zł`) : null,
+              product.description ? h("p", { style: { margin: "8px 0", color: "#52625a", lineHeight: "1.5" } }, product.description) : null,
+              product.condition ? h("p", { style: { margin: "8px 0 0", color: "#244533", fontWeight: "700" } }, `Stan: ${product.condition}`) : null,
+              product.dimensions ? h("p", { style: { margin: "4px 0 0", color: "#244533", fontWeight: "700" } }, `Wymiary: ${product.dimensions}`) : null
+            ));
+          })
+        )
+      );
+    }
+
+    if (window.CMS && window.React) {
+      window.CMS.registerPreviewTemplate("products", ProductsPreview);
+    }
+  </script>
 </body>
 </html>

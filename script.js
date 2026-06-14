@@ -76,9 +76,12 @@ const fallbackProducts = [
 const statusClasses = {
   "Nowość": "",
   Nowosc: "",
+  "Dostępny od ręki": "",
+  "Zapytaj o dostępność": "",
   "Ostatnia sztuka": "",
   Rezerwacja: "reserved",
-  Sprzedane: "sold"
+  Sprzedane: "sold",
+  Sprzedany: "sold"
 };
 
 const productGrid = document.querySelector("#produkty");
@@ -111,7 +114,40 @@ function normalizeText(text) {
 }
 
 function matchesCategory(productCategory, filter) {
-  return normalizeText(productCategory) === normalizeText(filter);
+  const normalizedCategory = normalizeText(productCategory);
+  const normalizedFilter = normalizeText(filter);
+
+  if (normalizedFilter === "wyposazenie domu") {
+    return ["wyposazenie domu", "dom", "dekoracje", "oswietlenie"].includes(normalizedCategory);
+  }
+
+  if (normalizedFilter === "wyposazenie ogrodu") {
+    return ["wyposazenie ogrodu", "ogrod"].includes(normalizedCategory);
+  }
+
+  return normalizedCategory === normalizedFilter;
+}
+
+function isProductPublic(product) {
+  if (product.visible === false) {
+    return false;
+  }
+
+  return normalizeText(product.productStatus) !== "ukryty";
+}
+
+function getProductDisplayStatus(product) {
+  const managementStatus = normalizeText(product.productStatus);
+
+  if (managementStatus === "sprzedany") {
+    return "Sprzedany";
+  }
+
+  if (managementStatus === "rezerwacja") {
+    return "Rezerwacja";
+  }
+
+  return hasDisplayValue(product.status) ? product.status : "Dostępny od ręki";
 }
 
 function escapeHtml(value) {
@@ -222,7 +258,7 @@ function getProductImages(product) {
 function productTemplate(product) {
   const name = product.name || "Produkt outletowy";
   const category = product.category || "Wyposażenie ogrodu";
-  const status = product.status || "Dostępne";
+  const status = getProductDisplayStatus(product);
   const images = getProductImages(product);
   const seo = getProductSeo(product);
   const image = images[0];
@@ -232,6 +268,7 @@ function productTemplate(product) {
     : "";
   const badgeClass = statusClasses[status] || "";
   const dimensions = hasDisplayValue(product.dimensions) ? `<p class="dimensions">${escapeHtml(product.dimensions)}</p>` : "";
+  const condition = hasDisplayValue(product.condition) ? `<p class="dimensions">Stan: ${escapeHtml(product.condition)}</p>` : "";
   const hasCatalogPrice = hasDisplayValue(product.catalogPrice);
   const hasOutletPrice = hasDisplayValue(product.outletPrice);
   const catalogValue = parsePrice(product.catalogPrice);
@@ -267,6 +304,7 @@ function productTemplate(product) {
         ${priceRow}
         ${priceNote}
         <p class="product-description">${escapeHtml(product.description || "Produkt dostępny do obejrzenia na miejscu.")}</p>
+        ${condition}
         ${dimensions}
         <div class="product-actions">
           <a class="btn btn-primary" href="tel:+48577210777">Zadzwoń</a>
@@ -366,8 +404,9 @@ function shuffleProducts(items) {
 }
 
 function pickHomepageProducts(items) {
-  const featured = items.filter((product) => product.featured !== false);
-  const remaining = items.filter((product) => product.featured === false);
+  const availableItems = items.filter((product) => !["sprzedany", "sprzedane"].includes(normalizeText(getProductDisplayStatus(product))));
+  const featured = availableItems.filter((product) => product.featured !== false);
+  const remaining = availableItems.filter((product) => product.featured === false);
   const selected = shuffleProducts(featured).slice(0, homepageProductLimit);
 
   if (selected.length < homepageProductLimit) {
@@ -382,9 +421,10 @@ function renderProducts(filter = "all") {
     return;
   }
 
+  const publicProducts = products.filter(isProductPublic);
   const baseProducts = isCategoryPage
-    ? products.filter((product) => matchesCategory(product.category, pageCategory))
-    : pickHomepageProducts(products);
+    ? publicProducts.filter((product) => matchesCategory(product.category, pageCategory))
+    : pickHomepageProducts(publicProducts);
 
   const visibleProducts = !isCategoryPage && filter !== "all"
     ? baseProducts.filter((product) => matchesCategory(product.category, filter))
