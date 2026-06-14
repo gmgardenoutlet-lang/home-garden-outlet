@@ -1,18 +1,6 @@
 {
   "products": [
     {
-      "name": "Zestaw foteli z podnóżkami",
-      "dimensions": "",
-      "featured": true,
-      "order": 30,
-      "catalogPrice": "2390 zł / komplet",
-      "status": "Ostatnia sztuka",
-      "image": "product-chaise.jpeg",
-      "outletPrice": "1185 zł / Komplet",
-      "description": "Komfortowy zestaw ogrodowy składający się z dwóch foteli, dwóch podnóżków oraz małego stolika. Idealny do relaksu na tarasie, balkonie lub w ogrodzie. Miękkie poduszki i praktyczne podnóżki zapewniają wygodny wypoczynek, a kompaktowy stolik świetnie sprawdzi się na kawę lub dekoracje.",
-      "category": "Wyposażenie ogrodu"
-    },
-    {
       "featured": true,
       "order": 0,
       "name": "Zestaw 2xfotel + stolik",
