@@ -1,3 +1,5 @@
 publish/
 __pycache__/
 *.pyc
+migration-backups/
+migration-output/

@@ -97,6 +97,41 @@ try {
             redirect_admin();
         }
 
+        if ($action === 'import_catalog') {
+            if (!isset($_POST['confirm_import'])) {
+                throw new RuntimeException('Potwierdź, że chcesz zastąpić katalog przygotowaną kopią.');
+            }
+
+            $rawCatalog = trim((string)($_POST['catalog_json'] ?? ''));
+            if ($rawCatalog === '' || strlen($rawCatalog) > 2 * 1024 * 1024) {
+                throw new RuntimeException('Wklej poprawny katalog JSON o rozmiarze do 2 MB.');
+            }
+
+            $importedCatalog = json_decode($rawCatalog, true);
+            if (!is_array($importedCatalog) || !isset($importedCatalog['products']) || !is_array($importedCatalog['products'])) {
+                throw new RuntimeException('Importowany plik musi zawierać tablicę products.');
+            }
+            if (count($importedCatalog['products']) < 1 || count($importedCatalog['products']) > 1000) {
+                throw new RuntimeException('Importowany katalog ma nieprawidłową liczbę produktów.');
+            }
+
+            foreach ($importedCatalog['products'] as $productIndex => $importedProduct) {
+                if (!is_array($importedProduct)) {
+                    throw new RuntimeException('Produkt nr ' . ($productIndex + 1) . ' ma nieprawidłową strukturę.');
+                }
+                if (trim((string)($importedProduct['name'] ?? '')) === '') {
+                    throw new RuntimeException('Produkt nr ' . ($productIndex + 1) . ' nie ma nazwy.');
+                }
+                if (trim((string)($importedProduct['image'] ?? '')) === '') {
+                    throw new RuntimeException('Produkt nr ' . ($productIndex + 1) . ' nie ma zdjęcia głównego.');
+                }
+            }
+
+            save_catalog($importedCatalog);
+            flash('success', 'Zaimportowano bezpiecznie ' . count($importedCatalog['products']) . ' produktów. Poprzedni katalog zapisano w kopiach panelu.');
+            redirect_admin();
+        }
+
         if ($action === 'save_product') {
             $catalog = load_catalog();
             $indexRaw = post_text('index');
@@ -231,6 +266,7 @@ $editRaw = (string)($_GET['edit'] ?? '');
 $editing = $editRaw !== '' && ctype_digit($editRaw) && isset($products[(int)$editRaw]);
 $newProduct = isset($_GET['new']);
 $showPassword = isset($_GET['password']);
+$showImport = isset($_GET['import']);
 $editIndex = $editing ? (int)$editRaw : null;
 $product = $editing ? array_merge(product_defaults(), $products[$editIndex]) : product_defaults();
 $search = trim((string)($_GET['q'] ?? ''));
@@ -263,7 +299,27 @@ $search = trim((string)($_GET['q'] ?? ''));
       <div class="flash flash-<?= e($message['type']) ?>"><?= e($message['message']) ?></div>
     <?php endforeach; ?>
 
-    <?php if ($newProduct || $editing): ?>
+    <?php if ($showImport): ?>
+      <div class="page-heading">
+        <div><p class="muted">Bezpieczna aktualizacja</p><h1>Import katalogu</h1></div>
+        <a class="btn btn-secondary" href="/admin/">Wróć do listy</a>
+      </div>
+      <form method="post" class="card">
+        <input type="hidden" name="csrf" value="<?= e(csrf_token()) ?>">
+        <input type="hidden" name="action" value="import_catalog">
+        <div class="form-grid">
+          <div class="field field-full">
+            <label for="catalog-json">Przygotowany katalog JSON</label>
+            <textarea id="catalog-json" name="catalog_json" required maxlength="2097152" rows="18" placeholder='{"products":[...]}'></textarea>
+            <small>Panel sprawdzi strukturę, nazwy i zdjęcia. Przed zapisem automatycznie utworzy kopię obecnego katalogu.</small>
+          </div>
+          <div class="field field-full">
+            <label class="check-line"><input type="checkbox" name="confirm_import" required> Potwierdzam zastąpienie katalogu przygotowaną kopią</label>
+          </div>
+        </div>
+        <div class="form-actions"><button class="btn" type="submit">Sprawdź i importuj katalog</button><a class="btn btn-secondary" href="/admin/">Anuluj</a></div>
+      </form>
+    <?php elseif ($newProduct || $editing): ?>
       <div class="page-heading">
         <div><p class="muted">Katalog produktów</p><h1><?= $editing ? 'Edytuj produkt' : 'Dodaj nowy produkt' ?></h1></div>
         <a class="btn btn-secondary" href="/admin/">Wróć do listy</a>
