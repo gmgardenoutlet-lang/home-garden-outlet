@@ -285,6 +285,7 @@ function productTemplate(product) {
   const priceNote = hasOutletPrice
     ? ""
     : `<p class="price-note">${hasCatalogPrice ? "Zapytaj o cenę outletową." : "Zapytaj o cenę."}</p>`;
+  const description = product.description || "Produkt dostępny do obejrzenia na miejscu.";
 
   return `
     <article class="product-card">
@@ -303,7 +304,10 @@ function productTemplate(product) {
         <h3>${escapeHtml(name)}</h3>
         ${priceRow}
         ${priceNote}
-        <p class="product-description">${escapeHtml(product.description || "Produkt dostępny do obejrzenia na miejscu.")}</p>
+        <div class="product-description-wrap">
+          <p class="product-description">${escapeHtml(description)}</p>
+          <button class="description-toggle" type="button" aria-expanded="false" hidden>Więcej</button>
+        </div>
         ${condition}
         ${dimensions}
         <div class="product-actions">
@@ -432,6 +436,20 @@ function renderProducts(filter = "all") {
   const productsToRender = isCategoryPage ? sortProducts(visibleProducts) : visibleProducts;
 
   productGrid.innerHTML = productsToRender.map(productTemplate).join("");
+  requestAnimationFrame(initializeDescriptionToggles);
+}
+
+function initializeDescriptionToggles() {
+  document.querySelectorAll(".product-description-wrap").forEach((wrapper) => {
+    const description = wrapper.querySelector(".product-description");
+    const toggle = wrapper.querySelector(".description-toggle");
+
+    if (!description || !toggle || description.classList.contains("expanded")) {
+      return;
+    }
+
+    toggle.hidden = description.scrollHeight <= description.clientHeight + 1;
+  });
 }
 
 async function loadProducts() {
@@ -503,6 +521,18 @@ document.addEventListener("click", (event) => {
   } else if (thumbnailTrigger) {
     activeGalleryIndex = Number(thumbnailTrigger.dataset.galleryIndex || 0);
     updateGallery();
+  } else {
+    const descriptionToggle = target.closest(".description-toggle");
+
+    if (descriptionToggle) {
+      const wrapper = descriptionToggle.closest(".product-description-wrap");
+      const description = wrapper?.querySelector(".product-description");
+      const expanded = descriptionToggle.getAttribute("aria-expanded") === "true";
+
+      description?.classList.toggle("expanded", !expanded);
+      descriptionToggle.setAttribute("aria-expanded", String(!expanded));
+      descriptionToggle.textContent = expanded ? "Więcej" : "Mniej";
+    }
   }
 });
 
@@ -571,6 +601,7 @@ if (window.netlifyIdentity) {
 }
 
 if (productGrid) {
+  initializeDescriptionToggles();
   loadProducts();
 }
 

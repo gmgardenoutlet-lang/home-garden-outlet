@@ -717,7 +717,34 @@ body.gallery-open {
 }
 
 .product-description {
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
   color: var(--muted);
+}
+
+.product-description.expanded {
+  display: block;
+  overflow: visible;
+}
+
+.description-toggle {
+  margin-top: 7px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--green-800);
+  font: inherit;
+  font-size: 14px;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.description-toggle:hover,
+.description-toggle:focus-visible {
+  color: var(--green-900);
+  text-decoration: underline;
 }
 
 .dimensions {

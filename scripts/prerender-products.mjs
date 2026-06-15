@@ -67,16 +67,6 @@ const imagePath = (product) => {
   return String(product.image).startsWith("/") ? product.image : `/${product.image}`;
 };
 
-const description = (value) => {
-  const text = String(value || "Produkt dostępny do obejrzenia na miejscu.")
-    .replace(/\s+/g, " ")
-    .trim();
-
-  if (text.length <= 280) return text;
-  const shortened = text.slice(0, 277);
-  return `${shortened.slice(0, shortened.lastIndexOf(" ")).trim()}…`;
-};
-
 const productCard = (product) => {
   const name = hasValue(product.name) ? product.name : "Produkt outletowy";
   const category = hasValue(product.category) ? product.category : "Meble do domu i ogrodu";
@@ -104,6 +94,9 @@ const productCard = (product) => {
   const dimensions = hasValue(product.dimensions)
     ? `<p class="dimensions">${escapeHtml(product.dimensions)}</p>`
     : "";
+  const productDescription = String(product.description || "Produkt dostępny do obejrzenia na miejscu.")
+    .replace(/\s+/g, " ")
+    .trim();
 
   return `
         <article class="product-card product-card-static">
@@ -115,7 +108,10 @@ const productCard = (product) => {
             <div class="product-meta"><span>${escapeHtml(category)}</span><span>${escapeHtml(status)}</span></div>
             <h3>${escapeHtml(name)}</h3>
             ${prices ? `<div class="price-row${outletPrice ? " has-outlet" : ""}">${prices}</div>` : '<p class="price-note">Zapytaj o cenę.</p>'}
-            <p class="product-description">${escapeHtml(description(product.description))}</p>
+            <div class="product-description-wrap">
+              <p class="product-description">${escapeHtml(productDescription)}</p>
+              <button class="description-toggle" type="button" aria-expanded="false" hidden>Więcej</button>
+            </div>
             ${condition}
             ${dimensions}
             <div class="product-actions">
