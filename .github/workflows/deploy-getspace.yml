@@ -42,6 +42,9 @@ jobs:
       - name: Wygeneruj statyczne karty produktów
         run: SITE_ROOT=publish node scripts/prerender-products.mjs
 
+      - name: Sprawdz panel Getspace
+        run: find publish/admin -name "*.php" -print0 | xargs -0 -n1 php -l
+
       - name: Wdróż przez bezpieczny FTPS
         if: ${{ env.FTP_SERVER != '' && env.FTP_USERNAME != '' && env.FTP_PASSWORD != '' && env.FTP_REMOTE_DIR != '' }}
         uses: SamKirkland/FTP-Deploy-Action@v4.4.0
@@ -54,3 +57,10 @@ jobs:
           local-dir: ./publish/
           server-dir: ${{ secrets.FTP_REMOTE_DIR }}
           log-level: minimal
+          exclude: |
+            **/.git*
+            **/.git*/**
+            data/products.json
+            uploads/**
+            admin/.credentials.php
+            admin/storage/**

@@ -1,5 +1,5 @@
 Options -Indexes
-DirectoryIndex index.html
+DirectoryIndex index.php index.html
 
 AddType application/xml .xml
 AddType application/manifest+json .webmanifest
@@ -14,8 +14,7 @@ AddType application/manifest+json .webmanifest
   RewriteRule ^ https://mgoutlet.pl%{REQUEST_URI} [R=301,L,NE]
 
   # Panel pozostaje na Netlify, gdzie działa Identity i Git Gateway.
-  RewriteRule ^admini/?$ https://classy-lolly-b27cbc.netlify.app/admin/ [R=302,L,NE]
-  RewriteRule ^admin/?$ https://classy-lolly-b27cbc.netlify.app/admin/ [R=302,L,NE]
+  RewriteRule ^admini/?$ /admin/ [R=301,L,NE]
 
   # Stare adresy HTML przekierowujemy na publiczne, czyste adresy.
   RewriteCond %{THE_REQUEST} \s/+dom\.html(?:[\s?]) [NC]

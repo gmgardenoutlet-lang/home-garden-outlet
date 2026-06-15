@@ -81,8 +81,7 @@ for (const relativePath of uploadPaths) {
   await cp(source, destination);
 }
 
-await mkdir(path.join(publish, "admin"), { recursive: true });
-await cp(path.join(root, "hosting", "getspace", "admin", "index.html"), path.join(publish, "admin", "index.html"));
+await cp(path.join(root, "hosting", "getspace", "admin"), path.join(publish, "admin"), { recursive: true });
 await cp(path.join(root, "hosting", "getspace", ".htaccess"), path.join(publish, ".htaccess"));
 
 const homepagePath = path.join(publish, "index.html");
