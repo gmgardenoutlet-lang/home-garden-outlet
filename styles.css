@@ -1549,23 +1549,27 @@ body.gallery-open {
 }
 
 .faq-list {
-  max-width: 980px;
   display: grid;
-  gap: 12px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+  align-items: start;
 }
 
 .faq-list details {
-  padding: 20px 22px;
-  border: 1px solid var(--line);
+  padding: 22px 24px;
+  border: 1px solid rgba(36, 69, 51, 0.14);
   border-radius: 18px;
   background: var(--white);
-  box-shadow: 0 10px 28px rgba(36, 69, 51, 0.06);
+  box-shadow: 0 12px 30px rgba(36, 69, 51, 0.07);
+  transition: border-color 240ms ease, box-shadow 240ms ease;
 }
 
 .faq-list summary {
   cursor: pointer;
+  padding-right: 12px;
   color: var(--heading-deep);
   font-weight: 800;
+  line-height: 1.45;
 }
 
 .faq-list p {
@@ -1573,37 +1577,13 @@ body.gallery-open {
   color: var(--muted);
 }
 
-.faq-home {
-  background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.72), rgba(245, 241, 232, 0.8)),
-    var(--sand-100);
+.faq-list details[open] {
+  border-color: rgba(63, 111, 69, 0.36);
+  box-shadow: 0 18px 38px rgba(36, 69, 51, 0.1);
 }
 
 .faq-home-heading {
   max-width: 800px;
-}
-
-.faq-home-list {
-  max-width: none;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 14px;
-  align-items: start;
-}
-
-.faq-home-list details {
-  padding: 22px 24px;
-  border-color: rgba(36, 69, 51, 0.14);
-  box-shadow: 0 12px 30px rgba(36, 69, 51, 0.07);
-}
-
-.faq-home-list summary {
-  padding-right: 12px;
-  line-height: 1.45;
-}
-
-.faq-home-list details[open] {
-  border-color: rgba(63, 111, 69, 0.36);
-  box-shadow: 0 18px 38px rgba(36, 69, 51, 0.1);
 }
 
 .seo-landing-hero {
@@ -1863,7 +1843,7 @@ body.gallery-open {
   .category-grid,
   .product-grid,
   .benefit-grid,
-  .faq-home-list,
+  .faq-list,
   .showroom-gallery,
   .site-footer {
     grid-template-columns: 1fr;
