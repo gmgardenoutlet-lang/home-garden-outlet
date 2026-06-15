@@ -81,6 +81,7 @@ function normalized(value) {
 
 function slugify(value) {
   return String(value ?? "")
+    .replace(/[łŁ]/g, (letter) => letter === "Ł" ? "L" : "l")
     .normalize("NFD")
     .replace(/[\u0300-\u036f]/g, "")
     .toLocaleLowerCase("pl-PL")
