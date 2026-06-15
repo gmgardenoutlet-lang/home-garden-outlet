@@ -73,6 +73,8 @@ a { color: var(--green-800); }
 .btn:hover { background: var(--green-900); }
 .btn-secondary { border-color: var(--green-800); background: var(--white); color: var(--green-800); }
 .btn-danger { border-color: #ead0ce; background: #fff5f4; color: var(--danger); }
+.btn-status { border-color: #ddc8a1; background: #fff8e9; color: #76551d; }
+.btn-restore { border-color: #bfd9c7; background: #edf8f0; color: var(--green-900); }
 .btn-small { min-height: 38px; padding: 7px 11px; font-size: 14px; }
 .link-button { border: 0; background: none; color: var(--green-800); font: inherit; font-weight: 700; cursor: pointer; }
 

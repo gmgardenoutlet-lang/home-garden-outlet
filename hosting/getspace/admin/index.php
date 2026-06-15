@@ -70,6 +70,20 @@ try {
             redirect_admin();
         }
 
+        if ($action === 'toggle_sold') {
+            $catalog = load_catalog();
+            $index = filter_input(INPUT_POST, 'index', FILTER_VALIDATE_INT);
+            if ($index === false || $index === null || !isset($catalog['products'][$index])) {
+                throw new RuntimeException('Nie znaleziono produktu do zmiany dostępności.');
+            }
+            $product = &$catalog['products'][$index];
+            $isSold = (string)($product['status'] ?? '') === 'Sprzedane';
+            $product['status'] = $isSold ? 'Dostępne' : 'Sprzedane';
+            save_catalog($catalog);
+            flash('success', $isSold ? 'Produkt ponownie oznaczono jako dostępny.' : 'Produkt oznaczono jako sprzedany.');
+            redirect_admin();
+        }
+
         if ($action === 'delete_product') {
             $catalog = load_catalog();
             $index = filter_input(INPUT_POST, 'index', FILTER_VALIDATE_INT);
@@ -333,6 +347,7 @@ $search = trim((string)($_GET['q'] ?? ''));
             <div><h2><?= e($item['name'] ?? 'Produkt bez nazwy') ?></h2><div class="meta"><span><?= e($item['category'] ?? 'Bez kategorii') ?></span><span class="status"><?= e($item['status'] ?? 'Dostępność do potwierdzenia') ?></span><span><?= e($item['outletPrice'] ?? 'Zapytaj o cenę') ?></span><?= !empty($item['visible']) ? '' : '<span>Ukryty na stronie</span>' ?></div></div>
             <div class="row-actions">
               <a class="btn btn-secondary btn-small" href="/admin/?edit=<?= e((string)$index) ?>">Edytuj</a>
+              <form method="post"><input type="hidden" name="csrf" value="<?= e(csrf_token()) ?>"><input type="hidden" name="action" value="toggle_sold"><input type="hidden" name="index" value="<?= e((string)$index) ?>"><button class="btn <?= ($item['status'] ?? '') === 'Sprzedane' ? 'btn-restore' : 'btn-status' ?> btn-small" type="submit"><?= ($item['status'] ?? '') === 'Sprzedane' ? 'Przywróć' : 'Sprzedane' ?></button></form>
               <form method="post"><input type="hidden" name="csrf" value="<?= e(csrf_token()) ?>"><input type="hidden" name="action" value="delete_product"><input type="hidden" name="index" value="<?= e((string)$index) ?>"><button class="btn btn-danger btn-small" type="submit" data-confirm="Usunąć ten produkt? Zdjęcia pozostaną na serwerze.">Usuń</button></form>
             </div>
           </article>
