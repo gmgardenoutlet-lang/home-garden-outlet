@@ -6,7 +6,7 @@ const root = process.env.SITE_ROOT
   ? path.resolve(process.env.SITE_ROOT)
   : path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const data = JSON.parse(await readFile(path.join(root, "data", "products.json"), "utf8"));
-const products = Array.isArray(data.products) ? data.products : [];
+const rawProducts = Array.isArray(data.products) ? data.products : [];
 
 const escapeHtml = (value) => String(value ?? "")
   .replace(/&/g, "&amp;")
@@ -34,6 +34,22 @@ const normalize = (value) => String(value ?? "")
   .replace(/[\u0300-\u036f]/g, "")
   .trim()
   .toLowerCase();
+
+const slugify = (value) => normalize(String(value ?? "").replace(/ł/g, "l").replace(/Ł/g, "L"))
+  .replace(/[^a-z0-9]+/g, "-")
+  .replace(/^-+|-+$/g, "") || "produkt";
+
+const assignSlugs = (items) => {
+  const used = new Map();
+  return items.map((product) => {
+    const base = slugify(hasValue(product.slug) ? product.slug : product.name);
+    const count = (used.get(base) || 0) + 1;
+    used.set(base, count);
+    return { ...product, _publicSlug: count > 1 ? `${base}-${count}` : base };
+  });
+};
+
+const products = assignSlugs(rawProducts);
 
 const isPublic = (product) => product.visible !== false && normalize(product.productStatus) !== "ukryty";
 
@@ -97,6 +113,7 @@ const productCard = (product) => {
   const productDescription = String(product.description || "Produkt dostępny do obejrzenia na miejscu.")
     .replace(/\s+/g, " ")
     .trim();
+  const detailUrl = `/produkt/${encodeURIComponent(product._publicSlug)}`;
 
   return `
         <article class="product-card product-card-static">
@@ -106,7 +123,7 @@ const productCard = (product) => {
           </div>
           <div class="product-body">
             <div class="product-meta"><span>${escapeHtml(category)}</span><span>${escapeHtml(status)}</span></div>
-            <h3>${escapeHtml(name)}</h3>
+            <h3><a class="product-title-link" href="${escapeHtml(detailUrl)}">${escapeHtml(name)}</a></h3>
             ${prices ? `<div class="price-row${outletPrice ? " has-outlet" : ""}">${prices}</div>` : '<p class="price-note">Zapytaj o cenę.</p>'}
             <div class="product-description-wrap">
               <p class="product-description">${escapeHtml(productDescription)}</p>
@@ -114,6 +131,7 @@ const productCard = (product) => {
             </div>
             ${condition}
             ${dimensions}
+            <a class="product-detail-link" href="${escapeHtml(detailUrl)}">Zobacz szczegóły produktu <span aria-hidden="true">→</span></a>
             <div class="product-actions">
               <a class="btn btn-primary" href="tel:+48577210777">Zadzwoń</a>
               <a class="btn btn-outline" href="sms:+48577210777">Zapytaj o produkt</a>

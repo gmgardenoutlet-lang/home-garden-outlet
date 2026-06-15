@@ -42,8 +42,8 @@ jobs:
       - name: Wygeneruj statyczne karty produktów
         run: SITE_ROOT=publish node scripts/prerender-products.mjs
 
-      - name: Sprawdz panel Getspace
-        run: find publish/admin -name "*.php" -print0 | xargs -0 -n1 php -l
+      - name: Sprawdz pliki PHP Getspace
+        run: find publish -name "*.php" -print0 | xargs -0 -n1 php -l
 
       - name: Wdróż przez bezpieczny FTPS
         if: ${{ env.FTP_SERVER != '' && env.FTP_USERNAME != '' && env.FTP_PASSWORD != '' && env.FTP_REMOTE_DIR != '' }}

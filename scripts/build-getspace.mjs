@@ -83,6 +83,9 @@ for (const relativePath of uploadPaths) {
 
 await cp(path.join(root, "hosting", "getspace", "admin"), path.join(publish, "admin"), { recursive: true });
 await cp(path.join(root, "hosting", "getspace", ".htaccess"), path.join(publish, ".htaccess"));
+await cp(path.join(root, "hosting", "getspace", "catalog.php"), path.join(publish, "catalog.php"));
+await cp(path.join(root, "hosting", "getspace", "product.php"), path.join(publish, "product.php"));
+await cp(path.join(root, "hosting", "getspace", "sitemap.php"), path.join(publish, "sitemap.php"));
 
 const homepagePath = path.join(publish, "index.html");
 const homepage = await readFile(homepagePath, "utf8");

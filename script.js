@@ -91,11 +91,11 @@ const mainMenu = document.querySelector("#main-menu");
 const pageCategory = document.body.dataset.category || "";
 const isCategoryPage = Boolean(pageCategory);
 const homepageProductLimit = 6;
-let products = [...fallbackProducts];
+let products = assignProductSlugs(fallbackProducts);
 
 function normalizeImagePath(path) {
   if (!hasDisplayValue(path)) {
-    return "product-table.jpeg";
+    return "/product-table.jpeg";
   }
 
   if (/^https?:\/\//i.test(path)) {
@@ -103,7 +103,7 @@ function normalizeImagePath(path) {
   }
 
   const cleanPath = path.startsWith("/") ? path.slice(1) : path;
-  return cleanPath.includes("..") ? "product-table.jpeg" : cleanPath;
+  return cleanPath.includes("..") ? "/product-table.jpeg" : `/${cleanPath}`;
 }
 
 function normalizeText(text) {
@@ -176,10 +176,26 @@ function parsePrice(value) {
 }
 
 function createProductSlug(value) {
-  return normalizeText(value)
+  return normalizeText(String(value || "").replace(/ł/g, "l").replace(/Ł/g, "L"))
     .trim()
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/^-+|-+$/g, "");
+}
+
+function assignProductSlugs(items) {
+  const used = new Map();
+
+  return items.map((product) => {
+    const source = hasDisplayValue(product.slug) ? product.slug : product.name;
+    const base = createProductSlug(source) || "produkt";
+    const count = (used.get(base) || 0) + 1;
+    used.set(base, count);
+
+    return {
+      ...product,
+      _publicSlug: count > 1 ? `${base}-${count}` : base
+    };
+  });
 }
 
 function shortenSeoDescription(value, maxLength = 160) {
@@ -204,7 +220,7 @@ function getProductSeo(product) {
   const generatedDescription = `${descriptionIntro}. ${locationSuffix}`;
 
   return {
-    slug: hasDisplayValue(product.slug) ? createProductSlug(product.slug) : createProductSlug(name),
+    slug: product._publicSlug || (hasDisplayValue(product.slug) ? createProductSlug(product.slug) : createProductSlug(name)),
     title: hasDisplayValue(product.seoTitle) ? product.seoTitle.trim() : `${name} | Home & Garden Outlet`,
     description: hasDisplayValue(product.seoDescription)
       ? shortenSeoDescription(product.seoDescription)
@@ -252,7 +268,7 @@ function getProductImages(product) {
     .filter(hasDisplayValue)
     .map(normalizeImagePath);
 
-  return [...new Set(images.length ? images : ["product-table.jpeg"])];
+  return [...new Set(images.length ? images : ["/product-table.jpeg"])];
 }
 
 function productTemplate(product) {
@@ -261,6 +277,7 @@ function productTemplate(product) {
   const status = getProductDisplayStatus(product);
   const images = getProductImages(product);
   const seo = getProductSeo(product);
+  const detailUrl = `/produkt/${encodeURIComponent(seo.slug)}`;
   const image = images[0];
   const galleryData = escapeHtml(JSON.stringify(images));
   const galleryCount = images.length > 1
@@ -301,7 +318,7 @@ function productTemplate(product) {
           <span>${escapeHtml(category)}</span>
           <span>Dostępny lokalnie</span>
         </div>
-        <h3>${escapeHtml(name)}</h3>
+        <h3><a class="product-title-link" href="${escapeHtml(detailUrl)}">${escapeHtml(name)}</a></h3>
         ${priceRow}
         ${priceNote}
         <div class="product-description-wrap">
@@ -310,6 +327,7 @@ function productTemplate(product) {
         </div>
         ${condition}
         ${dimensions}
+        <a class="product-detail-link" href="${escapeHtml(detailUrl)}">Zobacz szczegóły produktu <span aria-hidden="true">→</span></a>
         <div class="product-actions">
           <a class="btn btn-primary" href="tel:+48577210777">Zadzwoń</a>
           <a class="btn btn-outline" href="sms:+48577210777">Zapytaj o produkt</a>
@@ -348,7 +366,7 @@ let galleryTouchStartX = 0;
 let activeGalleryAlt = "";
 
 function updateGallery() {
-  const image = activeGalleryImages[activeGalleryIndex] || "product-table.jpeg";
+  const image = activeGalleryImages[activeGalleryIndex] || "/product-table.jpeg";
   galleryMainImage.src = image;
   galleryMainImage.alt = `${activeGalleryAlt || galleryTitle.textContent} - zdjęcie ${activeGalleryIndex + 1}`;
   galleryThumbnails.innerHTML = activeGalleryImages.map((path, index) => `
@@ -461,9 +479,9 @@ async function loadProducts() {
     }
 
     const data = await response.json();
-    products = Array.isArray(data.products) && data.products.length > 0
+    products = assignProductSlugs(Array.isArray(data.products) && data.products.length > 0
       ? data.products
-      : fallbackProducts;
+      : fallbackProducts);
 
     const productPageSlug = document.body.dataset.productSlug;
     if (productPageSlug) {
@@ -477,7 +495,7 @@ async function loadProducts() {
       return;
     }
 
-    products = [...fallbackProducts];
+    products = assignProductSlugs(fallbackProducts);
   }
 
   renderProducts(getActiveFilter());
@@ -510,7 +528,7 @@ document.addEventListener("click", (event) => {
         galleryTrigger.dataset.galleryAlt || ""
       );
     } catch (error) {
-      openGallery(["product-table.jpeg"], galleryTrigger.dataset.galleryName || "Galeria produktu");
+      openGallery(["/product-table.jpeg"], galleryTrigger.dataset.galleryName || "Galeria produktu");
     }
   } else if (closeTrigger) {
     closeGallery();
@@ -539,7 +557,7 @@ document.addEventListener("click", (event) => {
 document.addEventListener("error", (event) => {
   if (event.target instanceof HTMLImageElement && !event.target.dataset.fallbackApplied) {
     event.target.dataset.fallbackApplied = "true";
-    event.target.src = "product-table.jpeg";
+    event.target.src = "/product-table.jpeg";
   }
 }, true);
 

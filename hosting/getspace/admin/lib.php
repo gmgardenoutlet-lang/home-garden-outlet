@@ -280,6 +280,34 @@ function clean_filename(string $value): string
     return trim($value, '-') ?: 'produkt';
 }
 
+function unique_product_slug(string $requested, array $products, ?int $currentIndex = null): string
+{
+    $base = clean_filename($requested);
+    $candidate = $base;
+    $suffix = 2;
+
+    while (true) {
+        $taken = false;
+        foreach ($products as $index => $product) {
+            if ($currentIndex !== null && $index === $currentIndex) {
+                continue;
+            }
+            $existingSource = trim((string)($product['slug'] ?? '')) !== ''
+                ? (string)$product['slug']
+                : (string)($product['name'] ?? 'produkt');
+            if (clean_filename($existingSource) === $candidate) {
+                $taken = true;
+                break;
+            }
+        }
+        if (!$taken) {
+            return $candidate;
+        }
+        $candidate = $base . '-' . $suffix;
+        $suffix++;
+    }
+}
+
 function uploaded_file(array $file, string $productName): string
 {
     $error = (int)($file['error'] ?? UPLOAD_ERR_NO_FILE);

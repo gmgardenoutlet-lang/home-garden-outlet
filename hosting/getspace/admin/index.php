@@ -122,6 +122,7 @@ try {
             $product['order'] = (int)($_POST['order'] ?? 0);
             $product['currency'] = 'PLN';
             $product['productStatus'] = $product['productStatus'] !== '' ? $product['productStatus'] : 'Aktywny';
+            $product['slug'] = unique_product_slug($product['slug'] !== '' ? $product['slug'] : $name, $catalog['products'], $isEdit ? $index : null);
 
             if (isset($_FILES['main_image']) && (int)($_FILES['main_image']['error'] ?? UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_NO_FILE) {
                 $product['image'] = uploaded_file($_FILES['main_image'], $name);
@@ -150,7 +151,7 @@ try {
                 $index = 0;
             }
             save_catalog($catalog);
-            flash('success', $isEdit ? 'Produkt został zaktualizowany.' : 'Nowy produkt został dodany.');
+            flash('success', ($isEdit ? 'Produkt został zaktualizowany.' : 'Nowy produkt został dodany.') . ' Strona produktu: /produkt/' . $product['slug']);
             redirect_admin('edit=' . $index);
         }
     }
@@ -321,7 +322,7 @@ $search = trim((string)($_GET['q'] ?? ''));
           <div class="section-title">Opcjonalne SEO</div>
           <div class="field field-full"><label for="seoTitle">Tytuł SEO</label><input id="seoTitle" name="seoTitle" value="<?= e($product['seoTitle']) ?>"></div>
           <div class="field field-full"><label for="seoDescription">Opis SEO</label><textarea id="seoDescription" name="seoDescription"><?= e($product['seoDescription']) ?></textarea><small>Zalecane około 140–160 znaków.</small></div>
-          <div class="field field-full"><label for="slug">Adres produktu / slug</label><input id="slug" name="slug" value="<?= e($product['slug']) ?>"></div>
+          <div class="field field-full"><label for="slug">Adres produktu / slug</label><input id="slug" name="slug" value="<?= e($product['slug']) ?>" placeholder="Utworzy się automatycznie z nazwy"><small>Zostaw puste, a panel sam przygotuje czytelny adres strony produktu.</small></div>
         </div>
         <div class="form-actions"><button class="btn" type="submit">Zapisz produkt</button><a class="btn btn-secondary" href="/admin/">Anuluj</a></div>
       </form>
@@ -346,6 +347,7 @@ $search = trim((string)($_GET['q'] ?? ''));
             <img src="<?= e(image_url((string)($item['image'] ?? ''))) ?>" alt="">
             <div><h2><?= e($item['name'] ?? 'Produkt bez nazwy') ?></h2><div class="meta"><span><?= e($item['category'] ?? 'Bez kategorii') ?></span><span class="status"><?= e($item['status'] ?? 'Dostępność do potwierdzenia') ?></span><span><?= e($item['outletPrice'] ?? 'Zapytaj o cenę') ?></span><?= !empty($item['visible']) ? '' : '<span>Ukryty na stronie</span>' ?></div></div>
             <div class="row-actions">
+              <a class="btn btn-secondary btn-small" href="/produkt/<?= e(clean_filename((string)(($item['slug'] ?? '') !== '' ? $item['slug'] : ($item['name'] ?? 'produkt')))) ?>" target="_blank" rel="noopener">Podgląd</a>
               <a class="btn btn-secondary btn-small" href="/admin/?edit=<?= e((string)$index) ?>">Edytuj</a>
               <form method="post"><input type="hidden" name="csrf" value="<?= e(csrf_token()) ?>"><input type="hidden" name="action" value="toggle_sold"><input type="hidden" name="index" value="<?= e((string)$index) ?>"><button class="btn <?= ($item['status'] ?? '') === 'Sprzedane' ? 'btn-restore' : 'btn-status' ?> btn-small" type="submit"><?= ($item['status'] ?? '') === 'Sprzedane' ? 'Przywróć' : 'Sprzedane' ?></button></form>
               <form method="post"><input type="hidden" name="csrf" value="<?= e(csrf_token()) ?>"><input type="hidden" name="action" value="delete_product"><input type="hidden" name="index" value="<?= e((string)$index) ?>"><button class="btn btn-danger btn-small" type="submit" data-confirm="Usunąć ten produkt? Zdjęcia pozostaną na serwerze.">Usuń</button></form>

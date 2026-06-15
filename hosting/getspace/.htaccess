@@ -16,6 +16,10 @@ AddType application/manifest+json .webmanifest
   # Panel pozostaje na Netlify, gdzie działa Identity i Git Gateway.
   RewriteRule ^admini/?$ /admin/ [R=301,L,NE]
 
+  # Dynamiczna mapa strony i automatyczne podstrony produktow.
+  RewriteRule ^sitemap\.xml$ sitemap.php [L]
+  RewriteRule ^produkt/([a-z0-9-]+)/?$ product.php?slug=$1 [L,QSA]
+
   # Stare adresy HTML przekierowujemy na publiczne, czyste adresy.
   RewriteCond %{THE_REQUEST} \s/+dom\.html(?:[\s?]) [NC]
   RewriteRule ^dom\.html$ /dom [R=301,L,NE]
@@ -26,6 +30,10 @@ AddType application/manifest+json .webmanifest
   RewriteRule ^dom/?$ dom.html [L]
   RewriteRule ^ogrod/?$ ogrod.html [L]
 </IfModule>
+
+<Files "catalog.php">
+  Require all denied
+</Files>
 
 <IfModule mod_expires.c>
   ExpiresActive On
