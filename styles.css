@@ -1322,6 +1322,39 @@ body.gallery-open {
   color: var(--muted);
 }
 
+.faq-home {
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.72), rgba(245, 241, 232, 0.8)),
+    var(--sand-100);
+}
+
+.faq-home-heading {
+  max-width: 800px;
+}
+
+.faq-home-list {
+  max-width: none;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+  align-items: start;
+}
+
+.faq-home-list details {
+  padding: 22px 24px;
+  border-color: rgba(36, 69, 51, 0.14);
+  box-shadow: 0 12px 30px rgba(36, 69, 51, 0.07);
+}
+
+.faq-home-list summary {
+  padding-right: 12px;
+  line-height: 1.45;
+}
+
+.faq-home-list details[open] {
+  border-color: rgba(63, 111, 69, 0.36);
+  box-shadow: 0 18px 38px rgba(36, 69, 51, 0.1);
+}
+
 .seo-landing-hero {
   min-height: 570px;
   display: grid;
@@ -1569,6 +1602,7 @@ body.gallery-open {
   .category-grid,
   .product-grid,
   .benefit-grid,
+  .faq-home-list,
   .showroom-gallery,
   .site-footer {
     grid-template-columns: 1fr;
