@@ -216,6 +216,12 @@ function normalize_stats_range(string $range): string
     return in_array($range, ['today', '7', '30'], true) ? $range : 'today';
 }
 
+function normalize_stats_product_limit($limit): int
+{
+    $value = (int)$limit;
+    return in_array($value, [10, 25, 50], true) ? $value : 10;
+}
+
 function stats_range_days(string $range): int
 {
     if ($range === '30') {
@@ -362,7 +368,6 @@ function load_stats_summary(string $range, array $catalog): array
     usort($summary['topProducts'], static function (array $a, array $b): int {
         return ($b['views'] <=> $a['views']) ?: strcmp($a['name'], $b['name']);
     });
-    $summary['topProducts'] = array_slice($summary['topProducts'], 0, 10);
 
     foreach (stats_event_labels() as $event => $label) {
         $summary['buttonRows'][] = [

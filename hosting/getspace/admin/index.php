@@ -272,15 +272,19 @@ $editIndex = $editing ? (int)$editRaw : null;
 $product = $editing ? array_merge(product_defaults(), $products[$editIndex]) : product_defaults();
 $search = trim((string)($_GET['q'] ?? ''));
 $statsRange = normalize_stats_range((string)($_GET['range'] ?? 'today'));
+$statsProductLimit = normalize_stats_product_limit($_GET['product_limit'] ?? 10);
 $statsRangeLabels = ['today' => 'Dzisiaj', '7' => 'Ostatnie 7 dni', '30' => 'Ostatnie 30 dni'];
+$statsProductLimitLabels = [10 => 'Top 10', 25 => 'Top 25', 50 => 'Top 50'];
 $statsToday = $stats7 = $stats30 = $statsSelected = null;
 $statsCards = [];
+$statsTopProducts = [];
 
 if ($showStats) {
     $statsToday = load_stats_summary('today', $catalog);
     $stats7 = load_stats_summary('7', $catalog);
     $stats30 = load_stats_summary('30', $catalog);
     $statsSelected = $statsRange === 'today' ? $statsToday : ($statsRange === '7' ? $stats7 : $stats30);
+    $statsTopProducts = array_slice($statsSelected['topProducts'] ?? [], 0, $statsProductLimit);
     $statsCards = [
         ['label' => 'Odsłony dzisiaj', 'value' => $statsToday['totals']['page_view'] ?? 0],
         ['label' => 'Odsłony 7 dni', 'value' => $stats7['totals']['page_view'] ?? 0],
@@ -324,7 +328,7 @@ if ($showStats) {
     <?php if ($showStats): ?>
       <div class="page-heading">
         <div><p class="muted">Anonimowe liczniki bez cookies i danych osobowych</p><h1>Statystyki</h1></div>
-        <div class="header-actions"><a class="btn btn-secondary" href="/admin/">Produkty</a><a class="btn" href="/admin/?stats=1&amp;range=<?= e($statsRange) ?>">Odśwież statystyki</a></div>
+        <div class="header-actions"><a class="btn btn-secondary" href="/admin/">Produkty</a><a class="btn" href="/admin/?stats=1&amp;range=<?= e($statsRange) ?>&amp;product_limit=<?= e((string)$statsProductLimit) ?>">Odśwież statystyki</a></div>
       </div>
 
       <section class="stats-grid">
@@ -338,7 +342,7 @@ if ($showStats) {
 
       <nav class="range-switch" aria-label="Zakres statystyk">
         <?php foreach ($statsRangeLabels as $rangeKey => $rangeLabel): ?>
-          <a class="<?= $statsRange === $rangeKey ? 'active' : '' ?>" href="/admin/?stats=1&amp;range=<?= e($rangeKey) ?>"><?= e($rangeLabel) ?></a>
+          <a class="<?= $statsRange === $rangeKey ? 'active' : '' ?>" href="/admin/?stats=1&amp;range=<?= e($rangeKey) ?>&amp;product_limit=<?= e((string)$statsProductLimit) ?>"><?= e($rangeLabel) ?></a>
         <?php endforeach; ?>
       </nav>
 
@@ -359,15 +363,22 @@ if ($showStats) {
         </section>
 
         <section class="card stats-section">
-          <div class="section-head"><div><p class="muted">Top 10</p><h2>Najczęściej oglądane produkty</h2></div></div>
-          <?php if (empty($statsSelected['topProducts'])): ?>
+          <div class="section-head">
+            <div><p class="muted">Top <?= e((string)$statsProductLimit) ?></p><h2>Najczęściej oglądane produkty</h2></div>
+            <nav class="range-switch range-switch-compact" aria-label="Liczba produktów w tabeli">
+              <?php foreach ($statsProductLimitLabels as $limitValue => $limitLabel): ?>
+                <a class="<?= $statsProductLimit === $limitValue ? 'active' : '' ?>" href="/admin/?stats=1&amp;range=<?= e($statsRange) ?>&amp;product_limit=<?= e((string)$limitValue) ?>"><?= e($limitLabel) ?></a>
+              <?php endforeach; ?>
+            </nav>
+          </div>
+          <?php if (empty($statsTopProducts)): ?>
             <p class="muted">Brak odsłon produktów w wybranym okresie.</p>
           <?php else: ?>
             <div class="table-wrap">
               <table class="stats-table">
                 <thead><tr><th>Produkt</th><th>Slug</th><th>Odsłony</th><th>Telefon</th><th>SMS</th><th>Zapytanie</th></tr></thead>
                 <tbody>
-                  <?php foreach ($statsSelected['topProducts'] as $row): ?>
+                  <?php foreach ($statsTopProducts as $row): ?>
                     <tr>
                       <td><?= e($row['name']) ?></td>
                       <td><code><?= e($row['slug']) ?></code></td>
