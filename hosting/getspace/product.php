@@ -175,7 +175,7 @@ $breadcrumbs = [
           <div class="product-detail-actions">
             <a class="btn btn-primary" href="tel:+48577210777">Zadzwoń: 577 210 777</a>
             <a class="btn btn-outline" href="sms:+48577210777?body=Interesuje%20mnie%20produkt:%20<?= rawurlencode($name) ?>">Zapytaj SMS</a>
-            <a class="btn btn-light" href="https://maps.app.goo.gl/SJ9LvQcub6rzQKAs5" target="_blank" rel="noopener">Sprawdź dojazd</a>
+            <a class="btn btn-light" href="https://maps.app.goo.gl/SJ9LvQcub6rzQKAs5" target="_blank" rel="noopener" data-stat-event="navigation_click">Sprawdź dojazd</a>
           </div>
           <p class="product-detail-note">Przed przyjazdem zadzwoń i potwierdź aktualną dostępność. Produkty outletowe często występują jako pojedyncze sztuki.</p>
         </section>
@@ -204,7 +204,7 @@ $breadcrumbs = [
     <div><span>Na skróty</span><a href="/outlet-meblowy-wroclaw/">Outlet meblowy Wrocław</a><a href="/meble-ogrodowe-wroclaw/">Meble ogrodowe Wrocław</a><a href="/dom">Meble do domu outlet</a><a href="/ogrod">Wyposażenie ogrodu</a></div>
   </footer>
 
-  <nav class="mobile-sticky-cta" aria-label="Szybki kontakt"><a href="tel:+48577210777">Zadzwoń</a><a href="https://maps.app.goo.gl/SJ9LvQcub6rzQKAs5" target="_blank" rel="noopener">Jak dojechać</a><a href="https://www.facebook.com/mgoutletpl/?locale=pl_PL" target="_blank" rel="noopener">Facebook</a></nav>
-  <script src="/script.js?v=20260617-stats"></script>
+  <nav class="mobile-sticky-cta" aria-label="Szybki kontakt"><a href="tel:+48577210777">Zadzwoń</a><a href="https://maps.app.goo.gl/SJ9LvQcub6rzQKAs5" target="_blank" rel="noopener" data-stat-event="navigation_click">Jak dojechać</a><a href="https://www.facebook.com/mgoutletpl/?locale=pl_PL" target="_blank" rel="noopener">Facebook</a></nav>
+  <script src="/script.js?v=20260617-stats-fix1"></script>
 </body>
 </html>

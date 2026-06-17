@@ -36,6 +36,18 @@ const HGO_STATS_ALLOWED_HOSTS = [
     'localhost',
     '127.0.0.1',
 ];
+const HGO_STATS_ALLOWED_PAGE_PATHS = [
+    '/',
+    '/index.html',
+    '/dom',
+    '/dom.html',
+    '/ogrod',
+    '/ogrod.html',
+    '/meble-ogrodowe-wroclaw',
+    '/meble-ogrodowe-wroclaw/index.html',
+    '/outlet-meblowy-wroclaw',
+    '/outlet-meblowy-wroclaw/index.html',
+];
 
 function stats_finish(int $status = 204): void
 {
@@ -144,6 +156,20 @@ function stats_product_slug_exists(string $slug): bool
     }
 
     return false;
+}
+
+function stats_page_path_allowed(string $path): bool
+{
+    return in_array($path, HGO_STATS_ALLOWED_PAGE_PATHS, true);
+}
+
+function stats_product_slug_from_path(string $path): string
+{
+    if (preg_match('#^/produkt/([a-z0-9-]+)$#', $path, $matches) !== 1) {
+        return '';
+    }
+
+    return stats_clean_slug($matches[1] ?? '');
 }
 
 function stats_default_day(string $date): array
@@ -279,12 +305,23 @@ if (!in_array($event, HGO_STATS_EVENTS, true)) {
 
 $pagePath = stats_normalize_path((string)($payload['path'] ?? '/'));
 $productSlug = stats_clean_slug($payload['productSlug'] ?? '');
+$productSlugExists = $productSlug !== '' && stats_product_slug_exists($productSlug);
+$productPathSlug = stats_product_slug_from_path($pagePath);
+$productPathMatches = $productSlugExists && $productPathSlug !== '' && $productPathSlug === $productSlug;
 
-if ($event === 'product_view' && ($productSlug === '' || !stats_product_slug_exists($productSlug))) {
+if ($event === 'page_view' && !stats_page_path_allowed($pagePath)) {
     stats_finish(204);
 }
 
-if ($productSlug !== '' && !stats_product_slug_exists($productSlug)) {
+if ($event === 'product_view' && !$productPathMatches) {
+    stats_finish(204);
+}
+
+if ($event !== 'page_view' && $event !== 'product_view' && !stats_page_path_allowed($pagePath) && !$productPathMatches) {
+    stats_finish(204);
+}
+
+if ($productSlug !== '' && !$productSlugExists) {
     $productSlug = '';
 }
 

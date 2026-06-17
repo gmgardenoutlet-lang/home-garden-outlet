@@ -139,8 +139,12 @@ function sendStatsEvent(eventName, extra = {}) {
 function classifyTrackedLink(link) {
   const href = link.getAttribute("href") || "";
   const hrefLower = href.toLowerCase();
-  const text = normalizeText(link.textContent || link.getAttribute("aria-label") || "");
+  const explicitEvent = link.dataset.statEvent || "";
   const events = [];
+
+  if (trackedEvents.has(explicitEvent)) {
+    events.push(explicitEvent);
+  }
 
   if (hrefLower.startsWith("tel:")) {
     events.push("call_click");
@@ -150,20 +154,12 @@ function classifyTrackedLink(link) {
     events.push("sms_click");
   }
 
-  if (hrefLower.includes("maps.app.goo.gl") || hrefLower.includes("google.com/maps") || text.includes("dojazd") || text.includes("nawigac") || text.includes("trase")) {
-    events.push("navigation_click");
-  }
-
   if (hrefLower.includes("facebook.com") || hrefLower.includes("m.me/")) {
     events.push("facebook_click");
   }
 
   if (hrefLower.includes("instagram.com")) {
     events.push("instagram_click");
-  }
-
-  if (text.includes("zapytaj")) {
-    events.push("product_question_click");
   }
 
   return [...new Set(events)];
