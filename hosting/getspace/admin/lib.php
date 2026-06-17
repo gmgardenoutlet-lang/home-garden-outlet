@@ -7,6 +7,7 @@ const UPLOAD_DIR = SITE_ROOT . '/uploads';
 const STORAGE_DIR = __DIR__ . '/storage';
 const BACKUP_DIR = STORAGE_DIR . '/backups';
 const STATS_DIR = STORAGE_DIR . '/stats';
+const STATS_TIMEZONE = 'Europe/Warsaw';
 const CREDENTIALS_FILE = __DIR__ . '/.credentials.php';
 const MAX_UPLOAD_BYTES = 12 * 1024 * 1024;
 const MAX_IMAGE_EDGE = 2200;
@@ -269,12 +270,17 @@ function product_names_by_slug(array $catalog): array
     return $names;
 }
 
+function stats_today(): DateTimeImmutable
+{
+    return new DateTimeImmutable('today', new DateTimeZone(STATS_TIMEZONE));
+}
+
 function load_stats_summary(string $range, array $catalog): array
 {
     $range = normalize_stats_range($range);
     $summary = empty_stats_summary($range);
     $productNames = product_names_by_slug($catalog);
-    $today = new DateTimeImmutable('today');
+    $today = stats_today();
 
     for ($offset = 0; $offset < $summary['days']; $offset++) {
         $date = $today->modify('-' . $offset . ' days')->format('Y-m-d');

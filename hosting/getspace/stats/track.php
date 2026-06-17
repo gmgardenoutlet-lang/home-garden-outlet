@@ -4,6 +4,7 @@ declare(strict_types=1);
 const HGO_STATS_SITE_ROOT = __DIR__ . '/..';
 const HGO_STATS_STORAGE_DIR = HGO_STATS_SITE_ROOT . '/admin/storage/stats';
 const HGO_STATS_PRODUCTS_FILE = HGO_STATS_SITE_ROOT . '/data/products.json';
+const HGO_STATS_TIMEZONE = 'Europe/Warsaw';
 const HGO_STATS_MAX_BODY_BYTES = 2048;
 const HGO_STATS_MAX_WRITES_PER_MINUTE = 600;
 const HGO_STATS_EVENTS = [
@@ -183,9 +184,14 @@ function stats_default_day(string $date): array
     ];
 }
 
+function stats_now(): DateTimeImmutable
+{
+    return new DateTimeImmutable('now', new DateTimeZone(HGO_STATS_TIMEZONE));
+}
+
 function stats_global_rate_allowed(): bool
 {
-    $minute = date('Y-m-d-H-i');
+    $minute = stats_now()->format('Y-m-d-H-i');
     $file = HGO_STATS_STORAGE_DIR . '/.rate-limit.json';
     $handle = @fopen($file, 'c+');
     if (!$handle) {
@@ -217,7 +223,7 @@ function stats_global_rate_allowed(): bool
 
 function stats_increment(string $event, string $pagePath, string $productSlug): bool
 {
-    $date = date('Y-m-d');
+    $date = stats_now()->format('Y-m-d');
     $file = HGO_STATS_STORAGE_DIR . '/' . $date . '.json';
     $handle = @fopen($file, 'c+');
     if (!$handle) {
