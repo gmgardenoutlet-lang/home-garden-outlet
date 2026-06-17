@@ -15,6 +15,7 @@ AddType application/manifest+json .webmanifest
 
   # Panel pozostaje na Netlify, gdzie działa Identity i Git Gateway.
   RewriteRule ^admini/?$ /admin/ [R=301,L,NE]
+  RewriteRule ^admin/storage(?:/|$) - [F,L]
 
   # Dynamiczna mapa strony i automatyczne podstrony produktow.
   RewriteRule ^sitemap\.xml$ sitemap.php [L]

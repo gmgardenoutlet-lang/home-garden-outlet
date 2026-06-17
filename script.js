@@ -91,7 +91,83 @@ const mainMenu = document.querySelector("#main-menu");
 const pageCategory = document.body.dataset.category || "";
 const isCategoryPage = Boolean(pageCategory);
 const homepageProductLimit = 6;
+const statsEndpoint = "/stats/track.php";
+const trackedEvents = new Set([
+  "page_view",
+  "product_view",
+  "call_click",
+  "sms_click",
+  "navigation_click",
+  "facebook_click",
+  "instagram_click",
+  "product_question_click"
+]);
 let products = assignProductSlugs(fallbackProducts);
+
+function sendStatsEvent(eventName, extra = {}) {
+  if (!trackedEvents.has(eventName)) {
+    return;
+  }
+
+  const payload = {
+    event: eventName,
+    path: window.location.pathname || "/",
+    productSlug: extra.productSlug || document.body.dataset.productSlug || ""
+  };
+  const body = JSON.stringify(payload);
+
+  try {
+    if (navigator.sendBeacon) {
+      const sent = navigator.sendBeacon(statsEndpoint, new Blob([body], { type: "application/json" }));
+      if (sent) {
+        return;
+      }
+    }
+
+    fetch(statsEndpoint, {
+      method: "POST",
+      body,
+      headers: { "Content-Type": "application/json" },
+      keepalive: true,
+      credentials: "omit"
+    }).catch(() => {});
+  } catch (error) {
+    // Statystyki nie mogą wpływać na działanie strony.
+  }
+}
+
+function classifyTrackedLink(link) {
+  const href = link.getAttribute("href") || "";
+  const hrefLower = href.toLowerCase();
+  const text = normalizeText(link.textContent || link.getAttribute("aria-label") || "");
+  const events = [];
+
+  if (hrefLower.startsWith("tel:")) {
+    events.push("call_click");
+  }
+
+  if (hrefLower.startsWith("sms:")) {
+    events.push("sms_click");
+  }
+
+  if (hrefLower.includes("maps.app.goo.gl") || hrefLower.includes("google.com/maps") || text.includes("dojazd") || text.includes("nawigac") || text.includes("trase")) {
+    events.push("navigation_click");
+  }
+
+  if (hrefLower.includes("facebook.com") || hrefLower.includes("m.me/")) {
+    events.push("facebook_click");
+  }
+
+  if (hrefLower.includes("instagram.com")) {
+    events.push("instagram_click");
+  }
+
+  if (text.includes("zapytaj")) {
+    events.push("product_question_click");
+  }
+
+  return [...new Set(events)];
+}
 
 function normalizeImagePath(path) {
   if (!hasDisplayValue(path)) {
@@ -513,6 +589,11 @@ document.addEventListener("click", (event) => {
   const target = event.target instanceof Element ? event.target : null;
   if (!target) return;
 
+  const trackedLink = target.closest("a[href]");
+  if (trackedLink) {
+    classifyTrackedLink(trackedLink).forEach((eventName) => sendStatsEvent(eventName));
+  }
+
   const galleryTrigger = target.closest(".product-gallery-trigger");
   const closeTrigger = target.closest("[data-gallery-close]");
   const previousTrigger = target.closest("[data-gallery-prev]");
@@ -616,6 +697,11 @@ if (window.netlifyIdentity) {
       window.netlifyIdentity.open("recovery");
     }
   });
+}
+
+sendStatsEvent("page_view");
+if (document.body.dataset.productSlug) {
+  sendStatsEvent("product_view");
 }
 
 if (productGrid) {

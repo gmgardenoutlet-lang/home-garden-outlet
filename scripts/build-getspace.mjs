@@ -38,7 +38,8 @@ const rootFiles = [
 
 const publicDirectories = [
   "meble-ogrodowe-wroclaw",
-  "outlet-meblowy-wroclaw"
+  "outlet-meblowy-wroclaw",
+  "hosting/getspace/stats"
 ];
 
 const data = JSON.parse(await readFile(path.join(root, "data", "products.json"), "utf8"));
@@ -68,7 +69,10 @@ for (const file of rootFiles) {
 }
 
 for (const directory of publicDirectories) {
-  await cp(path.join(root, directory), path.join(publish, directory), { recursive: true });
+  const target = directory.startsWith("hosting/getspace/")
+    ? directory.replace("hosting/getspace/", "")
+    : directory;
+  await cp(path.join(root, directory), path.join(publish, target), { recursive: true });
 }
 
 await mkdir(path.join(publish, "data"), { recursive: true });

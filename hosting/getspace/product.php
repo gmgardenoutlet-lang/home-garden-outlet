@@ -104,7 +104,7 @@ $breadcrumbs = [
   <?php if ($productSchema !== null): ?><script type="application/ld+json"><?= json_encode($productSchema, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?></script><?php endif; ?>
   <script type="application/ld+json"><?= json_encode($breadcrumbs, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?></script>
 </head>
-<body>
+<body<?= $product !== null ? ' data-product-slug="' . catalog_e((string)$seo['slug']) . '"' : '' ?>>
   <header class="site-header">
     <a class="logo" href="/" aria-label="Home & Garden Outlet - strona główna"><img src="/logo-optimized.jpg" width="64" height="64" alt="Home & Garden Outlet - meble do domu i ogrodu"></a>
     <button class="menu-toggle" type="button" aria-expanded="false" aria-controls="main-menu" aria-label="Otwórz menu"><span></span><span></span><span></span></button>
@@ -205,6 +205,6 @@ $breadcrumbs = [
   </footer>
 
   <nav class="mobile-sticky-cta" aria-label="Szybki kontakt"><a href="tel:+48577210777">Zadzwoń</a><a href="https://maps.app.goo.gl/SJ9LvQcub6rzQKAs5" target="_blank" rel="noopener">Jak dojechać</a><a href="https://www.facebook.com/mgoutletpl/?locale=pl_PL" target="_blank" rel="noopener">Facebook</a></nav>
-  <script src="/script.js?v=20260615-products"></script>
+  <script src="/script.js?v=20260617-stats"></script>
 </body>
 </html>
