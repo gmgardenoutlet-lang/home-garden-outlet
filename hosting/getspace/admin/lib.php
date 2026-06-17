@@ -6,6 +6,7 @@ const PRODUCTS_FILE = SITE_ROOT . '/data/products.json';
 const UPLOAD_DIR = SITE_ROOT . '/uploads';
 const STORAGE_DIR = __DIR__ . '/storage';
 const BACKUP_DIR = STORAGE_DIR . '/backups';
+const STATS_DIR = STORAGE_DIR . '/stats';
 const CREDENTIALS_FILE = __DIR__ . '/.credentials.php';
 const MAX_UPLOAD_BYTES = 12 * 1024 * 1024;
 const MAX_IMAGE_EDGE = 2200;
@@ -195,6 +196,177 @@ function load_catalog(): array
         throw new RuntimeException('Plik produktów jest uszkodzony lub ma nieprawidłową strukturę.');
     }
     return $data;
+}
+
+function stats_event_labels(): array
+{
+    return [
+        'call_click' => 'Telefon',
+        'sms_click' => 'SMS',
+        'navigation_click' => 'Nawigacja',
+        'facebook_click' => 'Facebook',
+        'instagram_click' => 'Instagram',
+        'product_question_click' => 'Zapytanie o produkt',
+    ];
+}
+
+function normalize_stats_range(string $range): string
+{
+    return in_array($range, ['today', '7', '30'], true) ? $range : 'today';
+}
+
+function stats_range_days(string $range): int
+{
+    if ($range === '30') {
+        return 30;
+    }
+    if ($range === '7') {
+        return 7;
+    }
+    return 1;
+}
+
+function empty_stats_summary(string $range): array
+{
+    $events = ['page_view', 'product_view', 'call_click', 'sms_click', 'navigation_click', 'facebook_click', 'instagram_click', 'product_question_click'];
+    return [
+        'range' => $range,
+        'days' => stats_range_days($range),
+        'totals' => array_fill_keys($events, 0),
+        'buttons' => array_fill_keys(array_keys(stats_event_labels()), 0),
+        'pages' => [],
+        'products' => [],
+        'topPages' => [],
+        'topProducts' => [],
+        'buttonRows' => [],
+        'daysRead' => 0,
+        'missingDays' => 0,
+        'invalidFiles' => 0,
+        'hasData' => false,
+    ];
+}
+
+function safe_stat_int($value): int
+{
+    return max(0, (int)$value);
+}
+
+function product_names_by_slug(array $catalog): array
+{
+    $names = [];
+    foreach (($catalog['products'] ?? []) as $product) {
+        if (!is_array($product)) {
+            continue;
+        }
+        $source = trim((string)($product['slug'] ?? '')) !== ''
+            ? (string)$product['slug']
+            : (string)($product['name'] ?? '');
+        $slug = clean_filename($source);
+        if ($slug !== '') {
+            $names[$slug] = (string)($product['name'] ?? $slug);
+        }
+    }
+    return $names;
+}
+
+function load_stats_summary(string $range, array $catalog): array
+{
+    $range = normalize_stats_range($range);
+    $summary = empty_stats_summary($range);
+    $productNames = product_names_by_slug($catalog);
+    $today = new DateTimeImmutable('today');
+
+    for ($offset = 0; $offset < $summary['days']; $offset++) {
+        $date = $today->modify('-' . $offset . ' days')->format('Y-m-d');
+        $file = STATS_DIR . '/' . $date . '.json';
+        if (!is_file($file)) {
+            $summary['missingDays']++;
+            continue;
+        }
+
+        $raw = file_get_contents($file);
+        $day = json_decode((string)$raw, true);
+        if (!is_array($day)) {
+            $summary['invalidFiles']++;
+            continue;
+        }
+
+        $summary['daysRead']++;
+
+        foreach ($summary['totals'] as $event => $current) {
+            $value = safe_stat_int($day['totals'][$event] ?? 0);
+            $summary['totals'][$event] += $value;
+            if ($value > 0) {
+                $summary['hasData'] = true;
+            }
+        }
+
+        foreach ($summary['buttons'] as $event => $current) {
+            $value = safe_stat_int($day['buttons'][$event] ?? 0);
+            $summary['buttons'][$event] += $value;
+            if ($value > 0) {
+                $summary['hasData'] = true;
+            }
+        }
+
+        if (isset($day['pages']) && is_array($day['pages'])) {
+            foreach ($day['pages'] as $path => $count) {
+                $path = (string)$path;
+                if ($path === '' || strlen($path) > 180) {
+                    continue;
+                }
+                $summary['pages'][$path] = safe_stat_int($summary['pages'][$path] ?? 0) + safe_stat_int($count);
+                if (safe_stat_int($count) > 0) {
+                    $summary['hasData'] = true;
+                }
+            }
+        }
+
+        if (isset($day['products']) && is_array($day['products'])) {
+            foreach ($day['products'] as $slug => $metrics) {
+                $slug = clean_filename((string)$slug);
+                if ($slug === '' || !is_array($metrics)) {
+                    continue;
+                }
+                if (!isset($summary['products'][$slug])) {
+                    $summary['products'][$slug] = [
+                        'slug' => $slug,
+                        'name' => $productNames[$slug] ?? $slug,
+                        'views' => 0,
+                        'call_click' => 0,
+                        'sms_click' => 0,
+                        'product_question_click' => 0,
+                    ];
+                }
+                foreach (['views', 'call_click', 'sms_click', 'product_question_click'] as $metric) {
+                    $value = safe_stat_int($metrics[$metric] ?? 0);
+                    $summary['products'][$slug][$metric] += $value;
+                    if ($value > 0) {
+                        $summary['hasData'] = true;
+                    }
+                }
+            }
+        }
+    }
+
+    arsort($summary['pages']);
+    $summary['topPages'] = array_slice($summary['pages'], 0, 10, true);
+
+    $summary['topProducts'] = array_values($summary['products']);
+    usort($summary['topProducts'], static function (array $a, array $b): int {
+        return ($b['views'] <=> $a['views']) ?: strcmp($a['name'], $b['name']);
+    });
+    $summary['topProducts'] = array_slice($summary['topProducts'], 0, 10);
+
+    foreach (stats_event_labels() as $event => $label) {
+        $summary['buttonRows'][] = [
+            'event' => $event,
+            'label' => $label,
+            'count' => safe_stat_int($summary['buttons'][$event] ?? 0),
+        ];
+    }
+
+    return $summary;
 }
 
 function save_catalog(array $catalog): void

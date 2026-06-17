@@ -267,9 +267,30 @@ $editing = $editRaw !== '' && ctype_digit($editRaw) && isset($products[(int)$edi
 $newProduct = isset($_GET['new']);
 $showPassword = isset($_GET['password']);
 $showImport = isset($_GET['import']);
+$showStats = isset($_GET['stats']);
 $editIndex = $editing ? (int)$editRaw : null;
 $product = $editing ? array_merge(product_defaults(), $products[$editIndex]) : product_defaults();
 $search = trim((string)($_GET['q'] ?? ''));
+$statsRange = normalize_stats_range((string)($_GET['range'] ?? 'today'));
+$statsRangeLabels = ['today' => 'Dzisiaj', '7' => 'Ostatnie 7 dni', '30' => 'Ostatnie 30 dni'];
+$statsToday = $stats7 = $stats30 = $statsSelected = null;
+$statsCards = [];
+
+if ($showStats) {
+    $statsToday = load_stats_summary('today', $catalog);
+    $stats7 = load_stats_summary('7', $catalog);
+    $stats30 = load_stats_summary('30', $catalog);
+    $statsSelected = $statsRange === 'today' ? $statsToday : ($statsRange === '7' ? $stats7 : $stats30);
+    $statsCards = [
+        ['label' => 'Odsłony dzisiaj', 'value' => $statsToday['totals']['page_view'] ?? 0],
+        ['label' => 'Odsłony 7 dni', 'value' => $stats7['totals']['page_view'] ?? 0],
+        ['label' => 'Odsłony 30 dni', 'value' => $stats30['totals']['page_view'] ?? 0],
+        ['label' => 'Produkty dzisiaj', 'value' => $statsToday['totals']['product_view'] ?? 0],
+        ['label' => 'Telefony dzisiaj', 'value' => $statsToday['totals']['call_click'] ?? 0],
+        ['label' => 'Nawigacja dzisiaj', 'value' => $statsToday['totals']['navigation_click'] ?? 0],
+        ['label' => 'SMS dzisiaj', 'value' => $statsToday['totals']['sms_click'] ?? 0],
+    ];
+}
 ?>
 <!DOCTYPE html>
 <html lang="pl">
@@ -285,6 +306,7 @@ $search = trim((string)($_GET['q'] ?? ''));
     <a class="brand" href="/admin/">Home & Garden Outlet</a>
     <div class="header-actions">
       <a class="btn btn-secondary btn-small" href="/" target="_blank" rel="noopener">Zobacz stronę</a>
+      <a class="btn btn-secondary btn-small" href="/admin/?stats=1">Statystyki</a>
       <a class="btn btn-secondary btn-small" href="/admin/?download=products">Kopia produktów</a>
       <form method="post">
         <input type="hidden" name="csrf" value="<?= e(csrf_token()) ?>">
@@ -299,7 +321,101 @@ $search = trim((string)($_GET['q'] ?? ''));
       <div class="flash flash-<?= e($message['type']) ?>"><?= e($message['message']) ?></div>
     <?php endforeach; ?>
 
-    <?php if ($showImport): ?>
+    <?php if ($showStats): ?>
+      <div class="page-heading">
+        <div><p class="muted">Anonimowe liczniki bez cookies i danych osobowych</p><h1>Statystyki</h1></div>
+        <div class="header-actions"><a class="btn btn-secondary" href="/admin/">Produkty</a><a class="btn" href="/admin/?stats=1&amp;range=<?= e($statsRange) ?>">Odśwież statystyki</a></div>
+      </div>
+
+      <section class="stats-grid">
+        <?php foreach ($statsCards as $card): ?>
+          <article class="stat-card">
+            <span><?= e($card['label']) ?></span>
+            <strong><?= e(number_format((int)$card['value'], 0, ',', ' ')) ?></strong>
+          </article>
+        <?php endforeach; ?>
+      </section>
+
+      <nav class="range-switch" aria-label="Zakres statystyk">
+        <?php foreach ($statsRangeLabels as $rangeKey => $rangeLabel): ?>
+          <a class="<?= $statsRange === $rangeKey ? 'active' : '' ?>" href="/admin/?stats=1&amp;range=<?= e($rangeKey) ?>"><?= e($rangeLabel) ?></a>
+        <?php endforeach; ?>
+      </nav>
+
+      <?php if (($statsSelected['invalidFiles'] ?? 0) > 0): ?>
+        <div class="flash flash-error">Pominięto <?= e((string)$statsSelected['invalidFiles']) ?> uszkodzony plik statystyk. Panel działa dalej i pokazuje poprawne dane.</div>
+      <?php endif; ?>
+
+      <?php if (empty($statsSelected['hasData'])): ?>
+        <section class="card empty">Brak danych statystycznych dla wybranego okresu.</section>
+      <?php else: ?>
+        <section class="card stats-section">
+          <div class="section-head"><div><p class="muted"><?= e($statsRangeLabels[$statsRange]) ?></p><h2>Kontakt i działania klientów</h2></div></div>
+          <div class="stats-actions-grid">
+            <?php foreach ($statsSelected['buttonRows'] as $row): ?>
+              <div><span><?= e($row['label']) ?></span><strong><?= e(number_format((int)$row['count'], 0, ',', ' ')) ?></strong></div>
+            <?php endforeach; ?>
+          </div>
+        </section>
+
+        <section class="card stats-section">
+          <div class="section-head"><div><p class="muted">Top 10</p><h2>Najczęściej oglądane produkty</h2></div></div>
+          <?php if (empty($statsSelected['topProducts'])): ?>
+            <p class="muted">Brak odsłon produktów w wybranym okresie.</p>
+          <?php else: ?>
+            <div class="table-wrap">
+              <table class="stats-table">
+                <thead><tr><th>Produkt</th><th>Slug</th><th>Odsłony</th><th>Telefon</th><th>SMS</th><th>Zapytanie</th></tr></thead>
+                <tbody>
+                  <?php foreach ($statsSelected['topProducts'] as $row): ?>
+                    <tr>
+                      <td><?= e($row['name']) ?></td>
+                      <td><code><?= e($row['slug']) ?></code></td>
+                      <td><?= e(number_format((int)$row['views'], 0, ',', ' ')) ?></td>
+                      <td><?= e(number_format((int)$row['call_click'], 0, ',', ' ')) ?></td>
+                      <td><?= e(number_format((int)$row['sms_click'], 0, ',', ' ')) ?></td>
+                      <td><?= e(number_format((int)$row['product_question_click'], 0, ',', ' ')) ?></td>
+                    </tr>
+                  <?php endforeach; ?>
+                </tbody>
+              </table>
+            </div>
+          <?php endif; ?>
+        </section>
+
+        <section class="card stats-section">
+          <div class="section-head"><div><p class="muted">Top 10</p><h2>Najczęściej odwiedzane podstrony</h2></div></div>
+          <?php if (empty($statsSelected['topPages'])): ?>
+            <p class="muted">Brak odsłon podstron w wybranym okresie.</p>
+          <?php else: ?>
+            <div class="table-wrap">
+              <table class="stats-table">
+                <thead><tr><th>Ścieżka strony</th><th>Odsłony</th></tr></thead>
+                <tbody>
+                  <?php foreach ($statsSelected['topPages'] as $path => $count): ?>
+                    <tr><td><code><?= e($path) ?></code></td><td><?= e(number_format((int)$count, 0, ',', ' ')) ?></td></tr>
+                  <?php endforeach; ?>
+                </tbody>
+              </table>
+            </div>
+          <?php endif; ?>
+        </section>
+
+        <section class="card stats-section">
+          <div class="section-head"><div><p class="muted"><?= e($statsRangeLabels[$statsRange]) ?></p><h2>Najczęściej klikane przyciski</h2></div></div>
+          <div class="table-wrap">
+            <table class="stats-table">
+              <thead><tr><th>Zdarzenie</th><th>Nazwa</th><th>Kliknięcia</th></tr></thead>
+              <tbody>
+                <?php foreach ($statsSelected['buttonRows'] as $row): ?>
+                  <tr><td><code><?= e($row['event']) ?></code></td><td><?= e($row['label']) ?></td><td><?= e(number_format((int)$row['count'], 0, ',', ' ')) ?></td></tr>
+                <?php endforeach; ?>
+              </tbody>
+            </table>
+          </div>
+        </section>
+      <?php endif; ?>
+    <?php elseif ($showImport): ?>
       <div class="page-heading">
         <div><p class="muted">Bezpieczna aktualizacja</p><h1>Import katalogu</h1></div>
         <a class="btn btn-secondary" href="/admin/">Wróć do listy</a>
