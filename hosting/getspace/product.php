@@ -27,6 +27,9 @@ if ($product === null) {
 $mainImage = $images[0];
 $absoluteImage = catalog_absolute_url($mainImage);
 $categoryUrl = $product ? catalog_category_url($product) : '/';
+$isGardenProduct = $product && strpos(catalog_normalize((string)($product['category'] ?? '')), 'ogrod') !== false;
+$seoCategoryUrl = $isGardenProduct ? '/meble-ogrodowe-wroclaw/' : '/outlet-meblowy-wroclaw/';
+$seoCategoryLabel = $isGardenProduct ? 'Meble ogrodowe outlet Wrocław' : 'Outlet meblowy pod Wrocławiem';
 $category = $product && catalog_has_value($product['category'] ?? '') ? (string)$product['category'] : 'Aktualny katalog';
 $name = $product && catalog_has_value($product['name'] ?? '') ? (string)$product['name'] : 'Produkt niedostępny';
 $descriptionText = $product && catalog_has_value($product['description'] ?? '')
@@ -100,7 +103,7 @@ $breadcrumbs = [
   <link rel="apple-touch-icon" href="/apple-touch-icon.png">
   <link rel="manifest" href="/site.webmanifest">
   <meta name="theme-color" content="#539730">
-  <link rel="stylesheet" href="/styles.css?v=20260615-products">
+  <link rel="stylesheet" href="/styles.css?v=20260627-seo1">
   <?php if ($productSchema !== null): ?><script type="application/ld+json"><?= json_encode($productSchema, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?></script><?php endif; ?>
   <script type="application/ld+json"><?= json_encode($breadcrumbs, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?></script>
 </head>
@@ -191,7 +194,7 @@ $breadcrumbs = [
 
       <section class="product-detail-local">
         <div><p class="eyebrow">Zobacz na żywo</p><h2>Prawdziwy produkt w lokalnym showroomie pod Wrocławiem</h2><p>Zapraszamy do Home & Garden Outlet przy ul. Przelotowej 16 w Kębłowicach. Na miejscu możesz sprawdzić wygląd, wygodę, kolor i rzeczywisty stan produktu.</p></div>
-        <div class="hero-actions"><a class="btn btn-primary" href="<?= catalog_e($categoryUrl) ?>">Zobacz podobne produkty</a><a class="btn btn-outline" href="/#kontakt">Kontakt i godziny otwarcia</a></div>
+        <div class="hero-actions"><a class="btn btn-primary" href="<?= catalog_e($categoryUrl) ?>">Zobacz podobne produkty</a><a class="btn btn-outline" href="<?= catalog_e($seoCategoryUrl) ?>"><?= catalog_e($seoCategoryLabel) ?></a><a class="btn btn-outline" href="/#kontakt">Kontakt i godziny otwarcia</a></div>
       </section>
     <?php endif; ?>
   </main>
@@ -205,6 +208,6 @@ $breadcrumbs = [
   </footer>
 
   <nav class="mobile-sticky-cta" aria-label="Szybki kontakt"><a href="tel:+48577210777">Zadzwoń</a><a href="https://maps.app.goo.gl/SJ9LvQcub6rzQKAs5" target="_blank" rel="noopener" data-stat-event="navigation_click">Jak dojechać</a><a href="https://www.facebook.com/mgoutletpl/?locale=pl_PL" target="_blank" rel="noopener">Facebook</a></nav>
-  <script src="/script.js?v=20260617-stats-fix1"></script>
+  <script src="/script.js?v=20260627-seo1"></script>
 </body>
 </html>

@@ -83,6 +83,23 @@ const imagePath = (product) => {
   return String(product.image).startsWith("/") ? product.image : `/${product.image}`;
 };
 
+const productCategoryLinks = (product) => {
+  const category = normalize(product.category);
+  const links = category.includes("ogrod")
+    ? [
+      { href: "/ogrod", label: "Więcej wyposażenia ogrodu" },
+      { href: "/meble-ogrodowe-wroclaw/", label: "Meble ogrodowe outlet Wrocław" }
+    ]
+    : [
+      { href: "/dom", label: "Więcej mebli do domu" },
+      { href: "/outlet-meblowy-wroclaw/", label: "Outlet meblowy pod Wrocławiem" }
+    ];
+
+  return `<div class="product-card-links" aria-label="Powiązane kategorie">${links
+    .map((link) => `<a href="${escapeHtml(link.href)}">${escapeHtml(link.label)}</a>`)
+    .join("")}</div>`;
+};
+
 const productCard = (product) => {
   const name = hasValue(product.name) ? product.name : "Produkt outletowy";
   const category = hasValue(product.category) ? product.category : "Meble do domu i ogrodu";
@@ -132,6 +149,7 @@ const productCard = (product) => {
             ${condition}
             ${dimensions}
             <a class="product-detail-link" href="${escapeHtml(detailUrl)}">Zobacz szczegóły produktu <span aria-hidden="true">→</span></a>
+            ${productCategoryLinks(product)}
             <div class="product-actions">
               <a class="btn btn-primary" href="tel:+48577210777">Zadzwoń</a>
               <a class="btn btn-outline" href="sms:+48577210777">Zapytaj o produkt</a>

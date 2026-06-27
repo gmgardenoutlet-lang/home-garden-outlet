@@ -792,6 +792,26 @@ body.gallery-open {
   text-decoration: underline;
 }
 
+.product-card-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 12px;
+  margin-top: 12px;
+  font-size: 13px;
+  line-height: 1.35;
+}
+
+.product-card-links a {
+  color: var(--green-800);
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.product-card-links a:hover {
+  color: var(--green-900);
+  text-decoration: underline;
+}
+
 .product-detail-page {
   min-height: 70vh;
 }
