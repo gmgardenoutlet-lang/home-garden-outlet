@@ -11,6 +11,11 @@ $urls = [
     ['loc' => CATALOG_SITE_URL . '/', 'lastmod' => $lastModified],
     ['loc' => CATALOG_SITE_URL . '/ogrod', 'lastmod' => $lastModified],
     ['loc' => CATALOG_SITE_URL . '/dom', 'lastmod' => $lastModified],
+    ['loc' => CATALOG_SITE_URL . '/poradnik/', 'lastmod' => $lastModified],
+    ['loc' => CATALOG_SITE_URL . '/poradnik/czym-jest-outlet-meblowy/', 'lastmod' => $lastModified],
+    ['loc' => CATALOG_SITE_URL . '/poradnik/meble-ogrodowe-z-outletu-na-co-zwrocic-uwage/', 'lastmod' => $lastModified],
+    ['loc' => CATALOG_SITE_URL . '/poradnik/dlaczego-warto-ogladac-meble-na-zywo/', 'lastmod' => $lastModified],
+    ['loc' => CATALOG_SITE_URL . '/poradnik/meble-z-ekspozycji-czy-warto/', 'lastmod' => $lastModified],
     ['loc' => CATALOG_SITE_URL . '/outlet-meblowy-wroclaw/', 'lastmod' => $lastModified],
     ['loc' => CATALOG_SITE_URL . '/meble-ogrodowe-wroclaw/', 'lastmod' => $lastModified],
 ];

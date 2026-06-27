@@ -37,6 +37,7 @@ const rootFiles = [
 ];
 
 const publicDirectories = [
+  "poradnik",
   "meble-ogrodowe-wroclaw",
   "outlet-meblowy-wroclaw",
   "hosting/getspace/stats"
