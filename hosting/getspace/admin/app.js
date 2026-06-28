@@ -59,7 +59,7 @@ document.querySelectorAll("[data-google-action]").forEach((button) => {
     const csrf = form?.querySelector('input[name="csrf"]')?.value || "";
     const index = form?.querySelector('input[name="index"]')?.value || "";
     const googleAction = button.dataset.googleAction || "";
-    const needsProduct = !["config_status", "discover_locations"].includes(googleAction);
+    const needsProduct = !["config_status", "discover_locations", "refresh_reviews"].includes(googleAction);
     if (!form || !result || csrf === "" || (needsProduct && index === "")) return;
 
     const previousText = button.textContent;
@@ -103,11 +103,14 @@ document.querySelectorAll("[data-google-action]").forEach((button) => {
       const locations = Array.isArray(data.locations) && data.locations.length
         ? `\n\nZnalezione wizytówki:\n${data.locations.map((item, index) => `${index + 1}. ${item.locationName || "Wizytówka"}\n   Account ID: ${item.accountId || ""}\n   Location ID: ${item.locationId || ""}\n   Adres: ${item.address || "-"}\n   WWW: ${item.website || "-"}`).join("\n\n")}`
         : "";
+      const reviewsInfo = Number.isInteger(data.reviewsCount)
+        ? `\n\nPobrane opinie: ${data.reviewsCount}\nAktualizacja: ${data.updatedAt || "-"}`
+        : "";
       const missingConfig = data.configStatus?.missing?.length
         ? `\n\nBrakuje w konfiguracji: ${data.configStatus.missing.join(", ")}`
         : "";
       result.classList.add(data.dryRun ? "is-warning" : "is-success");
-      result.textContent = `${data.message || "Gotowe."}${missingConfig}${locations}${details}`;
+      result.textContent = `${data.message || "Gotowe."}${missingConfig}${locations}${reviewsInfo}${details}`;
     } catch (error) {
       result.classList.add("is-error");
       result.textContent = error instanceof Error ? error.message : "Nie udało się wykonać akcji Google.";

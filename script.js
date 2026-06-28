@@ -90,6 +90,9 @@ const productSearchInput = document.querySelector("[data-product-search]");
 const productFilterInputs = document.querySelectorAll("[data-product-filter]");
 const productCount = document.querySelector("[data-product-count]");
 const productEmpty = document.querySelector("[data-product-empty]");
+const googleReviewsGrid = document.querySelector("[data-google-reviews]");
+const googleReviewTitle = document.querySelector("[data-google-review-title]");
+const googleReviewSummary = document.querySelector("[data-google-review-summary]");
 const menuToggle = document.querySelector(".menu-toggle");
 const mainMenu = document.querySelector("#main-menu");
 const pageCategory = document.body.dataset.category || "";
@@ -107,6 +110,75 @@ const trackedEvents = new Set([
   "product_question_click"
 ]);
 let products = assignProductSlugs(fallbackProducts);
+
+function formatGoogleReviewDate(value, fallback = "") {
+  if (!value) {
+    return fallback || "Źródło: Google";
+  }
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return fallback || "Źródło: Google";
+  }
+  return date.toLocaleDateString("pl-PL", { year: "numeric", month: "long", day: "numeric" });
+}
+
+function createReviewCard(review, featured = false) {
+  const card = document.createElement("article");
+  card.className = `review-card${featured ? " review-card-featured" : ""}`;
+
+  const stars = document.createElement("div");
+  stars.className = "stars";
+  stars.textContent = "★".repeat(Math.max(1, Math.min(5, Number(review.rating) || 5)));
+
+  const text = document.createElement("p");
+  text.textContent = String(review.text || "").trim();
+
+  const author = document.createElement("strong");
+  author.textContent = String(review.author || "Klient Google").trim();
+
+  const meta = document.createElement("span");
+  const dateText = formatGoogleReviewDate(review.updateTime || review.createTime, review.relativeTime);
+  meta.textContent = `${dateText} · Źródło: Google`;
+
+  card.append(stars, text, author, meta);
+  return card;
+}
+
+async function loadGoogleReviews() {
+  if (!googleReviewsGrid) {
+    return;
+  }
+
+  try {
+    const response = await fetch("/data/google-reviews.json", { cache: "no-store" });
+    if (!response.ok) {
+      return;
+    }
+    const data = await response.json();
+    const reviews = Array.isArray(data.reviews)
+      ? data.reviews.filter((review) => String(review.text || "").trim() !== "")
+      : [];
+    if (!reviews.length) {
+      return;
+    }
+
+    googleReviewsGrid.innerHTML = "";
+    reviews.slice(0, 3).forEach((review) => {
+      googleReviewsGrid.appendChild(createReviewCard(review, true));
+    });
+
+    if (googleReviewTitle && data.averageRating && data.totalReviewCount) {
+      googleReviewTitle.textContent = `Ocena ${Number(data.averageRating).toFixed(1)} / 5 w Google`;
+    }
+    if (googleReviewSummary) {
+      googleReviewSummary.textContent = data.updatedAt
+        ? `Aktualne opinie z Google, odświeżone ${formatGoogleReviewDate(data.updatedAt)}.`
+        : "Aktualne opinie klientów z Google.";
+    }
+  } catch (error) {
+    // Jeśli cache opinii nie jest jeszcze gotowy, zostawiamy statyczne opinie w HTML.
+  }
+}
 
 function sendStatsEvent(eventName, extra = {}) {
   if (!trackedEvents.has(eventName)) {
@@ -919,6 +991,8 @@ sendStatsEvent("page_view");
 if (document.body.dataset.productSlug) {
   sendStatsEvent("product_view");
 }
+
+loadGoogleReviews();
 
 if (productGrid) {
   initializeDescriptionToggles();

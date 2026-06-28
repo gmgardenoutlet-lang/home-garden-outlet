@@ -1,0 +1,38 @@
+{
+  "updatedAt": "2026-06-28T00:00:00+02:00",
+  "source": "Google",
+  "averageRating": null,
+  "totalReviewCount": null,
+  "reviews": [
+    {
+      "reviewId": "static-filip-majchrzak",
+      "author": "Filip Majchrzak",
+      "rating": 5,
+      "text": "Świetny sklep, otrzymałem bardzo profesjonalną pomoc w wyborze od pana sprzedawcy. Serdecznie polecam!",
+      "createTime": "",
+      "updateTime": "",
+      "relativeTime": "tydzień temu",
+      "source": "Google"
+    },
+    {
+      "reviewId": "static-concept-customs",
+      "author": "Concept Customs",
+      "rating": 5,
+      "text": "Super miejsce jeśli chcesz kupić rzeczy do domu czy ogrodu w cenie o wiele mniejszej niż rynkowa. Gorąco polecam zajrzeć, a zawsze coś ciekawego się znajdzie.",
+      "createTime": "",
+      "updateTime": "",
+      "relativeTime": "rok temu",
+      "source": "Google"
+    },
+    {
+      "reviewId": "static-jedrzej-grzeskowiak",
+      "author": "Jędrzej Grześkowiak",
+      "rating": 5,
+      "text": "Kupiłem tutaj prawie nowy zestaw mebli ogrodowych, za połowę ceny producenta. Do tego super obsługa która pomogła w wyborze.",
+      "createTime": "",
+      "updateTime": "",
+      "relativeTime": "4 lata temu",
+      "source": "Google"
+    }
+  ]
+}

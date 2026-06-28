@@ -236,6 +236,79 @@ function gbp_discover_locations(array $config, string $token): array
     return $locations;
 }
 
+function gbp_rating_number(string $rating): int
+{
+    return match (strtoupper($rating)) {
+        'ONE' => 1,
+        'TWO' => 2,
+        'THREE' => 3,
+        'FOUR' => 4,
+        'FIVE' => 5,
+        default => 0,
+    };
+}
+
+function gbp_refresh_reviews(array $config, string $token): array
+{
+    $url = 'https://mybusiness.googleapis.com/v4/accounts/'
+        . rawurlencode((string)$config['account_id'])
+        . '/locations/'
+        . rawurlencode((string)$config['location_id'])
+        . '/reviews?pageSize=20&orderBy=' . rawurlencode('updateTime desc');
+
+    $response = gbp_request($url, [
+        CURLOPT_HTTPHEADER => [
+            'Authorization: Bearer ' . $token,
+            'Content-Type: application/json',
+        ],
+    ]);
+
+    $reviews = [];
+    foreach (($response['reviews'] ?? []) as $review) {
+        if (!is_array($review)) {
+            continue;
+        }
+        $comment = trim((string)($review['comment'] ?? ''));
+        $rating = gbp_rating_number((string)($review['starRating'] ?? ''));
+        if ($comment === '' || $rating < 4) {
+            continue;
+        }
+        $reviewer = $review['reviewer'] ?? [];
+        $reviews[] = [
+            'reviewId' => (string)($review['reviewId'] ?? $review['name'] ?? ''),
+            'author' => trim((string)(is_array($reviewer) ? ($reviewer['displayName'] ?? 'Klient Google') : 'Klient Google')),
+            'rating' => $rating,
+            'text' => $comment,
+            'createTime' => (string)($review['createTime'] ?? ''),
+            'updateTime' => (string)($review['updateTime'] ?? ''),
+            'relativeTime' => (string)($review['relativePublishTimeDescription'] ?? ''),
+            'source' => 'Google',
+        ];
+        if (count($reviews) >= 8) {
+            break;
+        }
+    }
+
+    $payload = [
+        'updatedAt' => date(DATE_ATOM),
+        'source' => 'Google',
+        'averageRating' => $response['averageRating'] ?? null,
+        'totalReviewCount' => $response['totalReviewCount'] ?? null,
+        'reviews' => $reviews,
+    ];
+
+    $file = SITE_ROOT . '/data/google-reviews.json';
+    if (!is_dir(dirname($file))) {
+        @mkdir(dirname($file), 0755, true);
+    }
+    if (file_put_contents($file, json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) . PHP_EOL, LOCK_EX) === false) {
+        throw new RuntimeException('Nie udało się zapisać pliku data/google-reviews.json.');
+    }
+    @chmod($file, 0644);
+
+    return $payload;
+}
+
 function gbp_log(array $entry): void
 {
     if (!is_dir(STORAGE_DIR)) {
@@ -264,7 +337,7 @@ try {
     require_csrf();
 
     $googleAction = post_text('google_action');
-    if (!in_array($googleAction, ['config_status', 'discover_locations', 'preview', 'photo_upload', 'post_create'], true)) {
+    if (!in_array($googleAction, ['config_status', 'discover_locations', 'refresh_reviews', 'preview', 'photo_upload', 'post_create'], true)) {
         gbp_json(400, ['ok' => false, 'message' => 'Nieznana akcja Google.']);
     }
 
@@ -303,6 +376,34 @@ try {
                 ? 'Znaleziono wizytówki Google dostępne dla tego konta.'
                 : 'Nie znaleziono wizytówek. Sprawdź, czy konto ma dostęp do profilu firmy i czy w Google Cloud włączone są Business Profile API.',
             'locations' => $locations,
+            'configStatus' => $configStatus,
+        ]);
+    }
+
+    if ($googleAction === 'refresh_reviews') {
+        foreach (['client_id', 'client_secret', 'refresh_token', 'account_id', 'location_id'] as $key) {
+            if (trim((string)($config[$key] ?? '')) === '') {
+                gbp_json(400, [
+                    'ok' => false,
+                    'message' => 'Najpierw uzupełnij Client ID, Client secret, Refresh token, Account ID i Location ID.',
+                    'configStatus' => $configStatus,
+                ]);
+            }
+        }
+
+        $token = gbp_access_token($config);
+        $reviewsPayload = gbp_refresh_reviews($config, $token);
+        gbp_log([
+            'action' => 'refresh_reviews',
+            'status' => 'success',
+            'count' => count($reviewsPayload['reviews'] ?? []),
+        ]);
+        gbp_json(200, [
+            'ok' => true,
+            'dryRun' => false,
+            'message' => 'Opinie Google zostały odświeżone i zapisane do data/google-reviews.json.',
+            'reviewsCount' => count($reviewsPayload['reviews'] ?? []),
+            'updatedAt' => $reviewsPayload['updatedAt'] ?? '',
             'configStatus' => $configStatus,
         ]);
     }
