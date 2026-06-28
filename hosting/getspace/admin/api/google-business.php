@@ -15,32 +15,7 @@ function gbp_json(int $status, array $payload): void
 
 function gbp_config(): array
 {
-    $defaults = [
-        'enabled' => false,
-        'dry_run' => true,
-        'client_id' => '',
-        'client_secret' => '',
-        'refresh_token' => '',
-        'account_id' => '',
-        'location_id' => '',
-        'site_url' => 'https://mgoutlet.pl',
-    ];
-
-    $file = STORAGE_DIR . '/google-business.php';
-    if (!is_file($file)) {
-        return $defaults;
-    }
-
-    $config = require $file;
-    return is_array($config) ? array_merge($defaults, $config) : $defaults;
-}
-
-function gbp_public_error(Throwable $exception): string
-{
-    if (preg_match('/token|secret|client|refresh|credential|authorization/i', $exception->getMessage())) {
-        return 'Nie udało się wykonać akcji Google. Sprawdź konfigurację API.';
-    }
-    return $exception->getMessage();
+    return load_google_business_config();
 }
 
 function gbp_clean_url(string $path, string $siteUrl): string
@@ -89,25 +64,15 @@ function gbp_can_send(array $config): bool
 
 function gbp_config_status(array $config): array
 {
-    $missing = [];
-    foreach (['client_id', 'client_secret', 'refresh_token', 'account_id', 'location_id'] as $key) {
-        if (trim((string)($config[$key] ?? '')) === '') {
-            $missing[] = $key;
-        }
-    }
-    if (empty($config['enabled'])) {
-        $missing[] = 'enabled=true';
-    }
-    if (!empty($config['dry_run'])) {
-        $missing[] = 'dry_run=false';
-    }
+    return google_business_config_status($config);
+}
 
-    return [
-        'ready' => $missing === [],
-        'enabled' => !empty($config['enabled']),
-        'dryRun' => !empty($config['dry_run']),
-        'missing' => $missing,
-    ];
+function gbp_public_error(Throwable $exception): string
+{
+    if (preg_match('/token|secret|client|refresh|credential|authorization/i', $exception->getMessage())) {
+        return 'Nie udało się wykonać akcji Google. Sprawdź konfigurację API.';
+    }
+    return $exception->getMessage();
 }
 
 function gbp_request(string $url, array $options): array

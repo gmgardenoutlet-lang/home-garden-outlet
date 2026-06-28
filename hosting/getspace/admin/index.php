@@ -70,6 +70,22 @@ try {
             redirect_admin();
         }
 
+        if ($action === 'save_google_config') {
+            $currentGoogleConfig = load_google_business_config();
+            save_google_business_config([
+                'enabled' => isset($_POST['google_enabled']),
+                'dry_run' => isset($_POST['google_dry_run']),
+                'client_id' => post_text('google_client_id'),
+                'client_secret' => post_text('google_client_secret'),
+                'refresh_token' => post_text('google_refresh_token'),
+                'account_id' => post_text('google_account_id'),
+                'location_id' => post_text('google_location_id'),
+                'site_url' => post_text('google_site_url'),
+            ], $currentGoogleConfig);
+            flash('success', 'Konfiguracja Google API została zapisana w chronionym katalogu panelu.');
+            redirect_admin('google_config=1');
+        }
+
         if ($action === 'toggle_sold') {
             $catalog = load_catalog();
             $index = filter_input(INPUT_POST, 'index', FILTER_VALIDATE_INT);
@@ -276,6 +292,7 @@ $newProduct = isset($_GET['new']);
 $showPassword = isset($_GET['password']);
 $showImport = isset($_GET['import']);
 $showStats = isset($_GET['stats']);
+$showGoogleConfig = isset($_GET['google_config']);
 $editIndex = $editing ? (int)$editRaw : null;
 $product = $editing ? array_merge(product_defaults(), $products[$editIndex]) : product_defaults();
 $googleTextPreview = trim((string)($product['googleText'] ?? '')) !== ''
@@ -290,6 +307,8 @@ $statsProductLimitLabels = [10 => 'Top 10', 25 => 'Top 25', 50 => 'Top 50'];
 $statsToday = $stats7 = $stats30 = $statsSelected = null;
 $statsCards = [];
 $statsTopProducts = [];
+$googleConfig = load_google_business_config();
+$googleConfigStatus = google_business_config_status($googleConfig);
 
 if ($showStats) {
     $statsToday = load_stats_summary('today', $catalog);
@@ -323,6 +342,7 @@ if ($showStats) {
     <div class="header-actions">
       <a class="btn btn-secondary btn-small" href="/" target="_blank" rel="noopener">Zobacz stronę</a>
       <a class="btn btn-secondary btn-small" href="/admin/?stats=1">Statystyki</a>
+      <a class="btn btn-secondary btn-small" href="/admin/?google_config=1">Google API</a>
       <a class="btn btn-secondary btn-small" href="/admin/?download=products">Kopia produktów</a>
       <form method="post">
         <input type="hidden" name="csrf" value="<?= e(csrf_token()) ?>">
@@ -438,6 +458,45 @@ if ($showStats) {
           </div>
         </section>
       <?php endif; ?>
+    <?php elseif ($showGoogleConfig): ?>
+      <div class="page-heading">
+        <div>
+          <p class="muted">Tajne dane są zapisywane tylko na serwerze, poza publicznymi plikami strony</p>
+          <h1>Google API</h1>
+        </div>
+        <a class="btn btn-secondary" href="/admin/">Wróć do produktów</a>
+      </div>
+      <form method="post" class="card form-grid">
+        <input type="hidden" name="csrf" value="<?= e(csrf_token()) ?>">
+        <input type="hidden" name="action" value="save_google_config">
+        <div class="field field-full google-helper">
+          <strong><?= $googleConfigStatus['ready'] ? 'Konfiguracja wygląda na gotową' : 'Konfiguracja jeszcze nie jest kompletna' ?></strong>
+          <p>
+            <?= $googleConfigStatus['ready']
+                ? 'Panel może próbować realnej wysyłki do Google Business Profile.'
+                : 'Na razie panel będzie działał w trybie testowym. Brakuje: ' . e(implode(', ', $googleConfigStatus['missing'])) ?>
+          </p>
+        </div>
+        <div class="field">
+          <label class="check-line"><input type="checkbox" name="google_enabled"<?= !empty($googleConfig['enabled']) ? ' checked' : '' ?>> Włącz realną integrację Google API</label>
+          <small>Zostaw wyłączone, dopóki nie sprawdzimy całej konfiguracji.</small>
+        </div>
+        <div class="field">
+          <label class="check-line"><input type="checkbox" name="google_dry_run"<?= !empty($googleConfig['dry_run']) ? ' checked' : '' ?>> Tryb testowy bez wysyłania</label>
+          <small>Bezpieczny tryb: panel tylko pokazuje, co zostałoby wysłane.</small>
+        </div>
+        <div class="field field-full"><label for="google_client_id">Client ID</label><input id="google_client_id" name="google_client_id" value="<?= e($googleConfig['client_id']) ?>" autocomplete="off"></div>
+        <div class="field field-full"><label for="google_client_secret">Client secret</label><input id="google_client_secret" type="password" name="google_client_secret" autocomplete="new-password" placeholder="<?= trim((string)$googleConfig['client_secret']) !== '' ? 'Zapisany - zostaw puste, aby nie zmieniać' : 'Wklej client secret' ?>"></div>
+        <div class="field field-full"><label for="google_refresh_token">Refresh token</label><input id="google_refresh_token" type="password" name="google_refresh_token" autocomplete="new-password" placeholder="<?= trim((string)$googleConfig['refresh_token']) !== '' ? 'Zapisany - zostaw puste, aby nie zmieniać' : 'Wklej refresh token z OAuth Playground' ?>"></div>
+        <div class="field"><label for="google_account_id">Account ID</label><input id="google_account_id" name="google_account_id" value="<?= e($googleConfig['account_id']) ?>" autocomplete="off"></div>
+        <div class="field"><label for="google_location_id">Location ID</label><input id="google_location_id" name="google_location_id" value="<?= e($googleConfig['location_id']) ?>" autocomplete="off"></div>
+        <div class="field field-full"><label for="google_site_url">Adres strony</label><input id="google_site_url" name="google_site_url" value="<?= e($googleConfig['site_url']) ?>" autocomplete="off"></div>
+        <div class="field field-full google-helper">
+          <strong>Instrukcja do tokena</strong>
+          <p>Refresh token wygenerujemy przez Google OAuth Playground ze scope: https://www.googleapis.com/auth/business.manage. Dane wklejone tutaj nie są pokazywane klientom i nie trafiają do GitHuba.</p>
+        </div>
+        <div class="field field-full"><button class="btn" type="submit">Zapisz konfigurację Google API</button></div>
+      </form>
     <?php elseif ($showImport): ?>
       <div class="page-heading">
         <div><p class="muted">Bezpieczna aktualizacja</p><h1>Import katalogu</h1></div>

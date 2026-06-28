@@ -9,6 +9,7 @@ const BACKUP_DIR = STORAGE_DIR . '/backups';
 const STATS_DIR = STORAGE_DIR . '/stats';
 const STATS_TIMEZONE = 'Europe/Warsaw';
 const CREDENTIALS_FILE = __DIR__ . '/.credentials.php';
+const GOOGLE_BUSINESS_CONFIG_FILE = STORAGE_DIR . '/google-business.php';
 const MAX_UPLOAD_BYTES = 12 * 1024 * 1024;
 const MAX_IMAGE_EDGE = 2200;
 
@@ -97,6 +98,91 @@ function credentials(): ?array
     }
     $config = require CREDENTIALS_FILE;
     return is_array($config) ? $config : null;
+}
+
+function google_business_config_defaults(): array
+{
+    return [
+        'enabled' => false,
+        'dry_run' => true,
+        'client_id' => '',
+        'client_secret' => '',
+        'refresh_token' => '',
+        'account_id' => '',
+        'location_id' => '',
+        'site_url' => 'https://mgoutlet.pl',
+    ];
+}
+
+function load_google_business_config(): array
+{
+    $defaults = google_business_config_defaults();
+    if (!is_file(GOOGLE_BUSINESS_CONFIG_FILE)) {
+        return $defaults;
+    }
+
+    $config = require GOOGLE_BUSINESS_CONFIG_FILE;
+    return is_array($config) ? array_merge($defaults, $config) : $defaults;
+}
+
+function google_business_config_status(array $config): array
+{
+    $missing = [];
+    foreach (['client_id', 'client_secret', 'refresh_token', 'account_id', 'location_id'] as $key) {
+        if (trim((string)($config[$key] ?? '')) === '') {
+            $missing[] = $key;
+        }
+    }
+    if (empty($config['enabled'])) {
+        $missing[] = 'enabled=true';
+    }
+    if (!empty($config['dry_run'])) {
+        $missing[] = 'dry_run=false';
+    }
+
+    return [
+        'ready' => $missing === [],
+        'enabled' => !empty($config['enabled']),
+        'dryRun' => !empty($config['dry_run']),
+        'missing' => $missing,
+    ];
+}
+
+function save_google_business_config(array $newConfig, array $previousConfig = []): void
+{
+    $previousConfig = array_merge(google_business_config_defaults(), $previousConfig);
+    $siteUrl = trim((string)($newConfig['site_url'] ?? ''));
+    if ($siteUrl === '') {
+        $siteUrl = 'https://mgoutlet.pl';
+    }
+    if (!preg_match('#^https://[a-z0-9.-]+(?:/)?$#i', $siteUrl)) {
+        throw new RuntimeException('Adres strony musi być adresem HTTPS, np. https://mgoutlet.pl');
+    }
+
+    $config = [
+        'enabled' => !empty($newConfig['enabled']),
+        'dry_run' => !empty($newConfig['dry_run']),
+        'client_id' => trim((string)($newConfig['client_id'] ?? '')),
+        'client_secret' => trim((string)($newConfig['client_secret'] ?? '')) !== ''
+            ? trim((string)$newConfig['client_secret'])
+            : (string)$previousConfig['client_secret'],
+        'refresh_token' => trim((string)($newConfig['refresh_token'] ?? '')) !== ''
+            ? trim((string)$newConfig['refresh_token'])
+            : (string)$previousConfig['refresh_token'],
+        'account_id' => trim((string)($newConfig['account_id'] ?? '')),
+        'location_id' => trim((string)($newConfig['location_id'] ?? '')),
+        'site_url' => rtrim($siteUrl, '/'),
+    ];
+
+    if (!is_dir(STORAGE_DIR)) {
+        @mkdir(STORAGE_DIR, 0750, true);
+    }
+
+    $payload = "<?php\ndeclare(strict_types=1);\n\nreturn " . var_export($config, true) . ";\n";
+    if (file_put_contents(GOOGLE_BUSINESS_CONFIG_FILE, $payload, LOCK_EX) === false) {
+        throw new RuntimeException('Nie udało się zapisać konfiguracji Google API.');
+    }
+    @chmod(GOOGLE_BUSINESS_CONFIG_FILE, 0640);
 }
 
 function save_credentials(string $username, string $password): void
