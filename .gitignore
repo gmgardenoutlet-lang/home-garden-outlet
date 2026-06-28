@@ -3,3 +3,17 @@ __pycache__/
 *.pyc
 migration-backups/
 migration-output/
+.env
+.env.local
+*.key
+*.pem
+admin/storage/
+admin/storage/google-business.php
+admin/storage/google-business-log.json
+admin/storage/*secret*
+admin/storage/*token*
+hosting/getspace/admin/storage/
+hosting/getspace/admin/storage/google-business.php
+hosting/getspace/admin/storage/google-business-log.json
+hosting/getspace/admin/storage/*secret*
+hosting/getspace/admin/storage/*token*

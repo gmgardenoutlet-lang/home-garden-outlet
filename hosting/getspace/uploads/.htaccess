@@ -1,0 +1,9 @@
+Options -Indexes
+
+<FilesMatch "\.(?:php|phtml|php[0-9]?|phar|cgi|pl|py|sh|exe|js|html?|svg|zip|tar|gz|7z|sql|db|log|key|pem)$">
+  Require all denied
+</FilesMatch>
+
+<IfModule mod_headers.c>
+  Header always set X-Content-Type-Options "nosniff"
+</IfModule>

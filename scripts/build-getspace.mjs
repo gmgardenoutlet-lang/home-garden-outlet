@@ -80,6 +80,9 @@ await mkdir(path.join(publish, "data"), { recursive: true });
 await cp(path.join(root, "data", "products.json"), path.join(publish, "data", "products.json"));
 await cp(path.join(root, "data", "google-reviews.json"), path.join(publish, "data", "google-reviews.json"));
 
+await mkdir(path.join(publish, "uploads"), { recursive: true });
+await cp(path.join(root, "hosting", "getspace", "uploads", ".htaccess"), path.join(publish, "uploads", ".htaccess"));
+
 for (const relativePath of uploadPaths) {
   const source = path.join(root, relativePath);
   const destination = path.join(publish, relativePath);

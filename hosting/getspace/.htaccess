@@ -7,6 +7,10 @@ AddType application/manifest+json .webmanifest
 <IfModule mod_rewrite.c>
   RewriteEngine On
 
+  # Blokady prywatnych i niebezpiecznych plikow.
+  RewriteRule (^|/)\.git(?:/|$) - [F,L]
+  RewriteRule ^uploads/.*\.(?:php|phtml|php[0-9]?|phar|cgi|pl|py|sh|exe|js|html?|svg|zip)$ - [F,L,NC]
+
   # Jedna wersja domeny: HTTPS bez www. Nie przekierowuj adresu testowego hostingu.
   RewriteCond %{HTTP_HOST} ^www\.mgoutlet\.pl$ [NC,OR]
   RewriteCond %{HTTPS} !=on
@@ -31,6 +35,10 @@ AddType application/manifest+json .webmanifest
   RewriteRule ^dom/?$ dom.html [L]
   RewriteRule ^ogrod/?$ ogrod.html [L]
 </IfModule>
+
+<FilesMatch "^(?:\.env(?:\..*)?|.*\.(?:bak|backup|old|orig|save|sql|sqlite|db|log|key|pem|crt|zip|tar|gz|7z))$">
+  Require all denied
+</FilesMatch>
 
 <Files "catalog.php">
   Require all denied

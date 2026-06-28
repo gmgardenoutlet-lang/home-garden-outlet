@@ -61,6 +61,11 @@ jobs:
             **/.git*
             **/.git*/**
             data/products.json
-            uploads/**
+            data/google-reviews.json
+            uploads/**/*.jpg
+            uploads/**/*.jpeg
+            uploads/**/*.png
+            uploads/**/*.webp
+            uploads/**/*.gif
             admin/.credentials.php
             admin/storage/**
