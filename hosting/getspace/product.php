@@ -111,7 +111,7 @@ $breadcrumbs = [
   <header class="site-header">
     <a class="logo" href="/" aria-label="Home & Garden Outlet - strona główna"><img src="/logo-optimized.jpg" width="64" height="64" alt="Home & Garden Outlet - meble do domu i ogrodu"></a>
     <button class="menu-toggle" type="button" aria-expanded="false" aria-controls="main-menu" aria-label="Otwórz menu"><span></span><span></span><span></span></button>
-    <nav id="main-menu" class="main-nav" aria-label="Menu główne"><a href="/">Strona główna</a><a href="/ogrod">Wyposażenie ogrodu</a><a href="/dom">Wyposażenie domu</a><a href="/poradnik/">Poradnik</a><a href="/#onas">O nas</a><a href="/#kontakt">Kontakt</a></nav>
+    <nav id="main-menu" class="main-nav" aria-label="Menu główne"><a href="/ogrod">Ogród</a><a href="/dom">Dom</a><a href="/#nowosci">Produkty</a><a href="/poradnik/">Poradnik</a><a href="/#kontakt">Kontakt</a></nav>
   </header>
 
   <main class="product-detail-page">
@@ -204,7 +204,7 @@ $breadcrumbs = [
     <div><span>Kontakt</span><a href="tel:+48577210777">577 210 777</a><a href="mailto:gmgardenoutlet@gmail.com">gmgardenoutlet@gmail.com</a><a href="/#kontakt">ul. Przelotowa 16, 55-080 Kębłowice</a></div>
     <div><span>Godziny otwarcia</span><p>Poniedziałek: nieczynne</p><p>Wtorek: 10:00-16:00</p><p>Środa-piątek: 10:00-18:00</p><p>Sobota-niedziela: 10:00-14:00</p></div>
     <div><span>Social media</span><a href="https://www.facebook.com/mgoutletpl/?locale=pl_PL" target="_blank" rel="noopener">Facebook</a><a href="https://www.instagram.com/_mygardenoutlet_/" target="_blank" rel="noopener">Instagram</a><a href="https://www.tiktok.com/@my_garden_outlet" target="_blank" rel="noopener">TikTok</a></div>
-    <div><span>Na skróty</span><a href="/outlet-meblowy-wroclaw/">Outlet meblowy Wrocław</a><a href="/meble-ogrodowe-wroclaw/">Meble ogrodowe Wrocław</a><a href="/dom">Meble do domu outlet</a><a href="/ogrod">Wyposażenie ogrodu</a><a href="/poradnik/">Poradnik</a></div>
+    <div><span>Na skróty</span><a href="/outlet-meblowy-wroclaw/">Outlet meblowy Wrocław</a><a href="/meble-ogrodowe-wroclaw/">Meble ogrodowe Wrocław</a><a href="/dom">Meble do domu outlet</a><a href="/ogrod">Meble ogrodowe</a><a href="/poradnik/">Poradnik</a></div>
   </footer>
 
   <nav class="mobile-sticky-cta" aria-label="Szybki kontakt"><a href="tel:+48577210777">Zadzwoń</a><a href="https://maps.app.goo.gl/SJ9LvQcub6rzQKAs5" target="_blank" rel="noopener" data-stat-event="navigation_click">Jak dojechać</a><a href="https://www.facebook.com/mgoutletpl/?locale=pl_PL" target="_blank" rel="noopener">Facebook</a></nav>

@@ -199,12 +199,10 @@
     </button>
 
     <nav id="main-menu" class="main-nav" aria-label="Menu główne">
-      <a href="#start">Strona główna</a>
+      <a href="/ogrod">Ogród</a>
+      <a href="/dom">Dom</a>
       <a href="#nowosci">Produkty</a>
-      <a href="#kategorie">Kategorie</a>
-      <a href="#outlet">Outlet</a>
       <a href="/poradnik/">Poradnik</a>
-      <a href="#onas">O nas</a>
       <a href="#kontakt">Kontakt</a>
     </nav>
   </header>
@@ -245,6 +243,30 @@
       </div>
     </section>
 
+    <section class="section quick-choice-section" aria-labelledby="quick-choice-title">
+      <div class="section-heading">
+        <p class="eyebrow">Szybki wybór</p>
+        <h2 id="quick-choice-title">Czego szukasz?</h2>
+      </div>
+      <div class="quick-choice-grid">
+        <article class="quick-choice-card">
+          <span>Meble ogrodowe</span>
+          <p>Zestawy tarasowe, leżaki, stoły, krzesła, donice i pojedyncze okazje do ogrodu.</p>
+          <a class="btn btn-primary" href="/ogrod">Zobacz ogród</a>
+        </article>
+        <article class="quick-choice-card">
+          <span>Meble do domu</span>
+          <p>Sofy, fotele, stoły, krzesła, lampy, dodatki i meble dostępne od ręki.</p>
+          <a class="btn btn-primary" href="/dom">Zobacz dom</a>
+        </article>
+        <article class="quick-choice-card quick-choice-card-soft">
+          <span>Wszystkie produkty</span>
+          <p>Przejrzyj aktualne perełki z outletu i sprawdź, co warto zobaczyć na miejscu.</p>
+          <a class="btn btn-outline" href="#nowosci">Zobacz produkty</a>
+        </article>
+      </div>
+    </section>
+
     <section id="kategorie" class="section section-warm">
       <div class="section-heading">
         <p class="eyebrow">Kategorie</p>
@@ -252,13 +274,13 @@
       </div>
 
       <div class="category-grid">
-        <a href="/ogrod" class="category-card category-card-garden" aria-label="Przejdź do kategorii Wyposażenie ogrodu">
-          <span>Wyposażenie ogrodu</span>
+        <a href="/ogrod" class="category-card category-card-garden" aria-label="Przejdź do kategorii Meble ogrodowe">
+          <span>Meble ogrodowe</span>
           <small>Meble ogrodowe, zestawy tarasowe, leżaki, donice i dekoracje</small>
           <strong>Zobacz kategorię</strong>
         </a>
-        <a href="/dom" class="category-card category-card-home" aria-label="Przejdź do kategorii Wyposażenie domu">
-          <span>Wyposażenie domu</span>
+        <a href="/dom" class="category-card category-card-home" aria-label="Przejdź do kategorii Meble do domu">
+          <span>Meble do domu</span>
           <small>Sofy, narożniki, fotele, stoły, dodatki i pojedyncze okazje outletowe</small>
           <strong>Zobacz kategorię</strong>
         </a>
@@ -274,6 +296,42 @@
         <div>
           <p class="eyebrow">Aktualna oferta</p>
           <h2>Polecane perełki z outletu</h2>
+        </div>
+      </div>
+
+      <div class="product-discovery" aria-label="Wyszukiwarka i filtry produktów">
+        <div class="product-discovery-head">
+          <p class="product-count" data-product-count>Aktualnie pokazujemy produkty z outletu</p>
+          <p>Oferta outletu zmienia się regularnie. Przed przyjazdem warto zadzwonić i potwierdzić dostępność.</p>
+        </div>
+        <label class="product-search">
+          <span>Szukaj produktu</span>
+          <input type="search" data-product-search placeholder="Szukaj produktu, np. sofa, fotel, ławka, lampa..." autocomplete="off">
+        </label>
+        <div class="product-filter-bar" aria-label="Filtry produktów">
+          <fieldset>
+            <legend>Kategoria</legend>
+            <label><input type="radio" name="product-category" value="all" data-product-filter="category" checked><span>Wszystkie</span></label>
+            <label><input type="radio" name="product-category" value="Wyposażenie domu" data-product-filter="category"><span>Dom</span></label>
+            <label><input type="radio" name="product-category" value="Wyposażenie ogrodu" data-product-filter="category"><span>Ogród</span></label>
+          </fieldset>
+          <fieldset>
+            <legend>Dostępność</legend>
+            <label><input type="radio" name="product-availability" value="all" data-product-filter="availability" checked><span>Wszystkie</span></label>
+            <label><input type="radio" name="product-availability" value="available" data-product-filter="availability"><span>Dostępne</span></label>
+            <label><input type="radio" name="product-availability" value="last" data-product-filter="availability"><span>Ostatnie sztuki</span></label>
+          </fieldset>
+          <fieldset>
+            <legend>Cena</legend>
+            <label><input type="radio" name="product-price" value="all" data-product-filter="price" checked><span>Wszystkie</span></label>
+            <label><input type="radio" name="product-price" value="under-500" data-product-filter="price"><span>do 500 zł</span></label>
+            <label><input type="radio" name="product-price" value="500-1500" data-product-filter="price"><span>500-1500 zł</span></label>
+            <label><input type="radio" name="product-price" value="over-1500" data-product-filter="price"><span>powyżej 1500 zł</span></label>
+          </fieldset>
+        </div>
+        <div class="empty-products" data-product-empty hidden>
+          <p>Nie znaleziono produktu. Zadzwoń — oferta outletu zmienia się regularnie.</p>
+          <a class="btn btn-primary" href="tel:+48577210777">Zadzwoń i zapytaj</a>
         </div>
       </div>
 
@@ -360,8 +418,8 @@
         <!-- STATIC_PRODUCTS_END -->
       </div>
       <div class="category-actions">
-        <a class="btn btn-primary" href="/ogrod">Zobacz wyposażenie ogrodu</a>
-        <a class="btn btn-outline" href="/dom">Zobacz wyposażenie domu</a>
+        <a class="btn btn-primary" href="/ogrod">Zobacz ogród</a>
+        <a class="btn btn-outline" href="/dom">Zobacz dom</a>
       </div>
     </section>
 
@@ -603,7 +661,7 @@
       <a href="/outlet-meblowy-wroclaw/">Outlet meblowy Wrocław</a>
       <a href="/meble-ogrodowe-wroclaw/">Meble ogrodowe Wrocław</a>
       <a href="/dom">Meble do domu outlet</a>
-      <a href="/ogrod">Wyposażenie ogrodu</a>
+      <a href="/ogrod">Meble ogrodowe</a>
       <a href="/poradnik/">Poradnik</a>
     </div>
   </footer>

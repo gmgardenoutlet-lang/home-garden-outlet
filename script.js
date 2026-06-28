@@ -86,6 +86,10 @@ const statusClasses = {
 
 const productGrid = document.querySelector("#produkty");
 const filterButtons = document.querySelectorAll(".filter-btn");
+const productSearchInput = document.querySelector("[data-product-search]");
+const productFilterInputs = document.querySelectorAll("[data-product-filter]");
+const productCount = document.querySelector("[data-product-count]");
+const productEmpty = document.querySelector("[data-product-empty]");
 const menuToggle = document.querySelector(".menu-toggle");
 const mainMenu = document.querySelector("#main-menu");
 const pageCategory = document.body.dataset.category || "";
@@ -200,6 +204,20 @@ function matchesCategory(productCategory, filter) {
   return normalizedCategory === normalizedFilter;
 }
 
+function getReadableCategory(productCategory) {
+  const normalizedCategory = normalizeText(productCategory);
+
+  if (normalizedCategory.includes("ogrod")) {
+    return "Meble ogrodowe";
+  }
+
+  if (normalizedCategory.includes("dom") || normalizedCategory.includes("dekoracje") || normalizedCategory.includes("oswietlenie")) {
+    return "Meble do domu";
+  }
+
+  return hasDisplayValue(productCategory) ? productCategory : "Produkt outletowy";
+}
+
 function isProductPublic(product) {
   if (product.visible === false) {
     return false;
@@ -245,6 +263,121 @@ function parsePrice(value) {
   const cleaned = String(value || "").replace(/\s/g, "").replace(",", ".");
   const match = cleaned.match(/\d+(?:\.\d+)?/);
   return match ? Number(match[0]) : null;
+}
+
+function getProductSearchText(product) {
+  return normalizeText([
+    product.name,
+    product.description,
+    product.longDescription,
+    product.category,
+    product.productType,
+    product.condition,
+    product.status,
+    product.productStatus,
+    product.availability,
+    product.material,
+    product.color,
+    Array.isArray(product.tags) ? product.tags.join(" ") : product.tags,
+    Array.isArray(product.keywords) ? product.keywords.join(" ") : product.keywords
+  ].filter(hasDisplayValue).join(" "));
+}
+
+function getProductPriceValue(product) {
+  return parsePrice(product.outletPrice) || parsePrice(product.catalogPrice);
+}
+
+function matchesAvailabilityFilter(product, filter) {
+  if (!filter || filter === "all") {
+    return true;
+  }
+
+  const status = normalizeText(getProductDisplayStatus(product));
+  const productStatus = normalizeText(product.productStatus);
+  const availability = normalizeText(product.availability);
+  const haystack = `${status} ${productStatus} ${availability}`;
+
+  if (filter === "available") {
+    return !haystack.includes("sprzed") && !haystack.includes("rezerw");
+  }
+
+  if (filter === "last") {
+    return haystack.includes("ostatnia") || haystack.includes("pojedyncza") || haystack.includes("pojedynczy");
+  }
+
+  return true;
+}
+
+function matchesPriceFilter(product, filter) {
+  if (!filter || filter === "all") {
+    return true;
+  }
+
+  const price = getProductPriceValue(product);
+
+  if (!price) {
+    return true;
+  }
+
+  if (filter === "under-500") {
+    return price <= 500;
+  }
+
+  if (filter === "500-1500") {
+    return price >= 500 && price <= 1500;
+  }
+
+  if (filter === "over-1500") {
+    return price > 1500;
+  }
+
+  return true;
+}
+
+function getDiscoveryFilters() {
+  const filters = {
+    category: "all",
+    availability: "all",
+    price: "all",
+    search: normalizeText(productSearchInput?.value || "").trim()
+  };
+
+  productFilterInputs.forEach((input) => {
+    if (input.checked && input.dataset.productFilter) {
+      filters[input.dataset.productFilter] = input.value;
+    }
+  });
+
+  return filters;
+}
+
+function hasActiveDiscoveryFilters(filters) {
+  return Boolean(filters.search)
+    || filters.category !== "all"
+    || filters.availability !== "all"
+    || filters.price !== "all";
+}
+
+function applyDiscoveryFilters(items, filters) {
+  return items.filter((product) => {
+    if (filters.category !== "all" && !matchesCategory(product.category, filters.category)) {
+      return false;
+    }
+
+    if (!matchesAvailabilityFilter(product, filters.availability)) {
+      return false;
+    }
+
+    if (!matchesPriceFilter(product, filters.price)) {
+      return false;
+    }
+
+    if (filters.search && !getProductSearchText(product).includes(filters.search)) {
+      return false;
+    }
+
+    return true;
+  });
 }
 
 function createProductSlug(value) {
@@ -348,7 +481,7 @@ function productCategoryLinks(product) {
   const isGarden = category.includes("ogrod");
   const links = isGarden
     ? [
-      { href: "/ogrod", label: "Więcej wyposażenia ogrodu" },
+      { href: "/ogrod", label: "Więcej mebli ogrodowych" },
       { href: "/meble-ogrodowe-wroclaw/", label: "Meble ogrodowe outlet Wrocław" }
     ]
     : [
@@ -365,7 +498,7 @@ function productCategoryLinks(product) {
 
 function productTemplate(product) {
   const name = product.name || "Produkt outletowy";
-  const category = product.category || "Wyposażenie ogrodu";
+  const category = getReadableCategory(product.category || "Wyposażenie ogrodu");
   const status = getProductDisplayStatus(product);
   const images = getProductImages(product);
   const seo = getProductSeo(product);
@@ -399,9 +532,9 @@ function productTemplate(product) {
   return `
     <article class="product-card">
       <div class="product-image">
-        <button class="product-gallery-trigger" type="button" data-gallery="${galleryData}" data-gallery-name="${escapeHtml(name)}" data-gallery-alt="${escapeHtml(seo.imageAlt)}" aria-label="Zobacz zdjęcia produktu: ${escapeHtml(name)}">
+        <a class="product-image-link" href="${escapeHtml(detailUrl)}" data-gallery="${galleryData}" data-gallery-name="${escapeHtml(name)}" data-gallery-alt="${escapeHtml(seo.imageAlt)}" aria-label="Zobacz produkt: ${escapeHtml(name)}">
           <img src="${escapeHtml(image)}" width="600" height="450" loading="lazy" alt="${escapeHtml(seo.imageAlt)}">
-        </button>
+        </a>
         <span class="badge ${badgeClass}">${escapeHtml(status)}</span>
         ${galleryCount}
       </div>
@@ -419,11 +552,10 @@ function productTemplate(product) {
         </div>
         ${condition}
         ${dimensions}
-        <a class="product-detail-link" href="${escapeHtml(detailUrl)}">Zobacz szczegóły produktu <span aria-hidden="true">→</span></a>
         ${productCategoryLinks(product)}
         <div class="product-actions">
-          <a class="btn btn-primary" href="tel:+48577210777">Zadzwoń</a>
-          <a class="btn btn-outline" href="sms:+48577210777">Zapytaj o produkt</a>
+          <a class="btn btn-primary" href="${escapeHtml(detailUrl)}">Zobacz produkt</a>
+          <a class="btn btn-outline" href="sms:+48577210777">Zapytaj o dostępność</a>
         </div>
       </div>
     </article>
@@ -531,22 +663,52 @@ function pickHomepageProducts(items) {
   return selected;
 }
 
+function updateProductCount(count, filters) {
+  if (!productCount) {
+    return;
+  }
+
+  if (hasActiveDiscoveryFilters(filters)) {
+    productCount.textContent = `Pokazano ${count} produktów`;
+    return;
+  }
+
+  if (isCategoryPage) {
+    const label = normalizeText(pageCategory).includes("ogrod")
+      ? "Meble ogrodowe"
+      : "Meble do domu";
+    productCount.textContent = `${label} — aktualnie ${count} produktów`;
+    return;
+  }
+
+  productCount.textContent = `Aktualnie pokazujemy ${count} produktów z outletu`;
+}
+
 function renderProducts(filter = "all") {
   if (!productGrid) {
     return;
   }
 
   const publicProducts = products.filter(isProductPublic);
-  const baseProducts = isCategoryPage
-    ? publicProducts.filter((product) => matchesCategory(product.category, pageCategory))
-    : pickHomepageProducts(publicProducts);
+  const filters = getDiscoveryFilters();
+  if (filter !== "all" && filters.category === "all") {
+    filters.category = filter;
+  }
 
-  const visibleProducts = !isCategoryPage && filter !== "all"
-    ? baseProducts.filter((product) => matchesCategory(product.category, filter))
-    : baseProducts;
-  const productsToRender = isCategoryPage ? sortProducts(visibleProducts) : visibleProducts;
+  const categoryProducts = isCategoryPage
+    ? publicProducts.filter((product) => matchesCategory(product.category, pageCategory))
+    : publicProducts;
+
+  const filteredProducts = applyDiscoveryFilters(categoryProducts, filters);
+  const productsToRender = !isCategoryPage && !hasActiveDiscoveryFilters(filters)
+    ? pickHomepageProducts(filteredProducts)
+    : sortProducts(filteredProducts);
 
   productGrid.innerHTML = productsToRender.map(productTemplate).join("");
+  updateProductCount(productsToRender.length, filters);
+  if (productEmpty) {
+    productEmpty.hidden = productsToRender.length > 0;
+  }
   requestAnimationFrame(initializeDescriptionToggles);
 }
 
@@ -599,6 +761,16 @@ filterButtons.forEach((button) => {
     filterButtons.forEach((item) => item.classList.remove("active"));
     button.classList.add("active");
     renderProducts(button.dataset.filter);
+  });
+});
+
+productSearchInput?.addEventListener("input", () => {
+  renderProducts(getActiveFilter());
+});
+
+productFilterInputs.forEach((input) => {
+  input.addEventListener("change", () => {
+    renderProducts(getActiveFilter());
   });
 });
 
