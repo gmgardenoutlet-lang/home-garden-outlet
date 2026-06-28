@@ -58,7 +58,9 @@ document.querySelectorAll("[data-google-action]").forEach((button) => {
     const result = form?.querySelector("[data-google-result]");
     const csrf = form?.querySelector('input[name="csrf"]')?.value || "";
     const index = form?.querySelector('input[name="index"]')?.value || "";
-    if (!form || !result || csrf === "" || index === "") return;
+    const googleAction = button.dataset.googleAction || "";
+    const needsProduct = !["config_status", "discover_locations"].includes(googleAction);
+    if (!form || !result || csrf === "" || (needsProduct && index === "")) return;
 
     const previousText = button.textContent;
     button.disabled = true;
@@ -69,8 +71,10 @@ document.querySelectorAll("[data-google-action]").forEach((button) => {
 
     const body = new FormData();
     body.set("csrf", csrf);
-    body.set("index", index);
-    body.set("google_action", button.dataset.googleAction || "");
+    if (index !== "") {
+      body.set("index", index);
+    }
+    body.set("google_action", googleAction);
 
     try {
       const response = await fetch("/admin/api/google-business.php", {
