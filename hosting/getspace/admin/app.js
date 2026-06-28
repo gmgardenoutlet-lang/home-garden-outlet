@@ -84,7 +84,8 @@ document.querySelectorAll("[data-google-action]").forEach((button) => {
       });
       const data = await response.json().catch(() => ({}));
       if (!response.ok || data.ok === false) {
-        throw new Error(data.message || "Nie udało się wykonać akcji Google.");
+        const errorDetails = data.error ? `\n\nSzczegóły: ${data.error}` : "";
+        throw new Error((data.message || "Nie udało się wykonać akcji Google.") + errorDetails);
       }
 
       const updates = data.productUpdates || {};
