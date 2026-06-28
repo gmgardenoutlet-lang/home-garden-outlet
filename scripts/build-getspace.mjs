@@ -78,6 +78,7 @@ for (const directory of publicDirectories) {
 
 await mkdir(path.join(publish, "data"), { recursive: true });
 await cp(path.join(root, "data", "products.json"), path.join(publish, "data", "products.json"));
+await cp(path.join(root, "data", "google-reviews.json"), path.join(publish, "data", "google-reviews.json"));
 
 for (const relativePath of uploadPaths) {
   const source = path.join(root, relativePath);

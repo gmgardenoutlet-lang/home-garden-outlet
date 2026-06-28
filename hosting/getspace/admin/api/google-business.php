@@ -238,14 +238,20 @@ function gbp_discover_locations(array $config, string $token): array
 
 function gbp_rating_number(string $rating): int
 {
-    return match (strtoupper($rating)) {
-        'ONE' => 1,
-        'TWO' => 2,
-        'THREE' => 3,
-        'FOUR' => 4,
-        'FIVE' => 5,
-        default => 0,
-    };
+    switch (strtoupper($rating)) {
+        case 'ONE':
+            return 1;
+        case 'TWO':
+            return 2;
+        case 'THREE':
+            return 3;
+        case 'FOUR':
+            return 4;
+        case 'FIVE':
+            return 5;
+        default:
+            return 0;
+    }
 }
 
 function gbp_refresh_reviews(array $config, string $token): array
