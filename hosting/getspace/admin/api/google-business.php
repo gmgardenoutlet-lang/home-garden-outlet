@@ -168,6 +168,74 @@ function gbp_create_post(array $config, array $payload, string $token): array
     ]);
 }
 
+function gbp_discover_locations(array $config, string $token): array
+{
+    $accountsResponse = gbp_request('https://mybusinessaccountmanagement.googleapis.com/v1/accounts', [
+        CURLOPT_HTTPHEADER => [
+            'Authorization: Bearer ' . $token,
+            'Content-Type: application/json',
+        ],
+    ]);
+
+    $locations = [];
+    foreach (($accountsResponse['accounts'] ?? []) as $account) {
+        if (!is_array($account)) {
+            continue;
+        }
+        $accountName = (string)($account['name'] ?? '');
+        $accountId = preg_replace('#^accounts/#', '', $accountName);
+        if ($accountName === '' || $accountId === '') {
+            continue;
+        }
+
+        try {
+            $locationsResponse = gbp_request(
+                'https://mybusinessbusinessinformation.googleapis.com/v1/' . $accountName . '/locations?readMask=name,title,storefrontAddress,phoneNumbers,websiteUri',
+                [
+                    CURLOPT_HTTPHEADER => [
+                        'Authorization: Bearer ' . $token,
+                        'Content-Type: application/json',
+                    ],
+                ]
+            );
+        } catch (Throwable $exception) {
+            $locationsResponse = ['locations' => []];
+        }
+
+        foreach (($locationsResponse['locations'] ?? []) as $location) {
+            if (!is_array($location)) {
+                continue;
+            }
+            $locationName = (string)($location['name'] ?? '');
+            $locationId = preg_replace('#^locations/#', '', $locationName);
+            if ($locationId === '') {
+                continue;
+            }
+
+            $address = $location['storefrontAddress'] ?? [];
+            $addressText = '';
+            if (is_array($address)) {
+                $addressText = trim(implode(', ', array_filter([
+                    implode(' ', (array)($address['addressLines'] ?? [])),
+                    $address['postalCode'] ?? '',
+                    $address['locality'] ?? '',
+                ])));
+            }
+
+            $locations[] = [
+                'accountId' => $accountId,
+                'accountName' => (string)($account['accountName'] ?? $account['type'] ?? $accountName),
+                'locationId' => $locationId,
+                'locationName' => (string)($location['title'] ?? $locationName),
+                'address' => $addressText,
+                'website' => (string)($location['websiteUri'] ?? ''),
+            ];
+        }
+    }
+
+    return $locations;
+}
+
 function gbp_log(array $entry): void
 {
     if (!is_dir(STORAGE_DIR)) {
@@ -196,7 +264,7 @@ try {
     require_csrf();
 
     $googleAction = post_text('google_action');
-    if (!in_array($googleAction, ['config_status', 'preview', 'photo_upload', 'post_create'], true)) {
+    if (!in_array($googleAction, ['config_status', 'discover_locations', 'preview', 'photo_upload', 'post_create'], true)) {
         gbp_json(400, ['ok' => false, 'message' => 'Nieznana akcja Google.']);
     }
 
@@ -212,6 +280,30 @@ try {
             'message' => $configStatus['ready']
                 ? 'Konfiguracja Google API wygląda na gotową do realnej wysyłki.'
                 : 'Google API działa w trybie testowym. Brakuje konfiguracji lub dry-run jest nadal włączony.',
+        ]);
+    }
+
+    if ($googleAction === 'discover_locations') {
+        foreach (['client_id', 'client_secret', 'refresh_token'] as $key) {
+            if (trim((string)($config[$key] ?? '')) === '') {
+                gbp_json(400, [
+                    'ok' => false,
+                    'message' => 'Najpierw zapisz Client ID, Client secret i Refresh token.',
+                    'configStatus' => $configStatus,
+                ]);
+            }
+        }
+
+        $token = gbp_access_token($config);
+        $locations = gbp_discover_locations($config, $token);
+        gbp_json(200, [
+            'ok' => true,
+            'dryRun' => true,
+            'message' => $locations
+                ? 'Znaleziono wizytówki Google dostępne dla tego konta.'
+                : 'Nie znaleziono wizytówek. Sprawdź, czy konto ma dostęp do profilu firmy i czy w Google Cloud włączone są Business Profile API.',
+            'locations' => $locations,
+            'configStatus' => $configStatus,
         ]);
     }
 

@@ -95,11 +95,14 @@ document.querySelectorAll("[data-google-action]").forEach((button) => {
       const details = data.payload
         ? `\n\nProdukt: ${data.payload.name || ""}\nURL produktu: ${data.payload.productUrl || ""}\nZdjęcie: ${data.payload.imageUrl || ""}\n\nTreść:\n${data.payload.summary || ""}`
         : "";
+      const locations = Array.isArray(data.locations) && data.locations.length
+        ? `\n\nZnalezione wizytówki:\n${data.locations.map((item, index) => `${index + 1}. ${item.locationName || "Wizytówka"}\n   Account ID: ${item.accountId || ""}\n   Location ID: ${item.locationId || ""}\n   Adres: ${item.address || "-"}\n   WWW: ${item.website || "-"}`).join("\n\n")}`
+        : "";
       const missingConfig = data.configStatus?.missing?.length
         ? `\n\nBrakuje w konfiguracji: ${data.configStatus.missing.join(", ")}`
         : "";
       result.classList.add(data.dryRun ? "is-warning" : "is-success");
-      result.textContent = `${data.message || "Gotowe."}${missingConfig}${details}`;
+      result.textContent = `${data.message || "Gotowe."}${missingConfig}${locations}${details}`;
     } catch (error) {
       result.classList.add("is-error");
       result.textContent = error instanceof Error ? error.message : "Nie udało się wykonać akcji Google.";

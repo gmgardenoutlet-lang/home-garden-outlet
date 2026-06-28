@@ -495,6 +495,11 @@ if ($showStats) {
           <strong>Instrukcja do tokena</strong>
           <p>Refresh token wygenerujemy przez Google OAuth Playground ze scope: https://www.googleapis.com/auth/business.manage. Dane wklejone tutaj nie są pokazywane klientom i nie trafiają do GitHuba.</p>
         </div>
+        <div class="field field-full google-api-actions">
+          <button class="btn btn-secondary btn-small" type="button" data-google-action="discover_locations">Pobierz wizytówki z Google</button>
+          <small>Po zapisaniu Client ID, Client secret i Refresh token kliknij tutaj. Panel pokaże Account ID i Location ID do wklejenia w pola powyżej.</small>
+          <div class="google-api-result" data-google-result hidden></div>
+        </div>
         <div class="field field-full"><button class="btn" type="submit">Zapisz konfigurację Google API</button></div>
       </form>
     <?php elseif ($showImport): ?>
