@@ -522,7 +522,7 @@ if ($showStats) {
           <div class="section-title">Google Business Profile</div>
           <div class="field field-full google-helper">
             <strong>Ręczne dodanie do wizytówki Google</strong>
-            <p>Google może nie pozwalać na automatyczne dodawanie produktów przez API. Ten blok przygotowuje opis do skopiowania i pozwala oznaczyć produkt jako dodany ręcznie w Google.</p>
+            <p>Google może nie pozwalać na automatyczne dodawanie produktów przez API. Ten blok przygotowuje opis do skopiowania, a po uzupełnieniu tajnej konfiguracji serwera może też wysłać zdjęcie lub utworzyć post w Google Business Profile.</p>
           </div>
           <div class="field"><label class="check-line"><input type="checkbox" name="googleManualProduct"<?= !empty($product['googleManualProduct']) ? ' checked' : '' ?>> Dodane ręcznie do Produktów Google</label></div>
           <div class="field"><label for="googleStatus">Status Google</label><select id="googleStatus" name="googleStatus"><?php foreach ($googleStatusOptions as $option): ?><option<?= ($product['googleStatus'] ?? 'Nie wysłano') === $option ? ' selected' : '' ?>><?= e($option) ?></option><?php endforeach; ?></select></div>
@@ -536,6 +536,13 @@ if ($showStats) {
           <div class="field"><label for="googleMediaId">ID zdjęcia Google</label><input id="googleMediaId" name="googleMediaId" value="<?= e($product['googleMediaId']) ?>" placeholder="na przyszłą integrację API"></div>
           <div class="field"><label for="googlePostId">ID posta Google</label><input id="googlePostId" name="googlePostId" value="<?= e($product['googlePostId']) ?>" placeholder="na przyszłą integrację API"></div>
           <div class="field field-full"><label for="googleError">Błąd API Google</label><input id="googleError" name="googleError" value="<?= e($product['googleError']) ?>" placeholder="puste, jeśli nie było błędu"></div>
+          <div class="field field-full google-api-actions">
+            <button class="btn btn-secondary btn-small" type="button" data-google-action="preview">Sprawdź dane do Google</button>
+            <button class="btn btn-secondary btn-small" type="button" data-google-action="photo_upload">Wyślij zdjęcie do Google</button>
+            <button class="btn btn-secondary btn-small" type="button" data-google-action="post_create">Utwórz post Google</button>
+            <small>Jeśli tajna konfiguracja Google API nie jest ustawiona, panel pokaże tylko bezpieczny podgląd danych bez wysyłania.</small>
+            <div class="google-api-result" data-google-result hidden></div>
+          </div>
         </div>
         <div class="form-actions"><button class="btn" type="submit">Zapisz produkt</button><a class="btn btn-secondary" href="/admin/">Anuluj</a></div>
       </form>

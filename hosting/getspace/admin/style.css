@@ -141,6 +141,27 @@ input:focus, textarea:focus, select:focus { outline: 3px solid rgba(63, 111, 69,
 .google-helper strong { color: var(--green-900); }
 .google-helper p { margin: 5px 0 0; color: var(--muted); }
 .copy-button { justify-self: start; margin-top: 4px; }
+.google-api-actions {
+  padding: 15px;
+  border: 1px solid #d8e5d6;
+  border-radius: 12px;
+  background: #fbfdf9;
+}
+.google-api-actions .btn { margin-right: 8px; margin-bottom: 8px; }
+.google-api-actions small { display: block; margin-top: 2px; }
+.google-api-result {
+  margin-top: 12px;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--white);
+  color: var(--text);
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+.google-api-result.is-success { border-color: #b6d8b8; background: #eff8ee; color: #285c31; }
+.google-api-result.is-warning { border-color: #e5d0a3; background: #fff8e9; color: #705117; }
+.google-api-result.is-error { border-color: #ead0ce; background: #fff0ee; color: #8c302b; }
 .login-note { margin-top: 18px; padding: 12px; border-radius: 9px; background: var(--green-100); color: var(--green-900); }
 .password-wrap { display: flex; gap: 8px; }
 .empty { padding: 30px; text-align: center; color: var(--muted); }
