@@ -83,11 +83,25 @@ const imagePath = (product) => {
   return String(product.image).startsWith("/") ? product.image : `/${product.image}`;
 };
 
+const readableCategory = (productCategory) => {
+  const category = normalize(productCategory);
+
+  if (category.includes("ogrod")) {
+    return "Meble ogrodowe";
+  }
+
+  if (category.includes("dom") || category.includes("dekoracje") || category.includes("oswietlenie")) {
+    return "Meble do domu";
+  }
+
+  return hasValue(productCategory) ? productCategory : "Produkt outletowy";
+};
+
 const productCategoryLinks = (product) => {
   const category = normalize(product.category);
   const links = category.includes("ogrod")
     ? [
-      { href: "/ogrod", label: "Więcej wyposażenia ogrodu" },
+      { href: "/ogrod", label: "Więcej mebli ogrodowych" },
       { href: "/meble-ogrodowe-wroclaw/", label: "Meble ogrodowe outlet Wrocław" }
     ]
     : [
@@ -102,7 +116,7 @@ const productCategoryLinks = (product) => {
 
 const productCard = (product) => {
   const name = hasValue(product.name) ? product.name : "Produkt outletowy";
-  const category = hasValue(product.category) ? product.category : "Meble do domu i ogrodu";
+  const category = readableCategory(product.category);
   const status = displayStatus(product);
   const alt = hasValue(product.imageAlt)
     ? product.imageAlt
@@ -135,7 +149,9 @@ const productCard = (product) => {
   return `
         <article class="product-card product-card-static">
           <div class="product-image">
-            <img src="${escapeHtml(imagePath(product))}" width="600" height="450" loading="lazy" alt="${escapeHtml(alt)}">
+            <a class="product-image-link" href="${escapeHtml(detailUrl)}" aria-label="Zobacz produkt: ${escapeHtml(name)}">
+              <img src="${escapeHtml(imagePath(product))}" width="600" height="450" loading="lazy" alt="${escapeHtml(alt)}">
+            </a>
             <span class="badge">${escapeHtml(status)}</span>
           </div>
           <div class="product-body">
@@ -148,11 +164,10 @@ const productCard = (product) => {
             </div>
             ${condition}
             ${dimensions}
-            <a class="product-detail-link" href="${escapeHtml(detailUrl)}">Zobacz szczegóły produktu <span aria-hidden="true">→</span></a>
             ${productCategoryLinks(product)}
             <div class="product-actions">
-              <a class="btn btn-primary" href="tel:+48577210777">Zadzwoń</a>
-              <a class="btn btn-outline" href="sms:+48577210777">Zapytaj o produkt</a>
+              <a class="btn btn-primary" href="${escapeHtml(detailUrl)}">Zobacz produkt</a>
+              <a class="btn btn-outline" href="sms:+48577210777">Zapytaj o dostępność</a>
             </div>
           </div>
         </article>`;
@@ -187,12 +202,13 @@ async function updatePage(file, pageProducts) {
   const next = markerPattern.test(html)
     ? html.replace(markerPattern, grid)
     : html.replace(emptyPattern, grid);
+  const cleaned = next.replace(/[ \t]+$/gm, "");
 
-  if (next === html) {
+  if (cleaned === html) {
     throw new Error(`Nie znaleziono siatki produktów w ${file}`);
   }
 
-  await writeFile(fullPath, next, "utf8");
+  await writeFile(fullPath, cleaned, "utf8");
 }
 
 await updatePage("index.html", homepageProducts());
