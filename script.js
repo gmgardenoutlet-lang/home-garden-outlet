@@ -240,6 +240,10 @@ function getProductDisplayStatus(product) {
   return hasDisplayValue(product.status) ? product.status : "Dostępny od ręki";
 }
 
+function isSoldProduct(product) {
+  return ["sprzedany", "sprzedane"].includes(normalizeText(getProductDisplayStatus(product)));
+}
+
 function escapeHtml(value) {
   return String(value || "")
     .replace(/&/g, "&amp;")
@@ -260,8 +264,31 @@ function hasDisplayValue(value) {
 }
 
 function parsePrice(value) {
-  const cleaned = String(value || "").replace(/\s/g, "").replace(",", ".");
-  const match = cleaned.match(/\d+(?:\.\d+)?/);
+  const raw = String(value || "")
+    .replace(/\s/g, "")
+    .replace(/[^\d,.]/g, "");
+
+  if (!raw) {
+    return null;
+  }
+
+  let normalized = raw;
+  const hasComma = normalized.includes(",");
+  const hasDot = normalized.includes(".");
+
+  if (hasComma && hasDot) {
+    normalized = normalized.replace(/\./g, "").replace(",", ".");
+  } else if (hasDot && !hasComma) {
+    const parts = normalized.split(".");
+    const lastPart = parts[parts.length - 1];
+    normalized = parts.length > 1 && lastPart.length === 3
+      ? parts.join("")
+      : normalized;
+  } else {
+    normalized = normalized.replace(",", ".");
+  }
+
+  const match = normalized.match(/\d+(?:\.\d+)?/);
   return match ? Number(match[0]) : null;
 }
 
@@ -555,7 +582,7 @@ function productTemplate(product) {
         ${productCategoryLinks(product)}
         <div class="product-actions">
           <a class="btn btn-primary" href="${escapeHtml(detailUrl)}">Zobacz produkt</a>
-          <a class="btn btn-outline" href="sms:+48577210777">Zapytaj o dostępność</a>
+          <a class="btn btn-outline" href="tel:+48577210777">Zapytaj o dostępność</a>
         </div>
       </div>
     </article>
@@ -651,7 +678,7 @@ function shuffleProducts(items) {
 }
 
 function pickHomepageProducts(items) {
-  const availableItems = items.filter((product) => !["sprzedany", "sprzedane"].includes(normalizeText(getProductDisplayStatus(product))));
+  const availableItems = items.filter((product) => !isSoldProduct(product));
   const featured = availableItems.filter((product) => product.featured !== false);
   const remaining = availableItems.filter((product) => product.featured === false);
   const selected = shuffleProducts(featured).slice(0, homepageProductLimit);
@@ -689,7 +716,7 @@ function renderProducts(filter = "all") {
     return;
   }
 
-  const publicProducts = products.filter(isProductPublic);
+  const publicProducts = products.filter(isProductPublic).filter((product) => !isSoldProduct(product));
   const filters = getDiscoveryFilters();
   if (filter !== "all" && filters.category === "all") {
     filters.category = filter;

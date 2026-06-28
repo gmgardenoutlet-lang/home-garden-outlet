@@ -25,7 +25,31 @@ const hasValue = (value) => {
 };
 
 const parsePrice = (value) => {
-  const match = String(value ?? "").replace(/\s/g, "").replace(",", ".").match(/\d+(?:\.\d+)?/);
+  const raw = String(value ?? "")
+    .replace(/\s/g, "")
+    .replace(/[^\d,.]/g, "");
+
+  if (!raw) {
+    return null;
+  }
+
+  let normalized = raw;
+  const hasComma = normalized.includes(",");
+  const hasDot = normalized.includes(".");
+
+  if (hasComma && hasDot) {
+    normalized = normalized.replace(/\./g, "").replace(",", ".");
+  } else if (hasDot && !hasComma) {
+    const parts = normalized.split(".");
+    const lastPart = parts[parts.length - 1];
+    normalized = parts.length > 1 && lastPart.length === 3
+      ? parts.join("")
+      : normalized;
+  } else {
+    normalized = normalized.replace(",", ".");
+  }
+
+  const match = normalized.match(/\d+(?:\.\d+)?/);
   return match ? Number(match[0]) : null;
 };
 
@@ -59,6 +83,8 @@ const displayStatus = (product) => {
   if (managementStatus === "rezerwacja") return "Rezerwacja";
   return hasValue(product.status) ? product.status : "Dostępny od ręki";
 };
+
+const isSold = (product) => ["sprzedany", "sprzedane"].includes(normalize(displayStatus(product)));
 
 const matchesCategory = (productCategory, pageCategory) => {
   const category = normalize(productCategory);
@@ -167,20 +193,20 @@ const productCard = (product) => {
             ${productCategoryLinks(product)}
             <div class="product-actions">
               <a class="btn btn-primary" href="${escapeHtml(detailUrl)}">Zobacz produkt</a>
-              <a class="btn btn-outline" href="sms:+48577210777">Zapytaj o dostępność</a>
+              <a class="btn btn-outline" href="tel:+48577210777">Zapytaj o dostępność</a>
             </div>
           </div>
         </article>`;
 };
 
 const homepageProducts = () => {
-  const publicProducts = products.filter(isPublic);
-  const featured = publicProducts.filter((product) => product.featured !== false && displayStatus(product) !== "Sprzedany" && displayStatus(product) !== "Sprzedane");
+  const publicProducts = products.filter(isPublic).filter((product) => !isSold(product));
+  const featured = publicProducts.filter((product) => product.featured !== false);
   const selected = featured.slice(0, 6);
 
   if (selected.length < 6) {
     selected.push(...publicProducts
-      .filter((product) => !selected.includes(product) && displayStatus(product) !== "Sprzedany" && displayStatus(product) !== "Sprzedane")
+      .filter((product) => !selected.includes(product))
       .slice(0, 6 - selected.length));
   }
 
@@ -212,7 +238,7 @@ async function updatePage(file, pageProducts) {
 }
 
 await updatePage("index.html", homepageProducts());
-await updatePage("dom.html", products.filter(isPublic).filter((product) => matchesCategory(product.category, "Wyposażenie domu")));
-await updatePage("ogrod.html", products.filter(isPublic).filter((product) => matchesCategory(product.category, "Wyposażenie ogrodu")));
+await updatePage("dom.html", products.filter(isPublic).filter((product) => !isSold(product)).filter((product) => matchesCategory(product.category, "Wyposażenie domu")));
+await updatePage("ogrod.html", products.filter(isPublic).filter((product) => !isSold(product)).filter((product) => matchesCategory(product.category, "Wyposażenie ogrodu")));
 
 console.log(`Wygenerowano statyczny katalog z ${products.length} produktów.`);
