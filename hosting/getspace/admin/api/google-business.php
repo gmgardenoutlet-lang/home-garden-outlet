@@ -87,6 +87,29 @@ function gbp_can_send(array $config): bool
     return !empty($config['enabled']) && empty($config['dry_run']);
 }
 
+function gbp_config_status(array $config): array
+{
+    $missing = [];
+    foreach (['client_id', 'client_secret', 'refresh_token', 'account_id', 'location_id'] as $key) {
+        if (trim((string)($config[$key] ?? '')) === '') {
+            $missing[] = $key;
+        }
+    }
+    if (empty($config['enabled'])) {
+        $missing[] = 'enabled=true';
+    }
+    if (!empty($config['dry_run'])) {
+        $missing[] = 'dry_run=false';
+    }
+
+    return [
+        'ready' => $missing === [],
+        'enabled' => !empty($config['enabled']),
+        'dryRun' => !empty($config['dry_run']),
+        'missing' => $missing,
+    ];
+}
+
 function gbp_request(string $url, array $options): array
 {
     if (!function_exists('curl_init')) {
@@ -208,8 +231,23 @@ try {
     require_csrf();
 
     $googleAction = post_text('google_action');
-    if (!in_array($googleAction, ['preview', 'photo_upload', 'post_create'], true)) {
+    if (!in_array($googleAction, ['config_status', 'preview', 'photo_upload', 'post_create'], true)) {
         gbp_json(400, ['ok' => false, 'message' => 'Nieznana akcja Google.']);
+    }
+
+    $config = gbp_config();
+    $configStatus = gbp_config_status($config);
+
+    if ($googleAction === 'config_status') {
+        gbp_json(200, [
+            'ok' => true,
+            'dryRun' => !$configStatus['ready'],
+            'configReady' => $configStatus['ready'],
+            'configStatus' => $configStatus,
+            'message' => $configStatus['ready']
+                ? 'Konfiguracja Google API wygląda na gotową do realnej wysyłki.'
+                : 'Google API działa w trybie testowym. Brakuje konfiguracji lub dry-run jest nadal włączony.',
+        ]);
     }
 
     $index = filter_input(INPUT_POST, 'index', FILTER_VALIDATE_INT);
@@ -219,7 +257,6 @@ try {
     }
 
     $product = array_merge(product_defaults(), $catalog['products'][$index]);
-    $config = gbp_config();
     $payload = gbp_product_payload($product, $config);
     $canSend = gbp_can_send($config);
     $dryRun = !$canSend;
@@ -232,6 +269,7 @@ try {
             : 'Połączono z Google Business Profile.',
         'payload' => $payload,
         'configReady' => $canSend,
+        'configStatus' => $configStatus,
     ];
 
     if ($googleAction === 'preview' || $dryRun) {

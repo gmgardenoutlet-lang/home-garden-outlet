@@ -537,6 +537,7 @@ if ($showStats) {
           <div class="field"><label for="googlePostId">ID posta Google</label><input id="googlePostId" name="googlePostId" value="<?= e($product['googlePostId']) ?>" placeholder="na przyszłą integrację API"></div>
           <div class="field field-full"><label for="googleError">Błąd API Google</label><input id="googleError" name="googleError" value="<?= e($product['googleError']) ?>" placeholder="puste, jeśli nie było błędu"></div>
           <div class="field field-full google-api-actions">
+            <button class="btn btn-secondary btn-small" type="button" data-google-action="config_status">Sprawdź konfigurację API</button>
             <button class="btn btn-secondary btn-small" type="button" data-google-action="preview">Sprawdź dane do Google</button>
             <button class="btn btn-secondary btn-small" type="button" data-google-action="photo_upload">Wyślij zdjęcie do Google</button>
             <button class="btn btn-secondary btn-small" type="button" data-google-action="post_create">Utwórz post Google</button>

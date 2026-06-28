@@ -95,8 +95,11 @@ document.querySelectorAll("[data-google-action]").forEach((button) => {
       const details = data.payload
         ? `\n\nProdukt: ${data.payload.name || ""}\nURL produktu: ${data.payload.productUrl || ""}\nZdjęcie: ${data.payload.imageUrl || ""}\n\nTreść:\n${data.payload.summary || ""}`
         : "";
+      const missingConfig = data.configStatus?.missing?.length
+        ? `\n\nBrakuje w konfiguracji: ${data.configStatus.missing.join(", ")}`
+        : "";
       result.classList.add(data.dryRun ? "is-warning" : "is-success");
-      result.textContent = `${data.message || "Gotowe."}${details}`;
+      result.textContent = `${data.message || "Gotowe."}${missingConfig}${details}`;
     } catch (error) {
       result.classList.add("is-error");
       result.textContent = error instanceof Error ? error.message : "Nie udało się wykonać akcji Google.";
