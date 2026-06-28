@@ -147,17 +147,25 @@ try {
             $textFields = [
                 'name', 'category', 'productType', 'catalogPrice', 'outletPrice', 'currency',
                 'imageAlt', 'description', 'longDescription', 'dimensions', 'material', 'color',
-                'condition', 'status', 'productStatus', 'seoTitle', 'seoDescription', 'slug'
+                'condition', 'status', 'productStatus', 'seoTitle', 'seoDescription', 'slug',
+                'googleStatus', 'googleSentAt', 'googleMediaId', 'googlePostId', 'googleText', 'googleError'
             ];
             foreach ($textFields as $field) {
                 $product[$field] = post_text($field);
             }
             $product['featured'] = isset($_POST['featured']);
             $product['visible'] = isset($_POST['visible']);
+            $product['googleManualProduct'] = isset($_POST['googleManualProduct']);
             $product['order'] = (int)($_POST['order'] ?? 0);
             $product['currency'] = 'PLN';
             $product['productStatus'] = $product['productStatus'] !== '' ? $product['productStatus'] : 'Aktywny';
             $product['slug'] = unique_product_slug($product['slug'] !== '' ? $product['slug'] : $name, $catalog['products'], $isEdit ? $index : null);
+            if ($product['googleText'] === '') {
+                $product['googleText'] = google_business_description($product);
+            }
+            if ($product['googleManualProduct'] && in_array($product['googleStatus'], ['', 'Nie wysłano'], true)) {
+                $product['googleStatus'] = 'Dodane ręcznie';
+            }
 
             if (isset($_FILES['main_image']) && (int)($_FILES['main_image']['error'] ?? UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_NO_FILE) {
                 $product['image'] = uploaded_file($_FILES['main_image'], $name);
@@ -270,6 +278,10 @@ $showImport = isset($_GET['import']);
 $showStats = isset($_GET['stats']);
 $editIndex = $editing ? (int)$editRaw : null;
 $product = $editing ? array_merge(product_defaults(), $products[$editIndex]) : product_defaults();
+$googleTextPreview = trim((string)($product['googleText'] ?? '')) !== ''
+    ? (string)$product['googleText']
+    : google_business_description($product);
+$googleStatusOptions = ['Nie wysłano', 'Wysłano', 'Błąd', 'Dodane ręcznie'];
 $search = trim((string)($_GET['q'] ?? ''));
 $statsRange = normalize_stats_range((string)($_GET['range'] ?? 'today'));
 $statsProductLimit = normalize_stats_product_limit($_GET['product_limit'] ?? 10);
@@ -506,6 +518,24 @@ if ($showStats) {
           <div class="field field-full"><label for="seoTitle">Tytuł SEO</label><input id="seoTitle" name="seoTitle" value="<?= e($product['seoTitle']) ?>"></div>
           <div class="field field-full"><label for="seoDescription">Opis SEO</label><textarea id="seoDescription" name="seoDescription"><?= e($product['seoDescription']) ?></textarea><small>Zalecane około 140–160 znaków.</small></div>
           <div class="field field-full"><label for="slug">Adres produktu / slug</label><input id="slug" name="slug" value="<?= e($product['slug']) ?>" placeholder="Utworzy się automatycznie z nazwy"><small>Zostaw puste, a panel sam przygotuje czytelny adres strony produktu.</small></div>
+
+          <div class="section-title">Google Business Profile</div>
+          <div class="field field-full google-helper">
+            <strong>Ręczne dodanie do wizytówki Google</strong>
+            <p>Google może nie pozwalać na automatyczne dodawanie produktów przez API. Ten blok przygotowuje opis do skopiowania i pozwala oznaczyć produkt jako dodany ręcznie w Google.</p>
+          </div>
+          <div class="field"><label class="check-line"><input type="checkbox" name="googleManualProduct"<?= !empty($product['googleManualProduct']) ? ' checked' : '' ?>> Dodane ręcznie do Produktów Google</label></div>
+          <div class="field"><label for="googleStatus">Status Google</label><select id="googleStatus" name="googleStatus"><?php foreach ($googleStatusOptions as $option): ?><option<?= ($product['googleStatus'] ?? 'Nie wysłano') === $option ? ' selected' : '' ?>><?= e($option) ?></option><?php endforeach; ?></select></div>
+          <div class="field field-full">
+            <label for="googleText">Treść do Google</label>
+            <textarea id="googleText" name="googleText" rows="6"><?= e($googleTextPreview) ?></textarea>
+            <small>Skopiuj ten opis do produktu lub posta w wizytówce Google. Nie obiecuje stałej dostępności produktu.</small>
+            <button class="btn btn-secondary btn-small copy-button" type="button" data-copy-target="googleText">Skopiuj opis</button>
+          </div>
+          <div class="field"><label for="googleSentAt">Data wysłania / dodania</label><input id="googleSentAt" name="googleSentAt" value="<?= e($product['googleSentAt']) ?>" placeholder="np. 2026-06-28"></div>
+          <div class="field"><label for="googleMediaId">ID zdjęcia Google</label><input id="googleMediaId" name="googleMediaId" value="<?= e($product['googleMediaId']) ?>" placeholder="na przyszłą integrację API"></div>
+          <div class="field"><label for="googlePostId">ID posta Google</label><input id="googlePostId" name="googlePostId" value="<?= e($product['googlePostId']) ?>" placeholder="na przyszłą integrację API"></div>
+          <div class="field field-full"><label for="googleError">Błąd API Google</label><input id="googleError" name="googleError" value="<?= e($product['googleError']) ?>" placeholder="puste, jeśli nie było błędu"></div>
         </div>
         <div class="form-actions"><button class="btn" type="submit">Zapisz produkt</button><a class="btn btn-secondary" href="/admin/">Anuluj</a></div>
       </form>

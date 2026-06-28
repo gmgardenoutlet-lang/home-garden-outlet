@@ -441,7 +441,45 @@ function product_defaults(): array
         'seoDescription' => '',
         'slug' => '',
         'order' => 0,
+        'googleManualProduct' => false,
+        'googleStatus' => 'Nie wysłano',
+        'googleSentAt' => '',
+        'googleMediaId' => '',
+        'googlePostId' => '',
+        'googleText' => '',
+        'googleError' => '',
     ];
+}
+
+function google_business_description(array $product): string
+{
+    $name = trim((string)($product['name'] ?? 'Produkt z oferty'));
+    if ($name === '') {
+        $name = 'Produkt z oferty';
+    }
+
+    $outletPrice = trim((string)($product['outletPrice'] ?? ''));
+    $statusRaw = trim((string)($product['status'] ?? ''));
+    $status = function_exists('mb_strtolower') ? mb_strtolower($statusRaw, 'UTF-8') : strtolower($statusRaw);
+    $isSold = str_contains($status, 'sprzedane') || str_contains($status, 'sprzedany');
+
+    $parts = [
+        $name . ' dostępny w Home & Garden Outlet w Kębłowicach pod Wrocławiem.',
+    ];
+
+    if ($outletPrice !== '') {
+        $parts[] = 'Cena outletowa: ' . $outletPrice . '.';
+    }
+
+    if ($isSold) {
+        $parts[] = 'Produkt może być już niedostępny, ale możesz zadzwonić i zapytać o podobne meble z aktualnej oferty.';
+    } else {
+        $parts[] = 'Produkt można obejrzeć na żywo w naszym showroomie.';
+        $parts[] = 'Oferta outletowa - często pojedyncza sztuka lub końcówka kolekcji.';
+        $parts[] = 'Przed przyjazdem warto zadzwonić pod numer 577 210 777 i potwierdzić dostępność.';
+    }
+
+    return implode(' ', $parts);
 }
 
 function post_text(string $key): string

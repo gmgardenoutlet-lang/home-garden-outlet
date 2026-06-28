@@ -132,6 +132,15 @@ input:focus, textarea:focus, select:focus { outline: 3px solid rgba(63, 111, 69,
 .upload-preview img, .gallery-item img { width: 100%; aspect-ratio: 4 / 3; object-fit: cover; border-radius: 8px; }
 .gallery-item { padding: 7px; border: 1px solid var(--line); border-radius: 10px; }
 .gallery-item .check-line { min-height: 32px; font-size: 13px; }
+.google-helper {
+  padding: 15px;
+  border: 1px solid #d8e5d6;
+  border-radius: 12px;
+  background: #f6faf4;
+}
+.google-helper strong { color: var(--green-900); }
+.google-helper p { margin: 5px 0 0; color: var(--muted); }
+.copy-button { justify-self: start; margin-top: 4px; }
 .login-note { margin-top: 18px; padding: 12px; border-radius: 9px; background: var(--green-100); color: var(--green-900); }
 .password-wrap { display: flex; gap: 8px; }
 .empty { padding: 30px; text-align: center; color: var(--muted); }

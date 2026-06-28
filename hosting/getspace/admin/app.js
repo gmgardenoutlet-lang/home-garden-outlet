@@ -31,3 +31,23 @@ document.querySelectorAll("[data-password-toggle]").forEach((button) => {
     button.textContent = input.type === "password" ? "Pokaż" : "Ukryj";
   });
 });
+
+document.querySelectorAll("[data-copy-target]").forEach((button) => {
+  button.addEventListener("click", async () => {
+    const target = document.getElementById(button.dataset.copyTarget || "");
+    if (!(target instanceof HTMLTextAreaElement || target instanceof HTMLInputElement)) return;
+
+    try {
+      await navigator.clipboard.writeText(target.value);
+      const previous = button.textContent;
+      button.textContent = "Skopiowano";
+      window.setTimeout(() => {
+        button.textContent = previous;
+      }, 1800);
+    } catch (error) {
+      target.focus();
+      target.select();
+      button.textContent = "Zaznaczono tekst";
+    }
+  });
+});
