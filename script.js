@@ -101,7 +101,7 @@ const isCategoryPage = Boolean(pageCategory);
 const homepageProductLimit = 6;
 const statsEndpoint = "/stats/track.php";
 // Tutaj należy wkleić prawdziwy link do opinii wygenerowany w Google Business Profile.
-const GOOGLE_REVIEW_URL = "";
+const GOOGLE_REVIEW_URL = "https://g.page/r/CbBzpFh7V9LBEBM/review";
 const trackedEvents = new Set([
   "page_view",
   "product_view",
