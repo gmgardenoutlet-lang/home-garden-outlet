@@ -93,12 +93,15 @@ const productEmpty = document.querySelector("[data-product-empty]");
 const googleReviewsGrid = document.querySelector("[data-google-reviews]");
 const googleReviewTitle = document.querySelector("[data-google-review-title]");
 const googleReviewSummary = document.querySelector("[data-google-review-summary]");
+const googleReviewAddLinks = document.querySelectorAll("[data-google-review-add]");
 const menuToggle = document.querySelector(".menu-toggle");
 const mainMenu = document.querySelector("#main-menu");
 const pageCategory = document.body.dataset.category || "";
 const isCategoryPage = Boolean(pageCategory);
 const homepageProductLimit = 6;
 const statsEndpoint = "/stats/track.php";
+// Tutaj należy wkleić prawdziwy link do opinii wygenerowany w Google Business Profile.
+const GOOGLE_REVIEW_URL = "";
 const trackedEvents = new Set([
   "page_view",
   "product_view",
@@ -110,6 +113,17 @@ const trackedEvents = new Set([
   "product_question_click"
 ]);
 let products = assignProductSlugs(fallbackProducts);
+
+function initializeGoogleReviewLinks() {
+  if (!googleReviewAddLinks.length || !GOOGLE_REVIEW_URL) {
+    return;
+  }
+
+  googleReviewAddLinks.forEach((link) => {
+    link.href = GOOGLE_REVIEW_URL;
+    link.hidden = false;
+  });
+}
 
 function formatGoogleReviewDate(value, fallback = "") {
   if (!value) {
@@ -992,6 +1006,7 @@ if (document.body.dataset.productSlug) {
   sendStatsEvent("product_view");
 }
 
+initializeGoogleReviewLinks();
 loadGoogleReviews();
 
 if (productGrid) {
