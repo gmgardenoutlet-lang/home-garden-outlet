@@ -52,6 +52,76 @@ document.querySelectorAll("[data-copy-target]").forEach((button) => {
   });
 });
 
+(() => {
+  const googleText = document.getElementById("googleText");
+  if (!(googleText instanceof HTMLTextAreaElement)) return;
+
+  const nameInput = document.getElementById("name");
+  const outletPriceInput = document.getElementById("outletPrice");
+  const statusInput = document.getElementById("status");
+
+  const fieldValue = (field) => field instanceof HTMLInputElement || field instanceof HTMLSelectElement
+    ? field.value.trim()
+    : "";
+
+  const normalize = (value) => value.replace(/\s+/g, " ").trim();
+
+  const buildGoogleText = () => {
+    const name = fieldValue(nameInput) || "Produkt z oferty";
+    const outletPrice = fieldValue(outletPriceInput);
+    const status = fieldValue(statusInput).toLowerCase();
+    const isSold = status.includes("sprzedane") || status.includes("sprzedany");
+    const parts = [
+      `${name} dostępny w Home & Garden Outlet w Kębłowicach pod Wrocławiem.`,
+    ];
+
+    if (outletPrice !== "") {
+      parts.push(`Cena outletowa: ${outletPrice}.`);
+    }
+
+    if (isSold) {
+      parts.push("Produkt może być już niedostępny, ale możesz zadzwonić i zapytać o podobne meble z aktualnej oferty.");
+    } else {
+      parts.push("Produkt można obejrzeć na żywo w naszym showroomie.");
+      parts.push("Oferta outletowa - często pojedyncza sztuka lub końcówka kolekcji.");
+      parts.push("Przed przyjazdem warto zadzwonić pod numer 577 210 777 i potwierdzić dostępność.");
+    }
+
+    return parts.join(" ");
+  };
+
+  let lastAutoText = buildGoogleText();
+  let userEditedGoogleText = googleText.value.trim() !== "" && normalize(googleText.value) !== normalize(lastAutoText);
+
+  const shouldReplaceCurrentText = () => {
+    const current = normalize(googleText.value);
+    return current === ""
+      || current === normalize(lastAutoText)
+      || current.startsWith("Produkt z oferty dostępny w Home & Garden Outlet");
+  };
+
+  const updateGoogleText = () => {
+    if (userEditedGoogleText && !shouldReplaceCurrentText()) return;
+    if (!shouldReplaceCurrentText()) return;
+
+    lastAutoText = buildGoogleText();
+    googleText.value = lastAutoText;
+    userEditedGoogleText = false;
+  };
+
+  googleText.addEventListener("input", () => {
+    userEditedGoogleText = normalize(googleText.value) !== normalize(lastAutoText);
+  });
+
+  [nameInput, outletPriceInput, statusInput].forEach((field) => {
+    if (!field) return;
+    field.addEventListener("input", updateGoogleText);
+    field.addEventListener("change", updateGoogleText);
+  });
+
+  updateGoogleText();
+})();
+
 document.querySelectorAll("[data-google-action]").forEach((button) => {
   button.addEventListener("click", async () => {
     const form = button.closest("form");
