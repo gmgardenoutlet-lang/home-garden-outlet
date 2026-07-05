@@ -8,6 +8,13 @@
   const deliveryBox = document.querySelector("[data-delivery-options]");
   const cartPayload = document.querySelector("[data-cart-payload]");
   const form = document.querySelector("[data-checkout-form]");
+  const productGrid = document.querySelector("[data-shop-grid]");
+  const sortSelect = document.querySelector("[data-shop-sort]");
+  const productCards = productGrid ? Array.from(productGrid.querySelectorAll("[data-product-card]")) : [];
+
+  productCards.forEach((card, index) => {
+    card.dataset.defaultOrder = String(index);
+  });
 
   const readCart = () => {
     try {
@@ -105,6 +112,24 @@
   const escapeHtml = (value) => String(value || "").replace(/[&<>"']/g, (char) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#039;" }[char]));
   const escapeAttr = escapeHtml;
 
+  const parsePrice = (value) => {
+    const normalized = String(value || "").replace(/\s/g, "").replace(",", ".");
+    const match = normalized.match(/\d+(?:\.\d+)?/);
+    return match ? Number(match[0]) : Number.POSITIVE_INFINITY;
+  };
+
+  const sortProductCards = () => {
+    if (!productGrid || !sortSelect) return;
+    const mode = sortSelect.value;
+    const sorted = [...productCards].sort((a, b) => {
+      if (mode === "price-asc") return parsePrice(a.dataset.price) - parsePrice(b.dataset.price);
+      if (mode === "price-desc") return parsePrice(b.dataset.price) - parsePrice(a.dataset.price);
+      if (mode === "name") return String(a.dataset.name || "").localeCompare(String(b.dataset.name || ""), "pl");
+      return Number(a.dataset.defaultOrder || 0) - Number(b.dataset.defaultOrder || 0);
+    });
+    sorted.forEach((card) => productGrid.appendChild(card));
+  };
+
   document.addEventListener("click", (event) => {
     const target = event.target;
     if (!(target instanceof HTMLElement)) return;
@@ -155,6 +180,10 @@
 
   document.addEventListener("change", (event) => {
     const target = event.target;
+    if (target === sortSelect) {
+      sortProductCards();
+      return;
+    }
     if (!(target instanceof HTMLInputElement) || target.name !== "cart_delivery") return;
     const cart = cartWithValidItems();
     cart.delivery = target.value;

@@ -42,6 +42,33 @@ a { color: var(--green-800); }
 .container { width: min(1240px, calc(100% - 32px)); margin: 28px auto 70px; }
 .narrow { width: min(540px, calc(100% - 32px)); margin: 8vh auto; }
 
+.admin-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 0 0 18px;
+}
+
+.admin-tabs a {
+  display: inline-flex;
+  align-items: center;
+  min-height: 40px;
+  padding: 9px 13px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--white);
+  color: var(--green-900);
+  font-weight: 800;
+  text-decoration: none;
+}
+
+.admin-tabs a:hover,
+.admin-tabs a.active {
+  border-color: var(--green-800);
+  background: var(--green-100);
+  color: var(--green-900);
+}
+
 .card {
   padding: 24px;
   border: 1px solid var(--line);
@@ -189,6 +216,13 @@ input:focus, textarea:focus, select:focus { outline: 3px solid rgba(63, 111, 69,
 .password-wrap { display: flex; gap: 8px; }
 .empty { padding: 30px; text-align: center; color: var(--muted); }
 
+.admin-filter-grid {
+  display: grid;
+  grid-template-columns: minmax(220px, 1.6fr) repeat(4, minmax(150px, 1fr)) auto;
+  gap: 10px;
+  align-items: center;
+}
+
 .stats-grid {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -327,6 +361,7 @@ input:focus, textarea:focus, select:focus { outline: 3px solid rgba(63, 111, 69,
   .card { padding: 17px; border-radius: 13px; }
   .stats-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .stats-actions-grid { grid-template-columns: 1fr; }
+  .admin-filter-grid { grid-template-columns: 1fr; }
   .delivery-option { grid-template-columns: 1fr; }
   .order-grid { grid-template-columns: 1fr; }
   .order-card-head { display: grid; }

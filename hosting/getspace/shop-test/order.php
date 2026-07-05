@@ -98,25 +98,26 @@ try {
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="robots" content="noindex, nofollow">
-  <title>Zamówienie testowe | Home & Garden Outlet</title>
+  <title>Zamówienie przyjęte | Home & Garden Outlet</title>
   <link rel="stylesheet" href="/sklep-test/shop.css">
 </head>
 <body>
   <main class="order-result">
     <?php if ($order && $error === ''): ?>
       <section class="success-box">
-        <p class="eyebrow">Zamówienie testowe zapisane</p>
+        <div class="admin-ribbon admin-ribbon-inline">Tryb testowy — sklep niepubliczny</div>
+        <p class="eyebrow">Zamówienie zapisane</p>
         <h1><?= e($order['orderId']) ?></h1>
-        <p>Zamówienie trafiło do chronionej zakładki „Zamówienia sklepu” w panelu administratora. Nie ma tutaj płatności online.</p>
+        <p>Zamówienie trafiło do zakładki „Zamówienia sklepu” w panelu administratora. Na tym etapie płatność online nie jest jeszcze uruchomiona.</p>
         <p><strong>Razem:</strong> <?= e(shop_test_price_label((float)$order['total'])) ?><?= $order['deliveryCost'] === null ? ' + dostawa do ustalenia' : '' ?></p>
-        <div class="shop-actions"><a class="btn" href="/admin/?orders=1">Przejdź do zamówień</a><a class="btn btn-light" href="/sklep-test/figury-ogrodowe">Wróć do sklepu testowego</a></div>
+        <div class="shop-actions"><a class="btn" href="/admin/?orders=1">Przejdź do zamówień</a><a class="btn btn-light" href="/sklep-test/figury-ogrodowe">Wróć do figur ogrodowych</a></div>
       </section>
     <?php else: ?>
       <section class="success-box error-box">
         <p class="eyebrow">Nie zapisano zamówienia</p>
         <h1>Sprawdź koszyk</h1>
         <p><?= e($error !== '' ? $error : 'Wystąpił nieznany błąd.') ?></p>
-        <a class="btn" href="/sklep-test/figury-ogrodowe">Wróć do sklepu testowego</a>
+        <a class="btn" href="/sklep-test/figury-ogrodowe">Wróć do figur ogrodowych</a>
       </section>
     <?php endif; ?>
   </main>

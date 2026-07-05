@@ -97,7 +97,7 @@ try {
             $product['status'] = $isSold ? 'Dostępne' : 'Sprzedane';
             save_catalog($catalog);
             flash('success', $isSold ? 'Produkt ponownie oznaczono jako dostępny.' : 'Produkt oznaczono jako sprzedany.');
-            redirect_admin();
+            redirect_admin(post_text('return') === 'figures' ? 'figures=1' : '');
         }
 
         if ($action === 'delete_product') {
@@ -110,7 +110,7 @@ try {
             array_splice($catalog['products'], $index, 1);
             save_catalog($catalog);
             flash('success', 'Usunięto produkt: ' . $name . '. Zdjęcia pozostawiono jako zabezpieczenie.');
-            redirect_admin();
+            redirect_admin(post_text('return') === 'figures' ? 'figures=1' : '');
         }
 
         if ($action === 'update_order') {
@@ -244,7 +244,8 @@ try {
                 $index = 0;
             }
             save_catalog($catalog);
-            flash('success', ($isEdit ? 'Produkt został zaktualizowany.' : 'Nowy produkt został dodany.') . ' Strona produktu: /produkt/' . $product['slug']);
+            $previewPath = (($product['saleType'] ?? 'showroom') === 'garden_figure') ? '/sklep-test/figury-ogrodowe/' . $product['slug'] : '/produkt/' . $product['slug'];
+            flash('success', ($isEdit ? 'Produkt został zaktualizowany.' : 'Nowy produkt został dodany.') . ' Podgląd: ' . $previewPath);
             redirect_admin('edit=' . $index);
         }
     }
@@ -323,13 +324,30 @@ $products = $catalog['products'];
 $editRaw = (string)($_GET['edit'] ?? '');
 $editing = $editRaw !== '' && ctype_digit($editRaw) && isset($products[(int)$editRaw]);
 $newProduct = isset($_GET['new']);
+$newType = (string)($_GET['type'] ?? '');
+$newSaleType = in_array($newType, ['showroom', 'garden_figure'], true) ? $newType : 'showroom';
 $showPassword = isset($_GET['password']);
 $showImport = isset($_GET['import']);
 $showStats = isset($_GET['stats']);
 $showOrders = isset($_GET['orders']);
+$showFigures = isset($_GET['figures']);
 $showGoogleConfig = isset($_GET['google_config']);
 $editIndex = $editing ? (int)$editRaw : null;
 $product = $editing ? array_merge(product_defaults(), $products[$editIndex]) : product_defaults();
+if (!$editing && $newProduct) {
+    $product['saleType'] = $newSaleType;
+    if ($newSaleType === 'garden_figure') {
+        $product['category'] = 'Wyposażenie ogrodu';
+        $product['productType'] = 'figura ogrodowa';
+        $product['shopVisible'] = true;
+        $product['visible'] = false;
+        $product['shopStatus'] = 'Dostępny';
+        $product['status'] = 'Dostępne';
+        $product['productStatus'] = 'Aktywny';
+        $product['producerAvailability'] = 'Dostępny u producenta';
+        $product['leadTime'] = '2-5 dni roboczych';
+    }
+}
 $googleTextPreview = trim((string)($product['googleText'] ?? '')) !== ''
     ? (string)$product['googleText']
     : google_business_description($product);
@@ -341,6 +359,22 @@ foreach (($product['deliveryMethods'] ?? []) as $deliveryMethod) {
     }
 }
 $search = trim((string)($_GET['q'] ?? ''));
+$isFigureProduct = static fn(array $item): bool => (($item['saleType'] ?? 'showroom') === 'garden_figure');
+$listedProducts = [];
+foreach ($products as $listedIndex => $listedProduct) {
+    if (!is_array($listedProduct)) {
+        continue;
+    }
+    if ($showFigures === $isFigureProduct($listedProduct)) {
+        $listedProducts[$listedIndex] = $listedProduct;
+    }
+}
+$activeFiguresTab = $showFigures || (($editing || $newProduct) && (($product['saleType'] ?? 'showroom') === 'garden_figure'));
+$activeOutletTab = !$activeFiguresTab && !$showOrders && !$showStats && !$showGoogleConfig && !$showImport && !$showPassword;
+$statusFilter = trim((string)($_GET['status'] ?? ''));
+$visibilityFilter = trim((string)($_GET['visibility'] ?? ''));
+$deliveryFilter = trim((string)($_GET['delivery'] ?? ''));
+$missingFilter = trim((string)($_GET['missing'] ?? ''));
 $statsRange = normalize_stats_range((string)($_GET['range'] ?? 'today'));
 $statsProductLimit = normalize_stats_product_limit($_GET['product_limit'] ?? 10);
 $statsRangeLabels = ['today' => 'Dzisiaj', '7' => 'Ostatnie 7 dni', '30' => 'Ostatnie 30 dni'];
@@ -354,6 +388,62 @@ $shopOrders = $showOrders ? shop_load_orders() : [];
 $shopOrderStatuses = shop_order_statuses();
 $shopPaymentStatuses = shop_payment_statuses();
 $shopDeliveryLabels = shop_delivery_labels();
+$filteredProducts = [];
+foreach ($listedProducts as $listedIndex => $listedProduct) {
+    $nameMatch = $search === '' || (function_exists('mb_stripos')
+        ? mb_stripos((string)($listedProduct['name'] ?? ''), $search) !== false
+        : stripos((string)($listedProduct['name'] ?? ''), $search) !== false);
+    if (!$nameMatch) {
+        continue;
+    }
+
+    if ($statusFilter !== '') {
+        $statusValue = $showFigures ? (string)($listedProduct['shopStatus'] ?? '') : (string)($listedProduct['status'] ?? '');
+        if ($statusValue !== $statusFilter) {
+            continue;
+        }
+    }
+
+    if ($visibilityFilter === 'visible') {
+        if ($showFigures ? empty($listedProduct['shopVisible']) : empty($listedProduct['visible'])) {
+            continue;
+        }
+    } elseif ($visibilityFilter === 'hidden') {
+        if ($showFigures ? !empty($listedProduct['shopVisible']) : !empty($listedProduct['visible'])) {
+            continue;
+        }
+    }
+
+    if ($showFigures && $deliveryFilter !== '') {
+        $hasDelivery = false;
+        foreach (($listedProduct['deliveryMethods'] ?? []) as $method) {
+            $methodKey = is_array($method) ? (string)($method['method'] ?? '') : '';
+            if ($methodKey === $deliveryFilter) {
+                $hasDelivery = true;
+                break;
+            }
+        }
+        if (!$hasDelivery) {
+            continue;
+        }
+    }
+
+    if ($showFigures && $missingFilter !== '') {
+        $deliveryMethods = array_filter((array)($listedProduct['deliveryMethods'] ?? []), 'is_array');
+        $missing = match ($missingFilter) {
+            'price' => trim((string)($listedProduct['grossPrice'] ?? '')) === '',
+            'image' => trim((string)($listedProduct['image'] ?? '')) === '',
+            'weight' => trim((string)($listedProduct['weight'] ?? '')) === '',
+            'delivery' => count($deliveryMethods) === 0,
+            default => false,
+        };
+        if (!$missing) {
+            continue;
+        }
+    }
+
+    $filteredProducts[$listedIndex] = $listedProduct;
+}
 
 if ($showStats) {
     $statsToday = load_stats_summary('today', $catalog);
@@ -403,6 +493,13 @@ if ($showStats) {
     <?php foreach ($flashes as $message): ?>
       <div class="flash flash-<?= e($message['type']) ?>"><?= e($message['message']) ?></div>
     <?php endforeach; ?>
+
+    <nav class="admin-tabs" aria-label="Główne sekcje panelu">
+      <a class="<?= $activeOutletTab ? 'active' : '' ?>" href="/admin/">Produkty outletowe</a>
+      <a class="<?= $activeFiguresTab ? 'active' : '' ?>" href="/admin/?figures=1">Figury ogrodowe / sklep online</a>
+      <a class="<?= $showOrders ? 'active' : '' ?>" href="/admin/?orders=1">Zamówienia sklepu</a>
+      <a href="/sklep-test/figury-ogrodowe" target="_blank" rel="noopener">Podgląd sklepu figur</a>
+    </nav>
 
     <?php if ($showStats): ?>
       <div class="page-heading">
@@ -783,7 +880,7 @@ if ($showStats) {
             <div class="google-api-result" data-google-result hidden></div>
           </div>
         </div>
-        <div class="form-actions"><button class="btn" type="submit">Zapisz produkt</button><a class="btn btn-secondary" href="/admin/">Anuluj</a></div>
+        <div class="form-actions"><button class="btn" type="submit">Zapisz produkt</button><a class="btn btn-secondary" href="<?= (($product['saleType'] ?? 'showroom') === 'garden_figure') ? '/admin/?figures=1' : '/admin/' ?>">Anuluj</a></div>
       </form>
     <?php elseif ($showPassword): ?>
       <div class="page-heading"><div><p class="muted">Bezpieczeństwo</p><h1>Zmień hasło</h1></div><a class="btn btn-secondary" href="/admin/">Wróć</a></div>
@@ -796,24 +893,62 @@ if ($showStats) {
       </form>
     <?php else: ?>
       <div class="page-heading">
-        <div><p class="muted">Bezpośrednio na Getspace · <?= count($products) ?> produktów</p><h1>Produkty</h1></div>
-        <div class="header-actions"><a class="btn btn-secondary" href="/admin/?password=1">Zmień hasło</a><a class="btn" href="/admin/?new=1">Dodaj produkt</a></div>
+        <div>
+          <p class="muted"><?= $showFigures ? 'Sklep online · figury ogrodowe' : 'Showroom i outlet · bez koszyka' ?> · <?= count($filteredProducts) ?> produktów</p>
+          <h1><?= $showFigures ? 'Figury ogrodowe' : 'Produkty outletowe' ?></h1>
+        </div>
+        <div class="header-actions">
+          <a class="btn btn-secondary" href="/admin/?password=1">Zmień hasło</a>
+          <a class="btn" href="/admin/?new=1&amp;type=<?= $showFigures ? 'garden_figure' : 'showroom' ?>"><?= $showFigures ? 'Dodaj figurę' : 'Dodaj produkt outletowy' ?></a>
+        </div>
       </div>
-      <form method="get" class="card" style="margin-bottom:16px"><div class="password-wrap"><input name="q" value="<?= e($search) ?>" placeholder="Szukaj produktu po nazwie"><button class="btn" type="submit">Szukaj</button></div></form>
+      <form method="get" class="card" style="margin-bottom:16px">
+        <?php if ($showFigures): ?><input type="hidden" name="figures" value="1"><?php endif; ?>
+        <div class="admin-filter-grid">
+          <input name="q" value="<?= e($search) ?>" placeholder="Szukaj produktu po nazwie">
+          <select name="status">
+            <option value="">Każdy status</option>
+            <?php foreach (($showFigures ? ['Dostępny', 'Ukryty', 'Wyłączony'] : ['Dostępne', 'Zarezerwowane', 'Sprzedane']) as $option): ?>
+              <option value="<?= e($option) ?>"<?= $statusFilter === $option ? ' selected' : '' ?>><?= e($option) ?></option>
+            <?php endforeach; ?>
+          </select>
+          <select name="visibility">
+            <option value="">Widoczność</option>
+            <option value="visible"<?= $visibilityFilter === 'visible' ? ' selected' : '' ?>>Widoczne</option>
+            <option value="hidden"<?= $visibilityFilter === 'hidden' ? ' selected' : '' ?>>Ukryte</option>
+          </select>
+          <?php if ($showFigures): ?>
+            <select name="delivery">
+              <option value="">Każda dostawa</option>
+              <?php foreach ($shopDeliveryLabels as $deliveryKey => $deliveryLabel): ?>
+                <option value="<?= e($deliveryKey) ?>"<?= $deliveryFilter === $deliveryKey ? ' selected' : '' ?>><?= e($deliveryLabel) ?></option>
+              <?php endforeach; ?>
+            </select>
+            <select name="missing">
+              <option value="">Brakujące dane</option>
+              <option value="price"<?= $missingFilter === 'price' ? ' selected' : '' ?>>Brak ceny</option>
+              <option value="image"<?= $missingFilter === 'image' ? ' selected' : '' ?>>Brak zdjęcia</option>
+              <option value="weight"<?= $missingFilter === 'weight' ? ' selected' : '' ?>>Brak wagi</option>
+              <option value="delivery"<?= $missingFilter === 'delivery' ? ' selected' : '' ?>>Brak dostawy</option>
+            </select>
+          <?php endif; ?>
+          <button class="btn" type="submit">Filtruj</button>
+        </div>
+      </form>
       <section class="product-list">
-        <?php $shown = 0; foreach ($products as $index => $item): if ($search !== '' && (function_exists('mb_stripos') ? mb_stripos((string)($item['name'] ?? ''), $search) : stripos((string)($item['name'] ?? ''), $search)) === false) continue; $shown++; ?>
+        <?php $shown = 0; foreach ($filteredProducts as $index => $item): $shown++; ?>
           <article class="product-row">
             <img src="<?= e(image_url((string)($item['image'] ?? ''))) ?>" alt="">
-            <div><h2><?= e($item['name'] ?? 'Produkt bez nazwy') ?></h2><div class="meta"><span><?= e($item['category'] ?? 'Bez kategorii') ?></span><?= (($item['saleType'] ?? 'showroom') === 'garden_figure') ? '<span>Figura / sklep testowy</span>' : '' ?><span class="status"><?= e($item['status'] ?? 'Dostępność do potwierdzenia') ?></span><span><?= e(($item['saleType'] ?? 'showroom') === 'garden_figure' ? ($item['grossPrice'] ?? 'Cena sklepu') : ($item['outletPrice'] ?? 'Zapytaj o cenę')) ?></span><?= !empty($item['visible']) ? '' : '<span>Ukryty na stronie</span>' ?></div></div>
+            <div><h2><?= e($item['name'] ?? 'Produkt bez nazwy') ?></h2><div class="meta"><span><?= e($item['category'] ?? 'Bez kategorii') ?></span><?= (($item['saleType'] ?? 'showroom') === 'garden_figure') ? '<span>Figura / sklep online</span>' : '<span>Outlet / showroom</span>' ?><span class="status"><?= e($item['status'] ?? 'Dostępność do potwierdzenia') ?></span><span><?= e(($item['saleType'] ?? 'showroom') === 'garden_figure' ? ($item['grossPrice'] ?? 'Cena sklepu') : ($item['outletPrice'] ?? 'Zapytaj o cenę')) ?></span><?= (($item['saleType'] ?? 'showroom') === 'garden_figure' ? (!empty($item['shopVisible']) ? '' : '<span>Ukryty w sklepie</span>') : (!empty($item['visible']) ? '' : '<span>Ukryty na stronie</span>')) ?></div></div>
             <div class="row-actions">
               <?php $itemSlug = clean_filename((string)(($item['slug'] ?? '') !== '' ? $item['slug'] : ($item['name'] ?? 'produkt'))); ?>
               <a class="btn btn-secondary btn-small" href="<?= (($item['saleType'] ?? 'showroom') === 'garden_figure') ? '/sklep-test/figury-ogrodowe/' . e($itemSlug) : '/produkt/' . e($itemSlug) ?>" target="_blank" rel="noopener">Podgląd</a>
               <a class="btn btn-secondary btn-small" href="/admin/?edit=<?= e((string)$index) ?>">Edytuj</a>
-              <form method="post"><input type="hidden" name="csrf" value="<?= e(csrf_token()) ?>"><input type="hidden" name="action" value="toggle_sold"><input type="hidden" name="index" value="<?= e((string)$index) ?>"><button class="btn <?= ($item['status'] ?? '') === 'Sprzedane' ? 'btn-restore' : 'btn-status' ?> btn-small" type="submit"><?= ($item['status'] ?? '') === 'Sprzedane' ? 'Przywróć' : 'Sprzedane' ?></button></form>
-              <form method="post"><input type="hidden" name="csrf" value="<?= e(csrf_token()) ?>"><input type="hidden" name="action" value="delete_product"><input type="hidden" name="index" value="<?= e((string)$index) ?>"><button class="btn btn-danger btn-small" type="submit" data-confirm="Usunąć ten produkt? Zdjęcia pozostaną na serwerze.">Usuń</button></form>
+              <form method="post"><input type="hidden" name="csrf" value="<?= e(csrf_token()) ?>"><input type="hidden" name="action" value="toggle_sold"><input type="hidden" name="return" value="<?= $showFigures ? 'figures' : 'outlet' ?>"><input type="hidden" name="index" value="<?= e((string)$index) ?>"><button class="btn <?= ($item['status'] ?? '') === 'Sprzedane' ? 'btn-restore' : 'btn-status' ?> btn-small" type="submit"><?= ($item['status'] ?? '') === 'Sprzedane' ? 'Przywróć' : 'Sprzedane' ?></button></form>
+              <form method="post"><input type="hidden" name="csrf" value="<?= e(csrf_token()) ?>"><input type="hidden" name="action" value="delete_product"><input type="hidden" name="return" value="<?= $showFigures ? 'figures' : 'outlet' ?>"><input type="hidden" name="index" value="<?= e((string)$index) ?>"><button class="btn btn-danger btn-small" type="submit" data-confirm="Usunąć ten produkt? Zdjęcia pozostaną na serwerze.">Usuń</button></form>
             </div>
           </article>
-        <?php endforeach; if ($shown === 0): ?><div class="card empty">Nie znaleziono produktów.</div><?php endif; ?>
+        <?php endforeach; if ($shown === 0): ?><div class="card empty"><?= $showFigures ? 'Nie znaleziono figur ogrodowych w sklepie online.' : 'Nie znaleziono produktów outletowych.' ?></div><?php endif; ?>
       </section>
     <?php endif; ?>
   </main>

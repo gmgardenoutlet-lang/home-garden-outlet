@@ -33,18 +33,18 @@ $details = $product ? array_filter([
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="robots" content="noindex, nofollow">
-  <title><?= $view ? e($view['name']) : 'Figura niedostępna' ?> — sklep testowy</title>
+  <title><?= $view ? e($view['name']) : 'Figura niedostępna' ?> | Home & Garden Outlet</title>
   <link rel="stylesheet" href="/sklep-test/shop.css">
 </head>
 <body>
   <header class="shop-header">
-    <a href="/sklep-test/figury-ogrodowe" class="shop-logo">Figury ogrodowe</a>
-    <nav><a href="/sklep-test/figury-ogrodowe">Wróć do sklepu</a><a href="/admin/?orders=1">Zamówienia</a></nav>
+    <a href="/sklep-test/figury-ogrodowe" class="shop-logo">Home &amp; Garden Outlet</a>
+    <nav><a href="/sklep-test/figury-ogrodowe">Figury</a><a href="/sklep-test/figury-ogrodowe#koszyk">Koszyk</a><a href="/admin/">Panel</a></nav>
   </header>
 
   <main>
     <?php if (!$product || !$view): ?>
-      <section class="empty"><h1>Nie znaleziono figury</h1><p>Produkt nie jest widoczny w sklepie testowym albo został ukryty.</p><a class="btn" href="/sklep-test/figury-ogrodowe">Wróć</a></section>
+      <section class="empty"><h1>Nie znaleziono figury</h1><p>Produkt nie jest widoczny w sklepie albo został ukryty.</p><a class="btn" href="/sklep-test/figury-ogrodowe">Wróć</a></section>
     <?php else: ?>
       <article class="product-test">
         <section class="product-test-gallery">
@@ -56,16 +56,20 @@ $details = $product ? array_filter([
           <?php endif; ?>
         </section>
         <section class="product-test-info">
-          <p class="eyebrow">Sklep testowy · noindex</p>
+          <div class="admin-ribbon admin-ribbon-inline">Tryb testowy — sklep niepubliczny</div>
+          <p class="eyebrow">Figura ogrodowa</p>
           <h1><?= e($view['name']) ?></h1>
-          <p class="shop-meta"><?= e($view['availability']) ?> · realizacja <?= e($view['leadTime']) ?></p>
+          <div class="product-status-grid">
+            <span><?= e($view['availability']) ?></span>
+            <span>Wysyłka <?= e($view['leadTime']) ?></span>
+          </div>
           <strong class="product-price"><?= e($view['priceLabel']) ?></strong>
           <?php if ($view['shortDescription'] !== ''): ?><p><?= nl2br(e($view['shortDescription'])) ?></p><?php endif; ?>
           <?php if (trim((string)($product['longDescription'] ?? '')) !== ''): ?><p><?= nl2br(e($product['longDescription'])) ?></p><?php endif; ?>
           <div class="shop-actions">
             <button class="btn" type="button" data-add-to-cart="<?= e($view['slug']) ?>"<?= $view['canBuy'] ? '' : ' disabled' ?>>Dodaj do koszyka</button>
+            <a class="btn btn-light" href="sms:+48577210777?body=Interesuje%20mnie%20figura:%20<?= rawurlencode($view['name']) ?>">Zapytaj o produkt</a>
             <a class="btn btn-light" href="/sklep-test/figury-ogrodowe#koszyk">Koszyk i zamówienie</a>
-            <a class="btn btn-light" href="/sklep-test/figury-ogrodowe">Wróć do listy</a>
           </div>
 
           <?php if ($details): ?>
@@ -75,7 +79,7 @@ $details = $product ? array_filter([
           <?php endif; ?>
 
           <section class="delivery-box">
-            <h2>Dostawa dla tej figury</h2>
+            <h2>Dostępne formy dostawy</h2>
             <?php foreach (shop_test_delivery_methods($product) as $method): ?>
               <p><strong><?= e($method['label']) ?></strong> — <?= e($method['cost']) ?></p>
             <?php endforeach; ?>
