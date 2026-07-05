@@ -45,8 +45,9 @@ $saving = $catalogValue !== null && $outletValue !== null && $catalogValue > $ou
     : null;
 $isSold = in_array(catalog_normalize($status), ['sprzedane', 'sprzedany'], true);
 
+$hasOutletOffer = $outletValue !== null && $outletValue > 0;
 $productSchema = null;
-if ($product !== null) {
+if ($product !== null && $hasOutletOffer) {
     $productSchema = [
         '@context' => 'https://schema.org',
         '@type' => 'Product',
@@ -55,17 +56,15 @@ if ($product !== null) {
         'image' => array_map('catalog_absolute_url', $images),
         'url' => $canonical,
         'brand' => ['@type' => 'Brand', 'name' => 'Home & Garden Outlet'],
-    ];
-    if ($outletValue !== null) {
-        $productSchema['offers'] = [
+        'offers' => [
             '@type' => 'Offer',
             'url' => $canonical,
             'priceCurrency' => 'PLN',
             'price' => number_format($outletValue, 2, '.', ''),
             'availability' => $isSold ? 'https://schema.org/OutOfStock' : 'https://schema.org/InStock',
             'seller' => ['@type' => 'FurnitureStore', 'name' => 'Home & Garden Outlet'],
-        ];
-    }
+        ],
+    ];
 }
 
 $breadcrumbs = [
