@@ -5,7 +5,6 @@ require __DIR__ . '/lib.php';
 shop_test_boot();
 
 $error = '';
-$order = null;
 
 try {
     if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
@@ -15,6 +14,9 @@ try {
     require_csrf();
     if (empty($_POST['terms'])) {
         throw new RuntimeException('Aby złożyć zamówienie, zaakceptuj Regulamin sklepu.');
+    }
+    if (empty($_POST['privacy_notice'])) {
+        throw new RuntimeException('Aby złożyć zamówienie, potwierdź zapoznanie się z Polityką prywatności.');
     }
 
     $products = shop_test_product_map();
@@ -100,28 +102,22 @@ try {
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="robots" content="noindex, nofollow">
-  <title>Zamówienie przyjęte | Home & Garden Outlet</title>
-  <link rel="stylesheet" href="/sklep-test/shop.css">
+  <title>Nie zapisano zamówienia | Home & Garden Outlet</title>
+  <?php shop_test_stylesheets(); ?>
 </head>
 <body>
+  <?php shop_test_header('cart'); ?>
   <main class="order-result">
-    <?php if ($order && $error === ''): ?>
-      <section class="success-box">
-        <div class="admin-ribbon admin-ribbon-inline">Tryb testowy — sklep niepubliczny</div>
-        <p class="eyebrow">Zamówienie zapisane</p>
-        <h1><?= e($order['orderId']) ?></h1>
-        <p>Zamówienie trafiło do zakładki „Zamówienia sklepu” w panelu administratora. Na tym etapie płatność online nie jest jeszcze uruchomiona.</p>
-        <p><strong>Razem:</strong> <?= e(shop_test_price_label((float)$order['total'])) ?><?= $order['deliveryCost'] === null ? ' + dostawa do ustalenia' : '' ?></p>
-        <div class="shop-actions"><a class="btn" href="/admin/?orders=1">Przejdź do zamówień</a><a class="btn btn-light" href="/sklep-test/figury-ogrodowe">Wróć do figur ogrodowych</a></div>
-      </section>
-    <?php else: ?>
-      <section class="success-box error-box">
-        <p class="eyebrow">Nie zapisano zamówienia</p>
-        <h1>Sprawdź koszyk</h1>
-        <p><?= e($error !== '' ? $error : 'Wystąpił nieznany błąd.') ?></p>
-        <a class="btn" href="/sklep-test/figury-ogrodowe">Wróć do figur ogrodowych</a>
-      </section>
-    <?php endif; ?>
+    <section class="success-box error-box">
+      <p class="eyebrow">Nie zapisano zamówienia</p>
+      <h1>Sprawdź koszyk</h1>
+      <p><?= e($error !== '' ? $error : 'Wystąpił nieznany błąd.') ?></p>
+      <div class="shop-actions">
+        <a class="btn" href="/sklep-test/figury-ogrodowe/koszyk">Wróć do koszyka</a>
+        <a class="btn btn-light" href="/sklep-test/figury-ogrodowe">Wróć do figur ogrodowych</a>
+      </div>
+    </section>
   </main>
+  <?php shop_test_footer(); ?>
 </body>
 </html>

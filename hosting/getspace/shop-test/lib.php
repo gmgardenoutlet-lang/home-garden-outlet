@@ -188,6 +188,79 @@ function shop_test_product_url(string $slug): string
     return '/sklep-test/figury-ogrodowe/produkt/' . rawurlencode(clean_filename($slug));
 }
 
+function shop_test_stylesheets(): void
+{
+    echo '<link rel="stylesheet" href="/styles.css">' . PHP_EOL;
+    echo '  <link rel="stylesheet" href="/sklep-test/shop.css">' . PHP_EOL;
+}
+
+function shop_test_header(string $active = ''): void
+{
+    $links = [
+        ['href' => '/', 'label' => 'Strona główna', 'key' => 'home'],
+        ['href' => '/dom', 'label' => 'Dom', 'key' => 'dom'],
+        ['href' => '/ogrod', 'label' => 'Ogród', 'key' => 'ogrod'],
+        ['href' => '/outlet-meblowy-wroclaw/', 'label' => 'Outlet meblowy Wrocław', 'key' => 'outlet'],
+        ['href' => '/meble-ogrodowe-wroclaw/', 'label' => 'Meble ogrodowe Wrocław', 'key' => 'garden'],
+        ['href' => '/#faq-home-title', 'label' => 'FAQ', 'key' => 'faq'],
+        ['href' => '/sklep-test/figury-ogrodowe', 'label' => 'Figury ogrodowe', 'key' => 'figures'],
+        ['href' => '/sklep-test/figury-ogrodowe/koszyk', 'label' => 'Koszyk <span data-cart-count></span>', 'key' => 'cart'],
+    ];
+    ?>
+  <header class="site-header shop-site-header">
+    <a class="logo" href="/" aria-label="Home & Garden Outlet - strona główna">
+      <img src="/logo-optimized.jpg" width="64" height="64" alt="Home & Garden Outlet - meble do domu i ogrodu">
+    </a>
+
+    <button class="menu-toggle" type="button" aria-expanded="false" aria-controls="main-menu" aria-label="Otwórz menu">
+      <span></span>
+      <span></span>
+      <span></span>
+    </button>
+
+    <nav id="main-menu" class="main-nav shop-main-nav" aria-label="Menu sklepu testowego">
+      <?php foreach ($links as $link): ?>
+        <a href="<?= e($link['href']) ?>"<?= $active === $link['key'] ? ' aria-current="page"' : '' ?>><?= $link['label'] ?></a>
+      <?php endforeach; ?>
+    </nav>
+  </header>
+    <?php
+}
+
+function shop_test_footer(): void
+{
+    ?>
+  <footer class="site-footer shop-site-footer">
+    <div>
+      <strong>Home &amp; Garden Outlet</strong>
+      <p>ul. Przelotowa 16<br>55-080 Kębłowice</p>
+      <p><a href="tel:+48577210777">577 210 777</a><a href="mailto:biuro@mgoutlet.pl">biuro@mgoutlet.pl</a></p>
+    </div>
+    <div>
+      <strong>Na skróty</strong>
+      <a href="/">Strona główna</a>
+      <a href="/dom">Dom</a>
+      <a href="/ogrod">Ogród</a>
+      <a href="/#kontakt">Kontakt</a>
+    </div>
+    <div>
+      <strong>Poradnik i FAQ</strong>
+      <a href="/poradnik/">Poradnik</a>
+      <a href="/#faq-home-title">FAQ</a>
+      <a href="/meble-ogrodowe-wroclaw/">Meble ogrodowe Wrocław</a>
+      <a href="/outlet-meblowy-wroclaw/">Outlet meblowy Wrocław</a>
+    </div>
+    <div>
+      <strong>Figury ogrodowe</strong>
+      <a href="/sklep-test/figury-ogrodowe">Kategoria</a>
+      <a href="/sklep-test/figury-ogrodowe/koszyk">Koszyk</a>
+      <a href="/sklep-test/figury-ogrodowe/regulamin">Regulamin</a>
+      <a href="/sklep-test/figury-ogrodowe/polityka-prywatnosci">Polityka prywatności</a>
+    </div>
+  </footer>
+    <?php
+}
+
 function shop_test_cart_common_delivery(array $items): array
 {
     $common = null;

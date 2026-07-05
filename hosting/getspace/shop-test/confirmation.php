@@ -17,17 +17,10 @@ if (!$order) {
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="robots" content="noindex, nofollow">
   <title>Potwierdzenie zamówienia | Home & Garden Outlet</title>
-  <link rel="stylesheet" href="/sklep-test/shop.css">
+  <?php shop_test_stylesheets(); ?>
 </head>
 <body>
-  <header class="shop-header">
-    <a href="/sklep-test/figury-ogrodowe" class="shop-logo">Home &amp; Garden Outlet</a>
-    <nav>
-      <a href="/sklep-test/figury-ogrodowe">Figury</a>
-      <a href="/admin/?orders=1">Zamówienia</a>
-      <a href="/admin/">Panel</a>
-    </nav>
-  </header>
+  <?php shop_test_header('figures'); ?>
 
   <main class="order-result-page">
     <?php if ($order): ?>
@@ -35,7 +28,7 @@ if (!$order) {
         <div class="admin-ribbon admin-ribbon-inline">Tryb testowy — sklep niepubliczny</div>
         <p class="eyebrow">Zamówienie zapisane</p>
         <h1>Dziękujemy za zamówienie</h1>
-        <p>Zamówienie zostało zapisane jako testowe i trafiło do panelu administratora. Obsługa może je ręcznie potwierdzić przed uruchomieniem płatności online.</p>
+        <p>Zamówienie zostało zapisane. Obsługa Home &amp; Garden Outlet może je ręcznie potwierdzić przed uruchomieniem płatności online.</p>
 
         <div class="confirmation-grid">
           <section>
@@ -77,22 +70,22 @@ if (!$order) {
         </div>
 
         <div class="shop-actions">
-          <a class="btn" href="/admin/?orders=1">Przejdź do zamówień</a>
-          <a class="btn btn-light" href="/sklep-test/figury-ogrodowe">Wróć do sklepu</a>
+          <a class="btn" href="/sklep-test/figury-ogrodowe">Wróć do sklepu</a>
+          <a class="btn btn-light" href="/sklep-test/figury-ogrodowe/koszyk">Koszyk</a>
         </div>
       </section>
       <script>try { localStorage.removeItem("hgo-shop-test-cart"); } catch (error) {}</script>
     <?php else: ?>
       <section class="success-box error-box">
         <p class="eyebrow">Nie znaleziono zamówienia</p>
-        <h1>Sprawdź panel zamówień</h1>
+        <h1>Nie udało się odczytać zamówienia</h1>
         <p>Nie udało się odczytać wskazanego zamówienia testowego.</p>
         <div class="shop-actions">
-          <a class="btn" href="/admin/?orders=1">Zamówienia</a>
-          <a class="btn btn-light" href="/sklep-test/figury-ogrodowe">Wróć do sklepu</a>
+          <a class="btn" href="/sklep-test/figury-ogrodowe">Wróć do sklepu</a>
         </div>
       </section>
     <?php endif; ?>
   </main>
+  <?php shop_test_footer(); ?>
 </body>
 </html>

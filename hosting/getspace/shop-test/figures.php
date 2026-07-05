@@ -14,38 +14,38 @@ $publicProducts = shop_test_public_products();
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="robots" content="noindex, nofollow">
   <title>Figury ogrodowe do ogrodu i na taras | Home & Garden Outlet</title>
-  <link rel="stylesheet" href="/sklep-test/shop.css">
+  <?php shop_test_stylesheets(); ?>
 </head>
 <body>
-  <header class="shop-header">
-    <a href="/sklep-test/figury-ogrodowe" class="shop-logo">Home &amp; Garden Outlet</a>
-    <nav>
-      <a href="/sklep-test/figury-ogrodowe">Figury</a>
-      <a href="/sklep-test/figury-ogrodowe/koszyk">Koszyk <span data-cart-count></span></a>
-      <a href="/admin/">Panel</a>
-      <a href="/admin/?orders=1">Zamówienia</a>
-    </nav>
-  </header>
+  <?php shop_test_header('figures'); ?>
 
   <main>
-    <section class="shop-hero">
-      <div class="admin-ribbon">Tryb testowy — sklep niepubliczny</div>
-      <p class="eyebrow">Figury ogrodowe do ogrodu i na taras</p>
-      <h1>Figury ogrodowe</h1>
-      <p>Wybierz dekoracje do ogrodu, strefy wejściowej lub tarasu. Produkty są dostępne u producenta, a układ sklepu jest przygotowany pod przyszłą publiczną sprzedaż online Home &amp; Garden Outlet.</p>
-      <div class="hero-badges" aria-label="Najważniejsze informacje">
-        <span>Dostępne u producenta</span>
-        <span>Wysyłka 2-5 dni roboczych</span>
-        <span>Dostawa zależna od produktu</span>
+    <section class="shop-hero shop-hero-split">
+      <div class="shop-hero-copy">
+        <div class="admin-ribbon">Tryb testowy — sklep niepubliczny</div>
+        <p class="eyebrow">Figury ogrodowe do ogrodu i na taras</p>
+        <h1>Figury ogrodowe</h1>
+        <p class="hero-subtitle">Ręcznie malowane figury ogrodowe do ogrodu, na taras i przed wejście.</p>
+        <p>Wybierz dekoracje do ogrodu, które podkreślą charakter przestrzeni. Produkty są dostępne u producenta, a każda figura może nieznacznie różnić się odcieniem i detalami wykończenia ze względu na ręczne malowanie.</p>
+        <div class="hero-badges" aria-label="Najważniejsze informacje">
+          <span>Ręczne malowanie</span>
+          <span>Dostępne u producenta</span>
+          <span>Realizacja 2-5 dni roboczych</span>
+          <span>Dostawa zależna od produktu</span>
+          <span>Odbiór osobisty w Kębłowicach</span>
+        </div>
+        <div class="shop-actions hero-actions">
+          <a class="btn" href="#produkty">Zobacz produkty</a>
+          <a class="btn btn-light" href="/sklep-test/figury-ogrodowe/koszyk">Przejdź do koszyka</a>
+        </div>
       </div>
-      <div class="shop-actions hero-actions">
-        <a class="btn" href="#produkty">Zobacz produkty</a>
-        <a class="btn btn-light" href="/sklep-test/figury-ogrodowe/koszyk">Przejdź do koszyka</a>
+      <div class="shop-hero-media">
+        <img src="/ogrod-optimized.jpg" width="760" height="640" alt="Dekoracje i meble ogrodowe Home & Garden Outlet">
       </div>
     </section>
 
     <?php if (!$products): ?>
-      <section class="empty">Nie ma jeszcze figur widocznych w sklepie. W panelu ustaw typ produktu „Figura ogrodowa / sklep online”, włącz widoczność i status „Dostępny”.</section>
+      <section class="empty">Nie ma jeszcze figur widocznych w sklepie. Dodaj pierwsze produkty, aby zobaczyć docelowy układ kategorii.</section>
     <?php else: ?>
       <section class="shop-toolbar" aria-label="Opcje listy produktów">
         <div><strong><?= count($products) ?></strong> produktów w kategorii</div>
@@ -86,6 +86,7 @@ $publicProducts = shop_test_public_products();
     <?php endif; ?>
   </main>
 
+  <?php shop_test_footer(); ?>
   <div class="cart-toast" data-cart-toast hidden></div>
   <script>window.HGO_SHOP_PRODUCTS = <?= json_encode($publicProducts, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_HEX_TAG) ?>;</script>
   <script src="/sklep-test/shop.js"></script>

@@ -11,17 +11,10 @@ shop_test_boot();
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="robots" content="noindex, nofollow">
   <title>Regulamin sklepu internetowego | Home & Garden Outlet</title>
-  <link rel="stylesheet" href="/sklep-test/shop.css">
+  <?php shop_test_stylesheets(); ?>
 </head>
 <body>
-  <header class="shop-header">
-    <a href="/sklep-test/figury-ogrodowe" class="shop-logo">Home &amp; Garden Outlet</a>
-    <nav>
-      <a href="/sklep-test/figury-ogrodowe">Figury</a>
-      <a href="/sklep-test/figury-ogrodowe/koszyk">Koszyk <span data-cart-count></span></a>
-      <a href="/admin/">Panel</a>
-    </nav>
-  </header>
+  <?php shop_test_header('figures'); ?>
 
   <main>
     <article class="legal-page">
@@ -106,6 +99,7 @@ shop_test_boot();
     </article>
   </main>
 
+  <?php shop_test_footer(); ?>
   <script>window.HGO_SHOP_PRODUCTS = <?= json_encode(shop_test_public_products(), JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_HEX_TAG) ?>;</script>
   <script src="/sklep-test/shop.js"></script>
 </body>

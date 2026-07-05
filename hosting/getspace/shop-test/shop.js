@@ -14,11 +14,26 @@
   const cartCounts = Array.from(document.querySelectorAll("[data-cart-count]"));
   const emptyActions = document.querySelector("[data-cart-empty-actions]");
   const checkoutLink = document.querySelector("[data-checkout-link]");
+  const menuToggle = document.querySelector(".menu-toggle");
+  const mainMenu = document.querySelector("#main-menu");
   const productCards = productGrid ? Array.from(productGrid.querySelectorAll("[data-product-card]")) : [];
 
   productCards.forEach((card, index) => {
     card.dataset.defaultOrder = String(index);
   });
+
+  if (menuToggle && mainMenu) {
+    menuToggle.addEventListener("click", () => {
+      const isOpen = mainMenu.classList.toggle("open");
+      menuToggle.setAttribute("aria-expanded", isOpen ? "true" : "false");
+    });
+    mainMenu.addEventListener("click", (event) => {
+      if (event.target instanceof HTMLAnchorElement) {
+        mainMenu.classList.remove("open");
+        menuToggle.setAttribute("aria-expanded", "false");
+      }
+    });
+  }
 
   const escapeHtml = (value) => String(value || "").replace(/[&<>"']/g, (char) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#039;" }[char]));
   const escapeAttr = escapeHtml;

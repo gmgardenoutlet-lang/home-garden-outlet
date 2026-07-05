@@ -35,17 +35,10 @@ $details = $product ? array_filter([
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="robots" content="noindex, nofollow">
   <title><?= $view ? e($view['name']) : 'Figura niedostępna' ?> | Home & Garden Outlet</title>
-  <link rel="stylesheet" href="/sklep-test/shop.css">
+  <?php shop_test_stylesheets(); ?>
 </head>
 <body>
-  <header class="shop-header">
-    <a href="/sklep-test/figury-ogrodowe" class="shop-logo">Home &amp; Garden Outlet</a>
-    <nav>
-      <a href="/sklep-test/figury-ogrodowe">Figury</a>
-      <a href="/sklep-test/figury-ogrodowe/koszyk">Koszyk <span data-cart-count></span></a>
-      <a href="/admin/">Panel</a>
-    </nav>
-  </header>
+  <?php shop_test_header('figures'); ?>
 
   <main>
     <?php if (!$product || !$view): ?>
@@ -99,6 +92,7 @@ $details = $product ? array_filter([
     <?php endif; ?>
   </main>
 
+  <?php shop_test_footer(); ?>
   <div class="cart-toast" data-cart-toast hidden></div>
   <script>window.HGO_SHOP_PRODUCTS = <?= json_encode($publicProducts, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_HEX_TAG) ?>;</script>
   <script src="/sklep-test/shop.js"></script>

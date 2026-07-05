@@ -31,6 +31,7 @@ AddType application/manifest+json .webmanifest
   RewriteRule ^sklep-test/figury-ogrodowe/zamowienie/?$ shop-test/checkout.php [L,QSA]
   RewriteRule ^sklep-test/figury-ogrodowe/potwierdzenie/?$ shop-test/confirmation.php [L,QSA]
   RewriteRule ^sklep-test/figury-ogrodowe/regulamin/?$ shop-test/terms.php [L,QSA]
+  RewriteRule ^sklep-test/figury-ogrodowe/polityka-prywatnosci/?$ shop-test/privacy.php [L,QSA]
   RewriteRule ^sklep-test/figury-ogrodowe/([a-z0-9-]+)/?$ /sklep-test/figury-ogrodowe/produkt/$1 [R=302,L,NE]
   RewriteRule ^sklep-test/order/?$ shop-test/order.php [L,QSA]
 
