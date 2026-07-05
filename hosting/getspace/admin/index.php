@@ -430,13 +430,16 @@ foreach ($listedProducts as $listedIndex => $listedProduct) {
 
     if ($showFigures && $missingFilter !== '') {
         $deliveryMethods = array_filter((array)($listedProduct['deliveryMethods'] ?? []), 'is_array');
-        $missing = match ($missingFilter) {
-            'price' => trim((string)($listedProduct['grossPrice'] ?? '')) === '',
-            'image' => trim((string)($listedProduct['image'] ?? '')) === '',
-            'weight' => trim((string)($listedProduct['weight'] ?? '')) === '',
-            'delivery' => count($deliveryMethods) === 0,
-            default => false,
-        };
+        $missing = false;
+        if ($missingFilter === 'price') {
+            $missing = trim((string)($listedProduct['grossPrice'] ?? '')) === '';
+        } elseif ($missingFilter === 'image') {
+            $missing = trim((string)($listedProduct['image'] ?? '')) === '';
+        } elseif ($missingFilter === 'weight') {
+            $missing = trim((string)($listedProduct['weight'] ?? '')) === '';
+        } elseif ($missingFilter === 'delivery') {
+            $missing = count($deliveryMethods) === 0;
+        }
         if (!$missing) {
             continue;
         }
