@@ -178,6 +178,16 @@ function shop_test_public_product(array $product): array
     ];
 }
 
+function shop_test_public_products(): array
+{
+    return array_map('shop_test_public_product', shop_test_products());
+}
+
+function shop_test_product_url(string $slug): string
+{
+    return '/sklep-test/figury-ogrodowe/produkt/' . rawurlencode(clean_filename($slug));
+}
+
 function shop_test_cart_common_delivery(array $items): array
 {
     $common = null;

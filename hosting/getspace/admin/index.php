@@ -244,7 +244,7 @@ try {
                 $index = 0;
             }
             save_catalog($catalog);
-            $previewPath = (($product['saleType'] ?? 'showroom') === 'garden_figure') ? '/sklep-test/figury-ogrodowe/' . $product['slug'] : '/produkt/' . $product['slug'];
+            $previewPath = (($product['saleType'] ?? 'showroom') === 'garden_figure') ? '/sklep-test/figury-ogrodowe/produkt/' . $product['slug'] : '/produkt/' . $product['slug'];
             flash('success', ($isEdit ? 'Produkt został zaktualizowany.' : 'Nowy produkt został dodany.') . ' Podgląd: ' . $previewPath);
             redirect_admin('edit=' . $index);
         }
@@ -945,7 +945,7 @@ if ($showStats) {
             <div><h2><?= e($item['name'] ?? 'Produkt bez nazwy') ?></h2><div class="meta"><span><?= e($item['category'] ?? 'Bez kategorii') ?></span><?= (($item['saleType'] ?? 'showroom') === 'garden_figure') ? '<span>Figura / sklep online</span>' : '<span>Outlet / showroom</span>' ?><span class="status"><?= e($item['status'] ?? 'Dostępność do potwierdzenia') ?></span><span><?= e(($item['saleType'] ?? 'showroom') === 'garden_figure' ? ($item['grossPrice'] ?? 'Cena sklepu') : ($item['outletPrice'] ?? 'Zapytaj o cenę')) ?></span><?= (($item['saleType'] ?? 'showroom') === 'garden_figure' ? (!empty($item['shopVisible']) ? '' : '<span>Ukryty w sklepie</span>') : (!empty($item['visible']) ? '' : '<span>Ukryty na stronie</span>')) ?></div></div>
             <div class="row-actions">
               <?php $itemSlug = clean_filename((string)(($item['slug'] ?? '') !== '' ? $item['slug'] : ($item['name'] ?? 'produkt'))); ?>
-              <a class="btn btn-secondary btn-small" href="<?= (($item['saleType'] ?? 'showroom') === 'garden_figure') ? '/sklep-test/figury-ogrodowe/' . e($itemSlug) : '/produkt/' . e($itemSlug) ?>" target="_blank" rel="noopener">Podgląd</a>
+              <a class="btn btn-secondary btn-small" href="<?= (($item['saleType'] ?? 'showroom') === 'garden_figure') ? '/sklep-test/figury-ogrodowe/produkt/' . e($itemSlug) : '/produkt/' . e($itemSlug) ?>" target="_blank" rel="noopener">Podgląd</a>
               <a class="btn btn-secondary btn-small" href="/admin/?edit=<?= e((string)$index) ?>">Edytuj</a>
               <form method="post"><input type="hidden" name="csrf" value="<?= e(csrf_token()) ?>"><input type="hidden" name="action" value="toggle_sold"><input type="hidden" name="return" value="<?= $showFigures ? 'figures' : 'outlet' ?>"><input type="hidden" name="index" value="<?= e((string)$index) ?>"><button class="btn <?= ($item['status'] ?? '') === 'Sprzedane' ? 'btn-restore' : 'btn-status' ?> btn-small" type="submit"><?= ($item['status'] ?? '') === 'Sprzedane' ? 'Przywróć' : 'Sprzedane' ?></button></form>
               <form method="post"><input type="hidden" name="csrf" value="<?= e(csrf_token()) ?>"><input type="hidden" name="action" value="delete_product"><input type="hidden" name="return" value="<?= $showFigures ? 'figures' : 'outlet' ?>"><input type="hidden" name="index" value="<?= e((string)$index) ?>"><button class="btn btn-danger btn-small" type="submit" data-confirm="Usunąć ten produkt? Zdjęcia pozostaną na serwerze.">Usuń</button></form>

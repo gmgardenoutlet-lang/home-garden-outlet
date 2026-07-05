@@ -10,11 +10,18 @@
   const form = document.querySelector("[data-checkout-form]");
   const productGrid = document.querySelector("[data-shop-grid]");
   const sortSelect = document.querySelector("[data-shop-sort]");
+  const cartToast = document.querySelector("[data-cart-toast]");
+  const cartCounts = Array.from(document.querySelectorAll("[data-cart-count]"));
+  const emptyActions = document.querySelector("[data-cart-empty-actions]");
+  const checkoutLink = document.querySelector("[data-checkout-link]");
   const productCards = productGrid ? Array.from(productGrid.querySelectorAll("[data-product-card]")) : [];
 
   productCards.forEach((card, index) => {
     card.dataset.defaultOrder = String(index);
   });
+
+  const escapeHtml = (value) => String(value || "").replace(/[&<>"']/g, (char) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#039;" }[char]));
+  const escapeAttr = escapeHtml;
 
   const readCart = () => {
     try {
@@ -23,6 +30,14 @@
     } catch (error) {
       return { items: [], delivery: "" };
     }
+  };
+
+  const cartWithValidItems = () => {
+    const cart = readCart();
+    const items = cart.items
+      .filter((item) => bySlug.has(item.slug))
+      .map((item) => ({ slug: item.slug, quantity: Math.max(1, Math.min(20, Number(item.quantity) || 1)) }));
+    return { items, delivery: cart.delivery || "" };
   };
 
   const saveCart = (cart) => {
@@ -45,26 +60,53 @@
     return [...common.values()];
   };
 
-  const cartWithValidItems = () => {
-    const cart = readCart();
-    const items = cart.items
-      .filter((item) => bySlug.has(item.slug))
-      .map((item) => ({ slug: item.slug, quantity: Math.max(1, Math.min(20, Number(item.quantity) || 1)) }));
-    return { items, delivery: cart.delivery || "" };
+  const updateCount = (cart) => {
+    const count = cart.items.reduce((sum, item) => sum + item.quantity, 0);
+    cartCounts.forEach((node) => {
+      node.textContent = count > 0 ? `(${count})` : "";
+    });
+    if (checkoutLink) {
+      checkoutLink.classList.toggle("is-disabled", count === 0);
+      checkoutLink.setAttribute("aria-disabled", count === 0 ? "true" : "false");
+    }
+  };
+
+  const showToast = (product) => {
+    if (!cartToast) return;
+    cartToast.hidden = false;
+    cartToast.innerHTML = `
+      <strong>Dodano do koszyka</strong>
+      <span>${escapeHtml(product.name)}</span>
+      <div class="shop-actions">
+        <a class="btn btn-light" href="/sklep-test/figury-ogrodowe/koszyk">Zobacz koszyk</a>
+        <a class="btn" href="/sklep-test/figury-ogrodowe/zamowienie">Przejdź do zamówienia</a>
+      </div>
+    `;
+    clearTimeout(showToast.timer);
+    showToast.timer = setTimeout(() => {
+      cartToast.hidden = true;
+    }, 4200);
   };
 
   const render = () => {
-    if (!cartItems || !cartTotal) return;
     const cart = cartWithValidItems();
     const deliveryMethods = commonDelivery(cart.items);
-    if (cart.items.length > 0 && !deliveryMethods.some((method) => method.method === cart.delivery)) {
+    if (cart.items.length > 0 && deliveryBox && !deliveryMethods.some((method) => method.method === cart.delivery)) {
       cart.delivery = deliveryMethods[0]?.method || "";
       localStorage.setItem(storageKey, JSON.stringify(cart));
     }
 
+    updateCount(cart);
+
+    if (!cartItems || !cartTotal) return;
+
     cartItems.innerHTML = "";
-    if (cart.items.length === 0) {
-      cartItems.innerHTML = "<p>Koszyk jest pusty.</p>";
+    const isEmpty = cart.items.length === 0;
+    if (emptyActions) emptyActions.hidden = !isEmpty;
+    if (form) form.classList.toggle("is-disabled", isEmpty);
+
+    if (isEmpty) {
+      if (!emptyActions) cartItems.innerHTML = "<p>Twój koszyk jest pusty.</p>";
       if (deliveryBox) deliveryBox.innerHTML = "";
       cartTotal.textContent = formatter.format(0);
       if (cartPayload) cartPayload.value = JSON.stringify(cart);
@@ -79,7 +121,8 @@
       const row = document.createElement("div");
       row.className = "cart-row";
       row.innerHTML = `
-        <div><strong>${escapeHtml(product.name)}</strong><br><span>${formatter.format(price)} / szt.</span></div>
+        <img src="${escapeAttr(product.image)}" alt="" width="82" height="82">
+        <div class="cart-row-main"><strong>${escapeHtml(product.name)}</strong><br><span>${formatter.format(price)} / szt.</span></div>
         <div class="qty">
           <button type="button" data-cart-minus="${escapeAttr(item.slug)}">-</button>
           <span>${item.quantity}</span>
@@ -103,14 +146,18 @@
           deliveryCost = Number(method.costNumber) || 0;
         }
       });
+      if (deliveryMethods.some((method) => method.costNumber == null)) {
+        const note = document.createElement("p");
+        note.className = "delivery-note";
+        note.textContent = "Dla wybranej dostawy koszt może zostać potwierdzony indywidualnie przed realizacją zamówienia.";
+        deliveryBox.appendChild(note);
+      }
     }
 
-    cartTotal.textContent = formatter.format(productTotal + deliveryCost) + (deliveryCost === 0 && deliveryMethods.find((method) => method.method === cart.delivery)?.costNumber == null ? " + dostawa do ustalenia" : "");
+    const selectedDelivery = deliveryMethods.find((method) => method.method === cart.delivery);
+    cartTotal.textContent = formatter.format(productTotal + deliveryCost) + (deliveryBox && selectedDelivery?.costNumber == null ? " + dostawa do ustalenia" : "");
     if (cartPayload) cartPayload.value = JSON.stringify(cart);
   };
-
-  const escapeHtml = (value) => String(value || "").replace(/[&<>"']/g, (char) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#039;" }[char]));
-  const escapeAttr = escapeHtml;
 
   const parsePrice = (value) => {
     const normalized = String(value || "").replace(/\s/g, "").replace(",", ".");
@@ -134,7 +181,15 @@
     const target = event.target;
     if (!(target instanceof HTMLElement)) return;
 
-    const addSlug = target.getAttribute("data-add-to-cart");
+    const disabledLink = target.closest("[data-checkout-link].is-disabled");
+    if (disabledLink) {
+      event.preventDefault();
+      alert("Twój koszyk jest pusty.");
+      return;
+    }
+
+    const addButton = target.closest("[data-add-to-cart]");
+    const addSlug = addButton instanceof HTMLElement ? addButton.getAttribute("data-add-to-cart") : "";
     if (addSlug && bySlug.has(addSlug)) {
       const product = bySlug.get(addSlug);
       if (!product.canBuy) return;
@@ -143,10 +198,11 @@
       if (existing) existing.quantity = Math.min(20, existing.quantity + 1);
       else cart.items.push({ slug: addSlug, quantity: 1 });
       saveCart(cart);
-      if (!cartItems) {
-        const previous = target.textContent;
-        target.textContent = "Dodano do koszyka";
-        setTimeout(() => { target.textContent = previous; }, 1400);
+      showToast(product);
+      if (!cartToast && addButton) {
+        const previous = addButton.textContent;
+        addButton.textContent = "Dodano do koszyka";
+        setTimeout(() => { addButton.textContent = previous; }, 1400);
       }
     }
 
@@ -184,10 +240,15 @@
       sortProductCards();
       return;
     }
-    if (!(target instanceof HTMLInputElement) || target.name !== "cart_delivery") return;
-    const cart = cartWithValidItems();
-    cart.delivery = target.value;
-    saveCart(cart);
+    if (target instanceof HTMLInputElement && target.name === "cart_delivery") {
+      const cart = cartWithValidItems();
+      cart.delivery = target.value;
+      saveCart(cart);
+      return;
+    }
+    if (target instanceof HTMLInputElement && target.matches("[data-terms-checkbox]")) {
+      target.setCustomValidity("");
+    }
   });
 
   if (form) {
@@ -195,9 +256,17 @@
       const cart = cartWithValidItems();
       if (cart.items.length === 0) {
         event.preventDefault();
-        alert("Koszyk jest pusty.");
+        alert("Twój koszyk jest pusty.");
         return;
       }
+      const terms = form.querySelector("[data-terms-checkbox]");
+      if (terms instanceof HTMLInputElement && !terms.checked) {
+        event.preventDefault();
+        terms.setCustomValidity("Aby złożyć zamówienie, zaakceptuj Regulamin sklepu.");
+        terms.reportValidity();
+        return;
+      }
+      if (terms instanceof HTMLInputElement) terms.setCustomValidity("");
       if (cartPayload) cartPayload.value = JSON.stringify(cart);
     });
   }

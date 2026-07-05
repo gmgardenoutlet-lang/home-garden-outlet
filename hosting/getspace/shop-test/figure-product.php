@@ -10,6 +10,7 @@ if (!$product) {
     http_response_code(404);
 }
 $view = $product ? shop_test_public_product($product) : null;
+$publicProducts = shop_test_public_products();
 $images = $product ? shop_test_gallery($product) : ['/product-table.jpeg'];
 $details = $product ? array_filter([
     'SKU' => $product['sku'] ?? '',
@@ -39,7 +40,11 @@ $details = $product ? array_filter([
 <body>
   <header class="shop-header">
     <a href="/sklep-test/figury-ogrodowe" class="shop-logo">Home &amp; Garden Outlet</a>
-    <nav><a href="/sklep-test/figury-ogrodowe">Figury</a><a href="/sklep-test/figury-ogrodowe#koszyk">Koszyk</a><a href="/admin/">Panel</a></nav>
+    <nav>
+      <a href="/sklep-test/figury-ogrodowe">Figury</a>
+      <a href="/sklep-test/figury-ogrodowe/koszyk">Koszyk <span data-cart-count></span></a>
+      <a href="/admin/">Panel</a>
+    </nav>
   </header>
 
   <main>
@@ -66,10 +71,15 @@ $details = $product ? array_filter([
           <strong class="product-price"><?= e($view['priceLabel']) ?></strong>
           <?php if ($view['shortDescription'] !== ''): ?><p><?= nl2br(e($view['shortDescription'])) ?></p><?php endif; ?>
           <?php if (trim((string)($product['longDescription'] ?? '')) !== ''): ?><p><?= nl2br(e($product['longDescription'])) ?></p><?php endif; ?>
+
+          <div class="shop-note">
+            Produkt malowany ręcznie. Poszczególne egzemplarze mogą nieznacznie różnić się odcieniem, układem kolorów, fakturą i detalami wykończenia. Zdjęcia przedstawiają przykładowy egzemplarz.
+          </div>
+
           <div class="shop-actions">
             <button class="btn" type="button" data-add-to-cart="<?= e($view['slug']) ?>"<?= $view['canBuy'] ? '' : ' disabled' ?>>Dodaj do koszyka</button>
             <a class="btn btn-light" href="sms:+48577210777?body=Interesuje%20mnie%20figura:%20<?= rawurlencode($view['name']) ?>">Zapytaj o produkt</a>
-            <a class="btn btn-light" href="/sklep-test/figury-ogrodowe#koszyk">Koszyk i zamówienie</a>
+            <a class="btn btn-light" href="/sklep-test/figury-ogrodowe/koszyk">Koszyk</a>
           </div>
 
           <?php if ($details): ?>
@@ -89,7 +99,8 @@ $details = $product ? array_filter([
     <?php endif; ?>
   </main>
 
-  <script>window.HGO_SHOP_PRODUCTS = <?= json_encode($view ? [$view] : [], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_HEX_TAG) ?>;</script>
+  <div class="cart-toast" data-cart-toast hidden></div>
+  <script>window.HGO_SHOP_PRODUCTS = <?= json_encode($publicProducts, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_HEX_TAG) ?>;</script>
   <script src="/sklep-test/shop.js"></script>
 </body>
 </html>

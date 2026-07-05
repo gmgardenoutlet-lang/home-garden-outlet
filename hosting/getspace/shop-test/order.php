@@ -13,8 +13,8 @@ try {
         throw new RuntimeException('Zamówienie można złożyć tylko formularzem sklepu testowego.');
     }
     require_csrf();
-    if (empty($_POST['terms']) || empty($_POST['privacy'])) {
-        throw new RuntimeException('Potwierdź zgody wymagane do zamówienia testowego.');
+    if (empty($_POST['terms'])) {
+        throw new RuntimeException('Aby złożyć zamówienie, zaakceptuj Regulamin sklepu.');
     }
 
     $products = shop_test_product_map();
@@ -88,6 +88,8 @@ try {
     }
 
     shop_save_order($order);
+    header('Location: /sklep-test/figury-ogrodowe/potwierdzenie?id=' . rawurlencode($orderId), true, 303);
+    exit;
 } catch (Throwable $exception) {
     $error = $exception->getMessage();
 }
