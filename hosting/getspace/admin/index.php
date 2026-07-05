@@ -113,6 +113,17 @@ try {
             redirect_admin();
         }
 
+        if ($action === 'update_order') {
+            shop_update_order(
+                post_text('order_id'),
+                post_text('order_status'),
+                post_text('payment_status'),
+                post_text('internal_note')
+            );
+            flash('success', 'Zamówienie zostało zaktualizowane.');
+            redirect_admin('orders=1');
+        }
+
         if ($action === 'import_catalog') {
             if (!isset($_POST['confirm_import'])) {
                 throw new RuntimeException('Potwierdź, że chcesz zastąpić katalog przygotowaną kopią.');
@@ -161,20 +172,43 @@ try {
             }
 
             $textFields = [
-                'name', 'category', 'productType', 'catalogPrice', 'outletPrice', 'currency',
+                'name', 'saleType', 'category', 'productType', 'sku', 'grossPrice', 'shopStatus',
+                'catalogPrice', 'outletPrice', 'currency',
                 'imageAlt', 'description', 'longDescription', 'dimensions', 'material', 'color',
+                'height', 'width', 'depth', 'weight', 'packageDimensions', 'producerAvailability', 'leadTime',
                 'condition', 'status', 'productStatus', 'seoTitle', 'seoDescription', 'slug',
                 'googleStatus', 'googleSentAt', 'googleMediaId', 'googlePostId', 'googleText', 'googleError'
             ];
             foreach ($textFields as $field) {
                 $product[$field] = post_text($field);
             }
+            $product['saleType'] = in_array($product['saleType'], ['showroom', 'garden_figure'], true) ? $product['saleType'] : 'showroom';
             $product['featured'] = isset($_POST['featured']);
             $product['visible'] = isset($_POST['visible']);
+            $product['shopVisible'] = isset($_POST['shopVisible']);
+            $product['outdoorUse'] = isset($_POST['outdoorUse']);
+            $product['fragileTransport'] = isset($_POST['fragileTransport']);
             $product['googleManualProduct'] = isset($_POST['googleManualProduct']);
             $product['order'] = (int)($_POST['order'] ?? 0);
             $product['currency'] = 'PLN';
+            $product['shopStatus'] = $product['shopStatus'] !== '' ? $product['shopStatus'] : 'Ukryty';
             $product['productStatus'] = $product['productStatus'] !== '' ? $product['productStatus'] : 'Aktywny';
+            $product['producerAvailability'] = $product['producerAvailability'] !== '' ? $product['producerAvailability'] : 'Dostępny u producenta';
+            $product['leadTime'] = $product['leadTime'] !== '' ? $product['leadTime'] : '2-5 dni roboczych';
+            $deliveryEnabled = array_map('strval', (array)($_POST['delivery_enabled'] ?? []));
+            $deliveryCosts = is_array($_POST['delivery_cost'] ?? null) ? $_POST['delivery_cost'] : [];
+            $deliveryMethods = [];
+            foreach (shop_delivery_labels() as $methodKey => $methodLabel) {
+                if (!in_array($methodKey, $deliveryEnabled, true)) {
+                    continue;
+                }
+                $deliveryMethods[] = [
+                    'method' => $methodKey,
+                    'label' => $methodLabel,
+                    'cost' => trim((string)($deliveryCosts[$methodKey] ?? 'do ustalenia')) ?: 'do ustalenia',
+                ];
+            }
+            $product['deliveryMethods'] = $deliveryMethods;
             $product['slug'] = unique_product_slug($product['slug'] !== '' ? $product['slug'] : $name, $catalog['products'], $isEdit ? $index : null);
             if ($product['googleText'] === '') {
                 $product['googleText'] = google_business_description($product);
@@ -292,6 +326,7 @@ $newProduct = isset($_GET['new']);
 $showPassword = isset($_GET['password']);
 $showImport = isset($_GET['import']);
 $showStats = isset($_GET['stats']);
+$showOrders = isset($_GET['orders']);
 $showGoogleConfig = isset($_GET['google_config']);
 $editIndex = $editing ? (int)$editRaw : null;
 $product = $editing ? array_merge(product_defaults(), $products[$editIndex]) : product_defaults();
@@ -299,6 +334,12 @@ $googleTextPreview = trim((string)($product['googleText'] ?? '')) !== ''
     ? (string)$product['googleText']
     : google_business_description($product);
 $googleStatusOptions = ['Nie wysłano', 'Wysłano', 'Błąd', 'Dodane ręcznie'];
+$currentDeliveryMethods = [];
+foreach (($product['deliveryMethods'] ?? []) as $deliveryMethod) {
+    if (is_array($deliveryMethod) && isset($deliveryMethod['method'])) {
+        $currentDeliveryMethods[(string)$deliveryMethod['method']] = (string)($deliveryMethod['cost'] ?? 'do ustalenia');
+    }
+}
 $search = trim((string)($_GET['q'] ?? ''));
 $statsRange = normalize_stats_range((string)($_GET['range'] ?? 'today'));
 $statsProductLimit = normalize_stats_product_limit($_GET['product_limit'] ?? 10);
@@ -309,6 +350,10 @@ $statsCards = [];
 $statsTopProducts = [];
 $googleConfig = load_google_business_config();
 $googleConfigStatus = google_business_config_status($googleConfig);
+$shopOrders = $showOrders ? shop_load_orders() : [];
+$shopOrderStatuses = shop_order_statuses();
+$shopPaymentStatuses = shop_payment_statuses();
+$shopDeliveryLabels = shop_delivery_labels();
 
 if ($showStats) {
     $statsToday = load_stats_summary('today', $catalog);
@@ -341,7 +386,9 @@ if ($showStats) {
     <a class="brand" href="/admin/">Home & Garden Outlet</a>
     <div class="header-actions">
       <a class="btn btn-secondary btn-small" href="/" target="_blank" rel="noopener">Zobacz stronę</a>
+      <a class="btn btn-secondary btn-small" href="/sklep-test/figury-ogrodowe" target="_blank" rel="noopener">Podgląd sklepu figur</a>
       <a class="btn btn-secondary btn-small" href="/admin/?stats=1">Statystyki</a>
+      <a class="btn btn-secondary btn-small" href="/admin/?orders=1">Zamówienia sklepu</a>
       <a class="btn btn-secondary btn-small" href="/admin/?google_config=1">Google API</a>
       <a class="btn btn-secondary btn-small" href="/admin/?download=products">Kopia produktów</a>
       <form method="post">
@@ -458,6 +505,97 @@ if ($showStats) {
           </div>
         </section>
       <?php endif; ?>
+    <?php elseif ($showOrders): ?>
+      <div class="page-heading">
+        <div>
+          <p class="muted">Testowy sklep figur · dane zamówień są w chronionym katalogu panelu</p>
+          <h1>Zamówienia sklepu</h1>
+        </div>
+        <div class="header-actions">
+          <a class="btn btn-secondary" href="/sklep-test/figury-ogrodowe" target="_blank" rel="noopener">Podgląd sklepu figur</a>
+          <a class="btn btn-secondary" href="/admin/">Produkty</a>
+        </div>
+      </div>
+
+      <?php if (!$shopOrders): ?>
+        <section class="card empty">Nie ma jeszcze zamówień testowych.</section>
+      <?php else: ?>
+        <section class="orders-list">
+          <?php foreach ($shopOrders as $order): ?>
+            <?php
+              $customer = is_array($order['customer'] ?? null) ? $order['customer'] : [];
+              $delivery = is_array($order['delivery'] ?? null) ? $order['delivery'] : [];
+              $items = is_array($order['items'] ?? null) ? $order['items'] : [];
+            ?>
+            <article class="card order-card">
+              <div class="order-card-head">
+                <div>
+                  <p class="muted"><?= e((string)($order['createdAt'] ?? '')) ?></p>
+                  <h2><?= e((string)($order['orderId'] ?? 'Zamówienie')) ?></h2>
+                </div>
+                <strong><?= e(number_format((float)($order['total'] ?? 0), 2, ',', ' ')) ?> zł</strong>
+              </div>
+
+              <div class="order-grid">
+                <div>
+                  <h3>Klient</h3>
+                  <p><?= e($customer['name'] ?? '') ?></p>
+                  <p><a href="mailto:<?= e($customer['email'] ?? '') ?>"><?= e($customer['email'] ?? '') ?></a></p>
+                  <p><a href="tel:<?= e($customer['phone'] ?? '') ?>"><?= e($customer['phone'] ?? '') ?></a></p>
+                  <p><?= e($customer['address'] ?? '') ?>, <?= e($customer['postalCode'] ?? '') ?> <?= e($customer['city'] ?? '') ?></p>
+                  <?php if (trim((string)($customer['notes'] ?? '')) !== ''): ?><p class="muted">Uwagi: <?= e($customer['notes']) ?></p><?php endif; ?>
+                </div>
+                <div>
+                  <h3>Dostawa i płatność</h3>
+                  <p><?= e($delivery['label'] ?? 'Do ustalenia') ?> · <?= e((string)($delivery['costLabel'] ?? 'do ustalenia')) ?></p>
+                  <p>Metoda płatności: <?= e((string)($order['paymentMethod'] ?? 'Test')) ?></p>
+                  <p>Status płatności: <?= e((string)($order['paymentStatus'] ?? 'Testowe bez płatności')) ?></p>
+                  <p>Status zamówienia: <?= e((string)($order['orderStatus'] ?? 'Testowe')) ?></p>
+                </div>
+              </div>
+
+              <div class="table-wrap">
+                <table class="stats-table">
+                  <thead><tr><th>Produkt</th><th>Ilość</th><th>Cena</th><th>Suma</th></tr></thead>
+                  <tbody>
+                    <?php foreach ($items as $item): ?>
+                      <tr>
+                        <td><?= e($item['name'] ?? '') ?><br><code><?= e($item['slug'] ?? '') ?></code></td>
+                        <td><?= e((string)($item['quantity'] ?? 0)) ?></td>
+                        <td><?= e(number_format((float)($item['price'] ?? 0), 2, ',', ' ')) ?> zł</td>
+                        <td><?= e(number_format((float)($item['lineTotal'] ?? 0), 2, ',', ' ')) ?> zł</td>
+                      </tr>
+                    <?php endforeach; ?>
+                  </tbody>
+                </table>
+              </div>
+
+              <form method="post" class="form-grid order-admin-form">
+                <input type="hidden" name="csrf" value="<?= e(csrf_token()) ?>">
+                <input type="hidden" name="action" value="update_order">
+                <input type="hidden" name="order_id" value="<?= e((string)($order['orderId'] ?? '')) ?>">
+                <div class="field">
+                  <label>Status zamówienia</label>
+                  <select name="order_status">
+                    <?php foreach ($shopOrderStatuses as $option): ?><option<?= (($order['orderStatus'] ?? 'Testowe') === $option) ? ' selected' : '' ?>><?= e($option) ?></option><?php endforeach; ?>
+                  </select>
+                </div>
+                <div class="field">
+                  <label>Status płatności</label>
+                  <select name="payment_status">
+                    <?php foreach ($shopPaymentStatuses as $option): ?><option<?= (($order['paymentStatus'] ?? 'Testowe bez płatności') === $option) ? ' selected' : '' ?>><?= e($option) ?></option><?php endforeach; ?>
+                  </select>
+                </div>
+                <div class="field field-full">
+                  <label>Notatka wewnętrzna</label>
+                  <textarea name="internal_note" rows="3"><?= e((string)($order['internalNote'] ?? '')) ?></textarea>
+                </div>
+                <div class="field field-full"><button class="btn btn-small" type="submit">Zapisz status zamówienia</button></div>
+              </form>
+            </article>
+          <?php endforeach; ?>
+        </section>
+      <?php endif; ?>
     <?php elseif ($showGoogleConfig): ?>
       <div class="page-heading">
         <div>
@@ -535,6 +673,14 @@ if ($showStats) {
         <div class="form-grid">
           <div class="section-title">Podstawowe informacje</div>
           <div class="field field-full"><label for="name">Nazwa produktu</label><input id="name" name="name" required value="<?= e($product['name']) ?>"></div>
+          <div class="field field-full">
+            <label for="saleType">Typ produktu</label>
+            <select id="saleType" name="saleType" data-sale-type>
+              <option value="showroom"<?= ($product['saleType'] ?? 'showroom') === 'showroom' ? ' selected' : '' ?>>Produkt outletowy / showroom</option>
+              <option value="garden_figure"<?= ($product['saleType'] ?? '') === 'garden_figure' ? ' selected' : '' ?>>Figura ogrodowa / sklep online</option>
+            </select>
+            <small>Tryb showroom działa jak obecnie. Tryb figury pokazuje dodatkowe pola sklepu testowego.</small>
+          </div>
           <div class="field"><label for="category">Kategoria</label><select id="category" name="category"><?php foreach (['Wyposażenie domu','Wyposażenie ogrodu','Dekoracje','Oświetlenie','Inne'] as $option): ?><option<?= $product['category'] === $option ? ' selected' : '' ?>><?= e($option) ?></option><?php endforeach; ?></select></div>
           <div class="field"><label for="productType">Krótki typ produktu</label><input id="productType" name="productType" value="<?= e($product['productType']) ?>" placeholder="np. sofa, stół, donica"></div>
           <div class="field"><label class="check-line"><input type="checkbox" name="visible"<?= $product['visible'] ? ' checked' : '' ?>> Widoczny na stronie</label></div>
@@ -548,6 +694,33 @@ if ($showStats) {
           <div class="field"><label for="productStatus">Status produktu</label><select id="productStatus" name="productStatus"><?php foreach (['Aktywny','Sprzedany','Ukryty','Rezerwacja'] as $option): ?><option<?= $product['productStatus'] === $option ? ' selected' : '' ?>><?= e($option) ?></option><?php endforeach; ?></select></div>
           <div class="field"><label for="condition">Stan produktu</label><select id="condition" name="condition"><option value="">Nie podano</option><?php foreach (['Nowy','Outletowy','Po ekspozycji','Końcówka kolekcji','Produkt z drobnymi śladami','Inny'] as $option): ?><option<?= $product['condition'] === $option ? ' selected' : '' ?>><?= e($option) ?></option><?php endforeach; ?></select></div>
           <div class="field"><label for="order">Kolejność</label><input id="order" type="number" name="order" value="<?= e($product['order']) ?>"></div>
+
+          <div class="section-title shop-fields" data-shop-fields>Sklep online — figury ogrodowe</div>
+          <div class="field shop-fields" data-shop-fields><label class="check-line"><input type="checkbox" name="shopVisible"<?= !empty($product['shopVisible']) ? ' checked' : '' ?>> Widoczny w sklepie testowym</label></div>
+          <div class="field shop-fields" data-shop-fields><label for="shopStatus">Status w sklepie</label><select id="shopStatus" name="shopStatus"><?php foreach (['Dostępny','Ukryty','Wyłączony'] as $option): ?><option<?= ($product['shopStatus'] ?? 'Ukryty') === $option ? ' selected' : '' ?>><?= e($option) ?></option><?php endforeach; ?></select></div>
+          <div class="field shop-fields" data-shop-fields><label for="sku">SKU / numer produktu</label><input id="sku" name="sku" value="<?= e($product['sku']) ?>" placeholder="np. FIG-001"></div>
+          <div class="field shop-fields" data-shop-fields><label for="grossPrice">Cena brutto w sklepie</label><input id="grossPrice" name="grossPrice" value="<?= e($product['grossPrice']) ?>" placeholder="np. 249 zł"></div>
+          <div class="field shop-fields" data-shop-fields><label for="producerAvailability">Dostępność</label><input id="producerAvailability" name="producerAvailability" value="<?= e($product['producerAvailability']) ?>"></div>
+          <div class="field shop-fields" data-shop-fields><label for="leadTime">Czas realizacji</label><input id="leadTime" name="leadTime" value="<?= e($product['leadTime']) ?>"></div>
+          <div class="field shop-fields" data-shop-fields><label for="height">Wysokość</label><input id="height" name="height" value="<?= e($product['height']) ?>" placeholder="np. 80 cm"></div>
+          <div class="field shop-fields" data-shop-fields><label for="width">Szerokość</label><input id="width" name="width" value="<?= e($product['width']) ?>" placeholder="np. 35 cm"></div>
+          <div class="field shop-fields" data-shop-fields><label for="depth">Głębokość</label><input id="depth" name="depth" value="<?= e($product['depth']) ?>" placeholder="np. 28 cm"></div>
+          <div class="field shop-fields" data-shop-fields><label for="weight">Waga produktu</label><input id="weight" name="weight" value="<?= e($product['weight']) ?>" placeholder="np. 12 kg"></div>
+          <div class="field field-full shop-fields" data-shop-fields><label for="packageDimensions">Wymiary paczki</label><input id="packageDimensions" name="packageDimensions" value="<?= e($product['packageDimensions']) ?>" placeholder="np. 90 × 45 × 45 cm"></div>
+          <div class="field shop-fields" data-shop-fields><label class="check-line"><input type="checkbox" name="outdoorUse"<?= !empty($product['outdoorUse']) ? ' checked' : '' ?>> Produkt przeznaczony na zewnątrz</label></div>
+          <div class="field shop-fields" data-shop-fields><label class="check-line"><input type="checkbox" name="fragileTransport"<?= !empty($product['fragileTransport']) ? ' checked' : '' ?>> Ciężki / kruchy / wymaga ostrożnego transportu</label></div>
+          <div class="field field-full shop-fields" data-shop-fields>
+            <label>Dostępne formy dostawy</label>
+            <div class="delivery-grid">
+              <?php foreach ($shopDeliveryLabels as $deliveryKey => $deliveryLabel): ?>
+                <label class="delivery-option">
+                  <span><input type="checkbox" name="delivery_enabled[]" value="<?= e($deliveryKey) ?>"<?= array_key_exists($deliveryKey, $currentDeliveryMethods) ? ' checked' : '' ?>> <?= e($deliveryLabel) ?></span>
+                  <input name="delivery_cost[<?= e($deliveryKey) ?>]" value="<?= e($currentDeliveryMethods[$deliveryKey] ?? '') ?>" placeholder="koszt albo do ustalenia">
+                </label>
+              <?php endforeach; ?>
+            </div>
+            <small>Klient zobaczy tylko dostawy zaznaczone przy konkretnej figurze.</small>
+          </div>
 
           <div class="section-title">Zdjęcia z telefonu</div>
           <div class="field field-full upload-field">
@@ -631,9 +804,10 @@ if ($showStats) {
         <?php $shown = 0; foreach ($products as $index => $item): if ($search !== '' && (function_exists('mb_stripos') ? mb_stripos((string)($item['name'] ?? ''), $search) : stripos((string)($item['name'] ?? ''), $search)) === false) continue; $shown++; ?>
           <article class="product-row">
             <img src="<?= e(image_url((string)($item['image'] ?? ''))) ?>" alt="">
-            <div><h2><?= e($item['name'] ?? 'Produkt bez nazwy') ?></h2><div class="meta"><span><?= e($item['category'] ?? 'Bez kategorii') ?></span><span class="status"><?= e($item['status'] ?? 'Dostępność do potwierdzenia') ?></span><span><?= e($item['outletPrice'] ?? 'Zapytaj o cenę') ?></span><?= !empty($item['visible']) ? '' : '<span>Ukryty na stronie</span>' ?></div></div>
+            <div><h2><?= e($item['name'] ?? 'Produkt bez nazwy') ?></h2><div class="meta"><span><?= e($item['category'] ?? 'Bez kategorii') ?></span><?= (($item['saleType'] ?? 'showroom') === 'garden_figure') ? '<span>Figura / sklep testowy</span>' : '' ?><span class="status"><?= e($item['status'] ?? 'Dostępność do potwierdzenia') ?></span><span><?= e(($item['saleType'] ?? 'showroom') === 'garden_figure' ? ($item['grossPrice'] ?? 'Cena sklepu') : ($item['outletPrice'] ?? 'Zapytaj o cenę')) ?></span><?= !empty($item['visible']) ? '' : '<span>Ukryty na stronie</span>' ?></div></div>
             <div class="row-actions">
-              <a class="btn btn-secondary btn-small" href="/produkt/<?= e(clean_filename((string)(($item['slug'] ?? '') !== '' ? $item['slug'] : ($item['name'] ?? 'produkt')))) ?>" target="_blank" rel="noopener">Podgląd</a>
+              <?php $itemSlug = clean_filename((string)(($item['slug'] ?? '') !== '' ? $item['slug'] : ($item['name'] ?? 'produkt'))); ?>
+              <a class="btn btn-secondary btn-small" href="<?= (($item['saleType'] ?? 'showroom') === 'garden_figure') ? '/sklep-test/figury-ogrodowe/' . e($itemSlug) : '/produkt/' . e($itemSlug) ?>" target="_blank" rel="noopener">Podgląd</a>
               <a class="btn btn-secondary btn-small" href="/admin/?edit=<?= e((string)$index) ?>">Edytuj</a>
               <form method="post"><input type="hidden" name="csrf" value="<?= e(csrf_token()) ?>"><input type="hidden" name="action" value="toggle_sold"><input type="hidden" name="index" value="<?= e((string)$index) ?>"><button class="btn <?= ($item['status'] ?? '') === 'Sprzedane' ? 'btn-restore' : 'btn-status' ?> btn-small" type="submit"><?= ($item['status'] ?? '') === 'Sprzedane' ? 'Przywróć' : 'Sprzedane' ?></button></form>
               <form method="post"><input type="hidden" name="csrf" value="<?= e(csrf_token()) ?>"><input type="hidden" name="action" value="delete_product"><input type="hidden" name="index" value="<?= e((string)$index) ?>"><button class="btn btn-danger btn-small" type="submit" data-confirm="Usunąć ten produkt? Zdjęcia pozostaną na serwerze.">Usuń</button></form>

@@ -53,6 +53,22 @@ document.querySelectorAll("[data-copy-target]").forEach((button) => {
 });
 
 (() => {
+  const saleType = document.querySelector("[data-sale-type]");
+  const shopFields = Array.from(document.querySelectorAll("[data-shop-fields]"));
+  if (!(saleType instanceof HTMLSelectElement) || shopFields.length === 0) return;
+
+  const updateShopFields = () => {
+    const isFigure = saleType.value === "garden_figure";
+    shopFields.forEach((field) => {
+      field.hidden = !isFigure;
+    });
+  };
+
+  saleType.addEventListener("change", updateShopFields);
+  updateShopFields();
+})();
+
+(() => {
   const googleText = document.getElementById("googleText");
   if (!(googleText instanceof HTMLTextAreaElement)) return;
 

@@ -7,6 +7,7 @@ const UPLOAD_DIR = SITE_ROOT . '/uploads';
 const STORAGE_DIR = __DIR__ . '/storage';
 const BACKUP_DIR = STORAGE_DIR . '/backups';
 const STATS_DIR = STORAGE_DIR . '/stats';
+const ORDERS_DIR = STORAGE_DIR . '/orders';
 const STATS_TIMEZONE = 'Europe/Warsaw';
 const CREDENTIALS_FILE = __DIR__ . '/.credentials.php';
 const GOOGLE_BUSINESS_CONFIG_FILE = STORAGE_DIR . '/google-business.php';
@@ -34,6 +35,9 @@ function boot_admin(): void
     }
     if (!is_dir(BACKUP_DIR)) {
         @mkdir(BACKUP_DIR, 0750, true);
+    }
+    if (!is_dir(ORDERS_DIR)) {
+        @mkdir(ORDERS_DIR, 0750, true);
     }
     if (!is_dir(UPLOAD_DIR)) {
         @mkdir(UPLOAD_DIR, 0755, true);
@@ -466,6 +470,141 @@ function load_stats_summary(string $range, array $catalog): array
     return $summary;
 }
 
+function shop_order_statuses(): array
+{
+    return [
+        'Testowe',
+        'Nowe',
+        'Oczekuje na płatność',
+        'Opłacone',
+        'W przygotowaniu',
+        'Wysłane',
+        'Odebrane osobiście',
+        'Anulowane',
+        'Zwrócone',
+    ];
+}
+
+function shop_payment_statuses(): array
+{
+    return [
+        'Testowe bez płatności',
+        'Oczekuje na płatność',
+        'Opłacone',
+        'Anulowane',
+        'Zwrot',
+    ];
+}
+
+function shop_delivery_labels(): array
+{
+    return [
+        'parcel_locker' => 'Paczkomat',
+        'courier' => 'Kurier standardowy',
+        'large_courier' => 'Kurier gabarytowy',
+        'pallet' => 'Paleta',
+        'pickup' => 'Odbiór osobisty',
+        'individual' => 'Transport / dostawa do ustalenia indywidualnie',
+    ];
+}
+
+function shop_safe_order_id(string $value): string
+{
+    $value = preg_replace('/[^A-Z0-9-]/i', '', $value) ?: '';
+    return trim($value);
+}
+
+function shop_order_file(string $orderId): string
+{
+    $orderId = shop_safe_order_id($orderId);
+    if ($orderId === '') {
+        throw new RuntimeException('Nieprawidłowy numer zamówienia.');
+    }
+    return ORDERS_DIR . '/' . $orderId . '.json';
+}
+
+function shop_next_order_id(): string
+{
+    $date = (new DateTimeImmutable('now', new DateTimeZone(STATS_TIMEZONE)))->format('Ymd');
+    for ($attempt = 1; $attempt <= 9999; $attempt++) {
+        $id = 'TEST-' . $date . '-' . str_pad((string)$attempt, 4, '0', STR_PAD_LEFT);
+        if (!is_file(ORDERS_DIR . '/' . $id . '.json')) {
+            return $id;
+        }
+    }
+    return 'TEST-' . $date . '-' . bin2hex(random_bytes(3));
+}
+
+function shop_load_order(string $orderId): ?array
+{
+    $file = shop_order_file($orderId);
+    if (!is_file($file)) {
+        return null;
+    }
+    $data = json_decode((string)file_get_contents($file), true);
+    return is_array($data) ? $data : null;
+}
+
+function shop_load_orders(): array
+{
+    $orders = [];
+    foreach (glob(ORDERS_DIR . '/TEST-*.json') ?: [] as $file) {
+        $data = json_decode((string)file_get_contents($file), true);
+        if (is_array($data) && isset($data['orderId'])) {
+            $orders[] = $data;
+        }
+    }
+
+    usort($orders, static function (array $a, array $b): int {
+        return strcmp((string)($b['createdAt'] ?? ''), (string)($a['createdAt'] ?? ''));
+    });
+
+    return $orders;
+}
+
+function shop_save_order(array $order): void
+{
+    if (!is_dir(ORDERS_DIR)) {
+        @mkdir(ORDERS_DIR, 0750, true);
+    }
+    $orderId = shop_safe_order_id((string)($order['orderId'] ?? ''));
+    if ($orderId === '') {
+        throw new RuntimeException('Brakuje numeru zamówienia.');
+    }
+
+    $json = json_encode($order, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+    if ($json === false) {
+        throw new RuntimeException('Nie udało się przygotować danych zamówienia.');
+    }
+
+    $target = shop_order_file($orderId);
+    $temp = $target . '.tmp';
+    if (file_put_contents($temp, $json . PHP_EOL, LOCK_EX) === false || !@rename($temp, $target)) {
+        @unlink($temp);
+        throw new RuntimeException('Nie udało się zapisać zamówienia.');
+    }
+    @chmod($target, 0640);
+}
+
+function shop_update_order(string $orderId, string $orderStatus, string $paymentStatus, string $internalNote): void
+{
+    $order = shop_load_order($orderId);
+    if (!$order) {
+        throw new RuntimeException('Nie znaleziono zamówienia.');
+    }
+    if (!in_array($orderStatus, shop_order_statuses(), true)) {
+        throw new RuntimeException('Nieprawidłowy status zamówienia.');
+    }
+    if (!in_array($paymentStatus, shop_payment_statuses(), true)) {
+        throw new RuntimeException('Nieprawidłowy status płatności.');
+    }
+    $order['orderStatus'] = $orderStatus;
+    $order['paymentStatus'] = $paymentStatus;
+    $order['internalNote'] = trim($internalNote);
+    $order['updatedAt'] = (new DateTimeImmutable('now', new DateTimeZone(STATS_TIMEZONE)))->format(DATE_ATOM);
+    shop_save_order($order);
+}
+
 function save_catalog(array $catalog): void
 {
     $directory = dirname(PRODUCTS_FILE);
@@ -505,10 +644,15 @@ function product_defaults(): array
 {
     return [
         'name' => '',
+        'saleType' => 'showroom',
         'category' => 'Wyposażenie domu',
         'productType' => '',
         'featured' => true,
         'visible' => true,
+        'shopVisible' => false,
+        'shopStatus' => 'Ukryty',
+        'sku' => '',
+        'grossPrice' => '',
         'catalogPrice' => '',
         'outletPrice' => '',
         'currency' => 'PLN',
@@ -518,8 +662,18 @@ function product_defaults(): array
         'description' => '',
         'longDescription' => '',
         'dimensions' => '',
+        'height' => '',
+        'width' => '',
+        'depth' => '',
+        'weight' => '',
+        'packageDimensions' => '',
         'material' => '',
         'color' => '',
+        'outdoorUse' => false,
+        'fragileTransport' => false,
+        'producerAvailability' => 'Dostępny u producenta',
+        'leadTime' => '2-5 dni roboczych',
+        'deliveryMethods' => [],
         'condition' => 'Outletowy',
         'status' => 'Dostępne',
         'productStatus' => 'Aktywny',
