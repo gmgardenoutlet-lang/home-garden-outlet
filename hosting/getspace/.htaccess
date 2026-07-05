@@ -24,6 +24,7 @@ AddType application/manifest+json .webmanifest
   # Dynamiczna mapa strony i automatyczne podstrony produktow.
   RewriteRule ^sitemap\.xml$ sitemap.php [L]
   RewriteRule ^produkt/([a-z0-9-]+)/?$ product.php?slug=$1 [L,QSA]
+  RewriteRule ^sklep-test/(shop\.(?:css|js))$ shop-test/$1 [L,QSA]
   RewriteRule ^sklep-test/figury-ogrodowe/?$ shop-test/figures.php [L,QSA]
   RewriteRule ^sklep-test/figury-ogrodowe/([a-z0-9-]+)/?$ shop-test/figure-product.php?slug=$1 [L,QSA]
   RewriteRule ^sklep-test/order/?$ shop-test/order.php [L,QSA]
