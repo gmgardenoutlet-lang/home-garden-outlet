@@ -51,7 +51,7 @@ function shop_test_slug(array $product): string
 function shop_test_delivery_key(string $value): string
 {
     $value = strtolower(trim($value));
-    return preg_replace('/[^a-z0-9_]/', '', $value) ?: '';
+    return preg_replace('/[^a-z0-9_-]/', '', $value) ?: '';
 }
 
 function shop_test_price_number($value): ?float
@@ -122,35 +122,52 @@ function shop_test_find_product(string $slug): ?array
 
 function shop_test_delivery_methods(array $product): array
 {
-    $labels = shop_delivery_labels();
+    $profiles = shipping_profiles_by_id(true);
     $methods = [];
-    foreach (($product['deliveryMethods'] ?? []) as $item) {
-        if (!is_array($item)) {
+
+    foreach (product_shipping_profile_ids($product) as $profileId) {
+        $profileId = shop_test_delivery_key($profileId);
+        if (!isset($profiles[$profileId])) {
             continue;
         }
-        $method = shop_test_delivery_key((string)($item['method'] ?? ''));
-        if (!isset($labels[$method])) {
-            continue;
-        }
-        $cost = trim((string)($item['cost'] ?? ''));
-        $methods[$method] = [
-            'method' => $method,
-            'label' => $labels[$method],
-            'cost' => $cost !== '' ? $cost : 'do ustalenia',
-            'costNumber' => shop_test_price_number($cost),
-        ];
+        $methods[$profileId] = shipping_profile_public($profiles[$profileId]);
     }
 
     if (!$methods) {
-        $methods['individual'] = [
-            'method' => 'individual',
-            'label' => $labels['individual'],
-            'cost' => 'do ustalenia',
-            'costNumber' => null,
+        $fallback = $profiles['dostawa-indywidualna'] ?? [
+            'id' => 'dostawa-indywidualna',
+            'customerName' => 'Dostawa do ustalenia indywidualnie',
+            'type' => 'do_ustalenia',
+            'price' => null,
+            'requiresConfirmation' => true,
+            'description' => 'Skontaktujemy się po złożeniu zamówienia w celu potwierdzenia kosztu i sposobu transportu.',
         ];
+        $methods['dostawa-indywidualna'] = shipping_profile_public($fallback);
+        if (empty($methods['dostawa-indywidualna']['cost'])) {
+            $methods['dostawa-indywidualna']['cost'] = 'do ustalenia';
+        }
     }
 
     return $methods;
+}
+
+function shop_test_individual_delivery(): array
+{
+    $profiles = shipping_profiles_by_id(false);
+    if (isset($profiles['dostawa-indywidualna'])) {
+        return shipping_profile_public($profiles['dostawa-indywidualna']);
+    }
+    return [
+        'method' => 'dostawa-indywidualna',
+        'profileId' => 'dostawa-indywidualna',
+        'label' => 'Dostawa do ustalenia indywidualnie',
+        'type' => 'do_ustalenia',
+        'cost' => 'do ustalenia',
+        'costNumber' => null,
+        'priceFrom' => false,
+        'requiresConfirmation' => true,
+        'description' => 'Skontaktujemy się po złożeniu zamówienia w celu potwierdzenia kosztu i sposobu transportu.',
+    ];
 }
 
 function shop_test_public_product(array $product): array
@@ -272,14 +289,9 @@ function shop_test_cart_common_delivery(array $items): array
         return [];
     }
     if (!$common) {
-        $labels = shop_delivery_labels();
+        $individual = shop_test_individual_delivery();
         return [
-            'individual' => [
-                'method' => 'individual',
-                'label' => $labels['individual'],
-                'cost' => 'do ustalenia',
-                'costNumber' => null,
-            ],
+            (string)$individual['method'] => $individual,
         ];
     }
     return $common;

@@ -3,6 +3,7 @@ declare(strict_types=1);
 
 const SITE_ROOT = __DIR__ . '/..';
 const PRODUCTS_FILE = SITE_ROOT . '/data/products.json';
+const SHIPPING_PROFILES_FILE = SITE_ROOT . '/data/shipping-profiles.json';
 const UPLOAD_DIR = SITE_ROOT . '/uploads';
 const STORAGE_DIR = __DIR__ . '/storage';
 const BACKUP_DIR = STORAGE_DIR . '/backups';
@@ -289,6 +290,238 @@ function load_catalog(): array
     return $data;
 }
 
+function shipping_profile_defaults(): array
+{
+    return [
+        'id' => '',
+        'name' => '',
+        'customerName' => '',
+        'type' => 'kurier',
+        'price' => null,
+        'currency' => 'PLN',
+        'active' => true,
+        'description' => '',
+        'maxWeightKg' => '',
+        'maxLengthCm' => '',
+        'maxWidthCm' => '',
+        'maxHeightCm' => '',
+        'requiresConfirmation' => false,
+        'priceFrom' => false,
+        'sortOrder' => 100,
+        'internalNote' => '',
+    ];
+}
+
+function default_shipping_profiles(): array
+{
+    return [
+        ['id' => 'paczkomat-maly', 'name' => 'Paczkomat mały', 'customerName' => 'Paczkomat mały', 'type' => 'paczkomat', 'price' => 19.99, 'description' => 'Dostawa do Paczkomatu dla mniejszych figur i dekoracji.', 'maxWeightKg' => 10, 'maxLengthCm' => 41, 'maxWidthCm' => 38, 'maxHeightCm' => 8, 'sortOrder' => 10],
+        ['id' => 'paczkomat-sredni', 'name' => 'Paczkomat średni', 'customerName' => 'Paczkomat średni', 'type' => 'paczkomat', 'price' => 24.99, 'description' => 'Dostawa do Paczkomatu dla średnich produktów.', 'maxWeightKg' => 15, 'maxLengthCm' => 41, 'maxWidthCm' => 38, 'maxHeightCm' => 19, 'sortOrder' => 20],
+        ['id' => 'paczkomat-duzy', 'name' => 'Paczkomat duży', 'customerName' => 'Paczkomat duży', 'type' => 'paczkomat', 'price' => 29.99, 'description' => 'Dostawa do Paczkomatu dla większych paczek mieszczących się w limicie gabarytu.', 'maxWeightKg' => 25, 'maxLengthCm' => 64, 'maxWidthCm' => 38, 'maxHeightCm' => 41, 'sortOrder' => 30],
+        ['id' => 'kurier-standardowy', 'name' => 'Kurier standardowy', 'customerName' => 'Kurier standardowy', 'type' => 'kurier', 'price' => 39.99, 'description' => 'Dostawa kurierem dla standardowych produktów.', 'maxWeightKg' => 20, 'maxLengthCm' => 65, 'maxWidthCm' => 40, 'maxHeightCm' => 40, 'sortOrder' => 40],
+        ['id' => 'kurier-gabarytowy', 'name' => 'Kurier gabarytowy', 'customerName' => 'Kurier gabarytowy', 'type' => 'kurier_gabarytowy', 'price' => 69.99, 'description' => 'Dostawa dla większych produktów. Koszt może wymagać potwierdzenia przy większej liczbie sztuk.', 'maxWeightKg' => 31.5, 'maxLengthCm' => 120, 'maxWidthCm' => 60, 'maxHeightCm' => 60, 'sortOrder' => 50],
+        ['id' => 'paleta', 'name' => 'Paleta', 'customerName' => 'Paleta', 'type' => 'paleta', 'price' => 149.00, 'description' => 'Dostawa paletowa dla ciężkich lub gabarytowych produktów.', 'requiresConfirmation' => true, 'priceFrom' => true, 'sortOrder' => 60],
+        ['id' => 'odbior-osobisty', 'name' => 'Odbiór osobisty', 'customerName' => 'Odbiór osobisty', 'type' => 'odbior_osobisty', 'price' => 0.00, 'description' => 'Odbiór osobisty w showroomie Home & Garden Outlet, ul. Przelotowa 16, 55-080 Kębłowice.', 'sortOrder' => 70],
+        ['id' => 'dostawa-indywidualna', 'name' => 'Dostawa do ustalenia indywidualnie', 'customerName' => 'Dostawa do ustalenia indywidualnie', 'type' => 'do_ustalenia', 'price' => null, 'description' => 'Skontaktujemy się po złożeniu zamówienia w celu potwierdzenia kosztu i sposobu transportu.', 'requiresConfirmation' => true, 'sortOrder' => 80],
+    ];
+}
+
+function clean_shipping_profile_id(string $value): string
+{
+    return clean_filename($value);
+}
+
+function shipping_profile_types(): array
+{
+    return [
+        'paczkomat' => 'paczkomat',
+        'kurier' => 'kurier',
+        'kurier_gabarytowy' => 'kurier gabarytowy',
+        'paleta' => 'paleta',
+        'odbior_osobisty' => 'odbiór osobisty',
+        'do_ustalenia' => 'do ustalenia',
+    ];
+}
+
+function shipping_profile_price_number($value): ?float
+{
+    $value = trim((string)$value);
+    if ($value === '') {
+        return null;
+    }
+    $cleaned = str_replace(["\xc2\xa0", ' ', ','], ['', '', '.'], $value);
+    if (!preg_match('/\d+(?:\.\d+)?/', $cleaned, $matches)) {
+        return null;
+    }
+    $price = (float)$matches[0];
+    return $price >= 0 ? round($price, 2) : null;
+}
+
+function normalize_shipping_profile(array $profile): array
+{
+    $normalized = array_merge(shipping_profile_defaults(), $profile);
+    $normalized['id'] = clean_shipping_profile_id((string)$normalized['id']);
+    $normalized['name'] = trim((string)$normalized['name']);
+    $normalized['customerName'] = trim((string)$normalized['customerName']);
+    if ($normalized['customerName'] === '') {
+        $normalized['customerName'] = $normalized['name'];
+    }
+    $types = array_keys(shipping_profile_types());
+    $normalized['type'] = in_array((string)$normalized['type'], $types, true) ? (string)$normalized['type'] : 'kurier';
+    $normalized['price'] = shipping_profile_price_number($normalized['price']);
+    $normalized['currency'] = 'PLN';
+    $normalized['active'] = !empty($normalized['active']);
+    $normalized['description'] = trim((string)$normalized['description']);
+    foreach (['maxWeightKg', 'maxLengthCm', 'maxWidthCm', 'maxHeightCm'] as $field) {
+        $normalized[$field] = trim((string)$normalized[$field]);
+    }
+    $normalized['requiresConfirmation'] = !empty($normalized['requiresConfirmation']);
+    $normalized['priceFrom'] = !empty($normalized['priceFrom']);
+    $normalized['sortOrder'] = (int)$normalized['sortOrder'];
+    $normalized['internalNote'] = trim((string)$normalized['internalNote']);
+    return $normalized;
+}
+
+function load_shipping_profiles(): array
+{
+    $profiles = [];
+    if (is_file(SHIPPING_PROFILES_FILE)) {
+        $data = json_decode((string)file_get_contents(SHIPPING_PROFILES_FILE), true);
+        if (is_array($data)) {
+            $profiles = is_array($data['profiles'] ?? null) ? $data['profiles'] : $data;
+        }
+    }
+    if (!$profiles) {
+        $profiles = default_shipping_profiles();
+    }
+    $result = [];
+    foreach ($profiles as $profile) {
+        if (!is_array($profile)) {
+            continue;
+        }
+        $normalized = normalize_shipping_profile($profile);
+        if ($normalized['id'] !== '' && $normalized['name'] !== '') {
+            $result[$normalized['id']] = $normalized;
+        }
+    }
+    if (!$result) {
+        foreach (default_shipping_profiles() as $profile) {
+            $normalized = normalize_shipping_profile($profile);
+            $result[$normalized['id']] = $normalized;
+        }
+    }
+    uasort($result, static function (array $a, array $b): int {
+        return ((int)$a['sortOrder'] <=> (int)$b['sortOrder']) ?: strcmp((string)$a['name'], (string)$b['name']);
+    });
+    return array_values($result);
+}
+
+function save_shipping_profiles(array $profiles): void
+{
+    $normalized = [];
+    foreach ($profiles as $profile) {
+        if (!is_array($profile)) {
+            continue;
+        }
+        $item = normalize_shipping_profile($profile);
+        if ($item['id'] !== '' && $item['name'] !== '') {
+            $normalized[$item['id']] = $item;
+        }
+    }
+    uasort($normalized, static function (array $a, array $b): int {
+        return ((int)$a['sortOrder'] <=> (int)$b['sortOrder']) ?: strcmp((string)$a['name'], (string)$b['name']);
+    });
+    $directory = dirname(SHIPPING_PROFILES_FILE);
+    if (!is_dir($directory)) {
+        @mkdir($directory, 0755, true);
+    }
+    $payload = ['profiles' => array_values($normalized)];
+    $json = json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+    if ($json === false) {
+        throw new RuntimeException('Nie udało się przygotować cennika dostaw.');
+    }
+    $temp = SHIPPING_PROFILES_FILE . '.tmp';
+    if (file_put_contents($temp, $json . PHP_EOL, LOCK_EX) === false || !@rename($temp, SHIPPING_PROFILES_FILE)) {
+        @unlink($temp);
+        throw new RuntimeException('Nie udało się zapisać cennika dostaw.');
+    }
+    @chmod(SHIPPING_PROFILES_FILE, 0644);
+}
+
+function shipping_profiles_by_id(bool $activeOnly = false): array
+{
+    $profiles = [];
+    foreach (load_shipping_profiles() as $profile) {
+        if ($activeOnly && empty($profile['active'])) {
+            continue;
+        }
+        $profiles[(string)$profile['id']] = $profile;
+    }
+    return $profiles;
+}
+
+function shipping_legacy_method_map(): array
+{
+    return [
+        'parcel_locker' => 'paczkomat-sredni',
+        'courier' => 'kurier-standardowy',
+        'large_courier' => 'kurier-gabarytowy',
+        'pallet' => 'paleta',
+        'pickup' => 'odbior-osobisty',
+        'individual' => 'dostawa-indywidualna',
+    ];
+}
+
+function product_shipping_profile_ids(array $product): array
+{
+    $ids = [];
+    foreach ((array)($product['shippingProfileIds'] ?? []) as $id) {
+        $id = clean_shipping_profile_id((string)$id);
+        if ($id !== '') {
+            $ids[] = $id;
+        }
+    }
+    if (!$ids) {
+        $legacyMap = shipping_legacy_method_map();
+        foreach ((array)($product['deliveryMethods'] ?? []) as $method) {
+            if (!is_array($method)) {
+                continue;
+            }
+            $key = preg_replace('/[^a-z0-9_]/', '', strtolower((string)($method['method'] ?? ''))) ?: '';
+            if (isset($legacyMap[$key])) {
+                $ids[] = $legacyMap[$key];
+            }
+        }
+    }
+    return array_values(array_unique($ids));
+}
+
+function shipping_profile_price_label(array $profile): string
+{
+    if (($profile['price'] ?? null) === null) {
+        return 'do ustalenia';
+    }
+    $price = number_format((float)$profile['price'], 2, ',', ' ') . ' zł';
+    return !empty($profile['priceFrom']) ? 'od ' . $price : $price;
+}
+
+function shipping_profile_public(array $profile): array
+{
+    $price = ($profile['price'] ?? null) === null ? null : (float)$profile['price'];
+    $requiresConfirmation = !empty($profile['requiresConfirmation']) || $price === null;
+    return [
+        'method' => (string)$profile['id'],
+        'profileId' => (string)$profile['id'],
+        'label' => (string)$profile['customerName'],
+        'type' => (string)$profile['type'],
+        'cost' => shipping_profile_price_label($profile),
+        'costNumber' => $requiresConfirmation ? null : $price,
+        'priceFrom' => !empty($profile['priceFrom']),
+        'requiresConfirmation' => $requiresConfirmation,
+        'description' => (string)$profile['description'],
+    ];
+}
+
 function stats_event_labels(): array
 {
     return [
@@ -498,14 +731,13 @@ function shop_payment_statuses(): array
 
 function shop_delivery_labels(): array
 {
-    return [
-        'parcel_locker' => 'Paczkomat',
-        'courier' => 'Kurier standardowy',
-        'large_courier' => 'Kurier gabarytowy',
-        'pallet' => 'Paleta',
-        'pickup' => 'Odbiór osobisty',
-        'individual' => 'Transport / dostawa do ustalenia indywidualnie',
-    ];
+    $labels = [];
+    foreach (load_shipping_profiles() as $profile) {
+        if (!empty($profile['active'])) {
+            $labels[(string)$profile['id']] = (string)$profile['name'];
+        }
+    }
+    return $labels;
 }
 
 function shop_safe_order_id(string $value): string
@@ -667,13 +899,22 @@ function product_defaults(): array
         'depth' => '',
         'weight' => '',
         'packageDimensions' => '',
+        'packageWeight' => '',
+        'packageLengthCm' => '',
+        'packageWidthCm' => '',
+        'packageHeightCm' => '',
         'material' => '',
         'color' => '',
         'outdoorUse' => false,
         'fragileTransport' => false,
+        'delicateProduct' => false,
+        'handPainted' => false,
+        'heavyProduct' => false,
+        'oversizedProduct' => false,
         'producerAvailability' => 'Dostępny u producenta',
         'leadTime' => '2-5 dni roboczych',
         'deliveryMethods' => [],
+        'shippingProfileIds' => [],
         'condition' => 'Outletowy',
         'status' => 'Dostępne',
         'productStatus' => 'Aktywny',

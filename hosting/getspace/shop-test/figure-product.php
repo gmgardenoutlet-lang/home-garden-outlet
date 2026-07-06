@@ -22,8 +22,16 @@ $details = $product ? array_filter([
     'Głębokość' => $product['depth'] ?? '',
     'Waga' => $product['weight'] ?? '',
     'Wymiary paczki' => $product['packageDimensions'] ?? '',
+    'Waga po zapakowaniu' => $product['packageWeight'] ?? '',
+    'Długość paczki' => $product['packageLengthCm'] ?? '',
+    'Szerokość paczki' => $product['packageWidthCm'] ?? '',
+    'Wysokość paczki' => $product['packageHeightCm'] ?? '',
     'Zastosowanie zewnętrzne' => !empty($product['outdoorUse']) ? 'Tak' : '',
     'Transport ostrożny' => !empty($product['fragileTransport']) ? 'Tak' : '',
+    'Produkt delikatny' => !empty($product['delicateProduct']) ? 'Tak' : '',
+    'Produkt ręcznie malowany' => !empty($product['handPainted']) ? 'Tak' : '',
+    'Produkt ciężki' => !empty($product['heavyProduct']) ? 'Tak' : '',
+    'Produkt gabarytowy' => !empty($product['oversizedProduct']) ? 'Tak' : '',
 ], static function ($value): bool {
     return trim((string)$value) !== '';
 }) : [];
@@ -83,8 +91,16 @@ $details = $product ? array_filter([
 
           <section class="delivery-box">
             <h2>Dostępne formy dostawy</h2>
+            <p class="delivery-note">Dostępne formy dostawy zależą od wagi, wymiarów i rodzaju produktu.</p>
             <?php foreach (shop_test_delivery_methods($product) as $method): ?>
-              <p><strong><?= e($method['label']) ?></strong> — <?= e($method['cost']) ?></p>
+              <article class="delivery-card">
+                <div>
+                  <strong><?= e($method['label']) ?></strong>
+                  <?php if (!empty($method['description'])): ?><p><?= e($method['description']) ?></p><?php endif; ?>
+                </div>
+                <span><?= e($method['cost']) ?></span>
+                <?php if (!empty($method['requiresConfirmation'])): ?><small>Koszt i możliwość wysyłki potwierdzimy przed realizacją.</small><?php endif; ?>
+              </article>
             <?php endforeach; ?>
           </section>
         </section>

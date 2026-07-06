@@ -591,15 +591,27 @@ main {
 }
 
 .delivery-options label {
-  display: flex;
+  display: grid;
+  grid-template-columns: auto 1fr;
   gap: 10px;
-  align-items: center;
+  align-items: start;
   padding: 12px;
   border: 1px solid var(--line);
   border-radius: 14px;
   background: #fff;
   color: var(--green-900);
   font-weight: 800;
+}
+
+.delivery-options input {
+  margin-top: 5px;
+}
+
+.delivery-options small {
+  grid-column: 2;
+  color: var(--muted);
+  font-weight: 700;
+  line-height: 1.45;
 }
 
 .delivery-note {
@@ -761,6 +773,34 @@ main {
 
 .delivery-box h2 { margin-bottom: 8px; }
 .delivery-box p { margin: 7px 0; }
+
+.delivery-card {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 8px 14px;
+  align-items: start;
+  margin-top: 10px;
+  padding: 13px;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: #fff;
+}
+
+.delivery-card strong {
+  color: var(--green-900);
+}
+
+.delivery-card span {
+  color: var(--green-900);
+  font-weight: 900;
+  white-space: nowrap;
+}
+
+.delivery-card small {
+  grid-column: 1 / -1;
+  color: #6a5b3e;
+  font-weight: 800;
+}
 
 .shop-note {
   padding: 14px 16px;
@@ -958,6 +998,8 @@ main {
   .shop-toolbar label { justify-content: space-between; }
   .form-row,
   .specs div { grid-template-columns: 1fr; }
+  .delivery-card { grid-template-columns: 1fr; }
+  .delivery-card span { white-space: normal; }
   .cart-row { align-items: flex-start; flex-direction: column; }
   .cart-row img { width: 100%; height: auto; aspect-ratio: 4 / 3; }
   .confirmation-item { grid-template-columns: 1fr; }

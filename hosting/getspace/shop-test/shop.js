@@ -70,7 +70,16 @@
     });
     if (common === null) return [];
     if (common.size === 0) {
-      return [{ method: "individual", label: "Transport / dostawa do ustalenia indywidualnie", cost: "do ustalenia", costNumber: null }];
+      return [{
+        method: "dostawa-indywidualna",
+        profileId: "dostawa-indywidualna",
+        label: "Dostawa do ustalenia indywidualnie",
+        cost: "do ustalenia",
+        costNumber: null,
+        requiresConfirmation: true,
+        priceFrom: false,
+        description: "Produkty w koszyku wymagają indywidualnego potwierdzenia wspólnego transportu."
+      }];
     }
     return [...common.values()];
   };
@@ -155,7 +164,8 @@
         const inputId = `delivery-${method.method}`;
         const label = document.createElement("label");
         const costText = method.costNumber === null || method.costNumber === undefined ? method.cost : formatter.format(Number(method.costNumber));
-        label.innerHTML = `<input type="radio" name="cart_delivery" id="${escapeAttr(inputId)}" value="${escapeAttr(method.method)}"${cart.delivery === method.method ? " checked" : ""}> <span>${escapeHtml(method.label)} — ${escapeHtml(costText)}</span>`;
+        const description = method.description ? `<small>${escapeHtml(method.description)}</small>` : "";
+        label.innerHTML = `<input type="radio" name="cart_delivery" id="${escapeAttr(inputId)}" value="${escapeAttr(method.method)}"${cart.delivery === method.method ? " checked" : ""}> <span><strong>${escapeHtml(method.label)}</strong> — ${escapeHtml(costText)}</span>${description}`;
         deliveryBox.appendChild(label);
         if (cart.delivery === method.method && method.costNumber !== null && method.costNumber !== undefined) {
           deliveryCost = Number(method.costNumber) || 0;

@@ -62,6 +62,7 @@ jobs:
             **/.git*/**
             data/products.json
             data/google-reviews.json
+            data/shipping-profiles.json
             uploads/**/*.jpg
             uploads/**/*.jpeg
             uploads/**/*.png

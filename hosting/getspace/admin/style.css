@@ -349,6 +349,60 @@ input:focus, textarea:focus, select:focus { outline: 3px solid rgba(63, 111, 69,
   border-top: 1px solid var(--line);
 }
 
+.shipping-info {
+  margin-bottom: 18px;
+  background: #fbfdf9;
+}
+
+.shipping-info strong {
+  display: block;
+  margin-bottom: 6px;
+  color: var(--green-900);
+  font-size: 18px;
+}
+
+.shipping-info p {
+  margin: 0;
+  color: var(--muted);
+}
+
+.shipping-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1.05fr) minmax(360px, .95fr);
+  gap: 18px;
+  align-items: start;
+}
+
+.shipping-profile-list {
+  display: grid;
+  gap: 12px;
+}
+
+.shipping-profile-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 14px;
+  align-items: start;
+  padding: 15px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: #fff;
+}
+
+.shipping-profile-row h3 {
+  margin: 0 0 6px;
+  color: var(--green-900);
+}
+
+.shipping-profile-row p {
+  margin: 5px 0;
+}
+
+.shipping-profile-form {
+  position: sticky;
+  top: 88px;
+}
+
 @media (max-width: 760px) {
   .admin-header { position: static; align-items: flex-start; }
   .header-actions { justify-content: flex-end; }
@@ -363,6 +417,9 @@ input:focus, textarea:focus, select:focus { outline: 3px solid rgba(63, 111, 69,
   .stats-actions-grid { grid-template-columns: 1fr; }
   .admin-filter-grid { grid-template-columns: 1fr; }
   .delivery-option { grid-template-columns: 1fr; }
+  .shipping-layout { grid-template-columns: 1fr; }
+  .shipping-profile-form { position: static; }
+  .shipping-profile-row { grid-template-columns: 1fr; }
   .order-grid { grid-template-columns: 1fr; }
   .order-card-head { display: grid; }
   .stat-card { min-height: 100px; padding: 16px; }

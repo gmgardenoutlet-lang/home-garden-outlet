@@ -124,6 +124,63 @@ try {
             redirect_admin('orders=1');
         }
 
+        if ($action === 'save_shipping_profile') {
+            $profiles = shipping_profiles_by_id(false);
+            $originalId = clean_shipping_profile_id(post_text('original_profile_id'));
+            $requestedId = clean_shipping_profile_id(post_text('shipping_id') !== '' ? post_text('shipping_id') : post_text('shipping_name'));
+            if ($requestedId === '') {
+                throw new RuntimeException('Podaj ID techniczne profilu dostawy.');
+            }
+            if ($originalId !== '' && $originalId !== $requestedId) {
+                unset($profiles[$originalId]);
+            }
+            if (($originalId === '' || $originalId !== $requestedId) && isset($profiles[$requestedId])) {
+                throw new RuntimeException('Profil dostawy o takim ID już istnieje.');
+            }
+
+            $types = array_keys(shipping_profile_types());
+            $profile = array_merge(shipping_profile_defaults(), $profiles[$requestedId] ?? []);
+            $profile['id'] = $requestedId;
+            $profile['name'] = post_text('shipping_name');
+            $profile['customerName'] = post_text('shipping_customer_name');
+            $profile['type'] = in_array(post_text('shipping_type'), $types, true) ? post_text('shipping_type') : 'kurier';
+            $profile['price'] = shipping_profile_price_number(post_text('shipping_price'));
+            $profile['currency'] = 'PLN';
+            $profile['active'] = post_text('shipping_status') === 'active';
+            $profile['description'] = post_text('shipping_description');
+            $profile['maxWeightKg'] = post_text('shipping_max_weight');
+            $profile['maxLengthCm'] = post_text('shipping_max_length');
+            $profile['maxWidthCm'] = post_text('shipping_max_width');
+            $profile['maxHeightCm'] = post_text('shipping_max_height');
+            $profile['requiresConfirmation'] = isset($_POST['shipping_requires_confirmation']);
+            $profile['priceFrom'] = isset($_POST['shipping_price_from']);
+            $profile['sortOrder'] = (int)($_POST['shipping_sort_order'] ?? 100);
+            $profile['internalNote'] = post_text('shipping_internal_note');
+            if ($profile['name'] === '') {
+                throw new RuntimeException('Podaj nazwę profilu dostawy.');
+            }
+            if ($profile['customerName'] === '') {
+                $profile['customerName'] = $profile['name'];
+            }
+
+            $profiles[$requestedId] = $profile;
+            save_shipping_profiles(array_values($profiles));
+            flash('success', 'Profil dostawy został zapisany.');
+            redirect_admin('shipping=1');
+        }
+
+        if ($action === 'delete_shipping_profile') {
+            $id = clean_shipping_profile_id(post_text('profile_id'));
+            $profiles = shipping_profiles_by_id(false);
+            if ($id === '' || !isset($profiles[$id])) {
+                throw new RuntimeException('Nie znaleziono profilu dostawy do usunięcia.');
+            }
+            unset($profiles[$id]);
+            save_shipping_profiles(array_values($profiles));
+            flash('success', 'Profil dostawy został usunięty. Produkty z tym ID przejdą na dostawę indywidualną.');
+            redirect_admin('shipping=1');
+        }
+
         if ($action === 'import_catalog') {
             if (!isset($_POST['confirm_import'])) {
                 throw new RuntimeException('Potwierdź, że chcesz zastąpić katalog przygotowaną kopią.');
@@ -175,7 +232,8 @@ try {
                 'name', 'saleType', 'category', 'productType', 'sku', 'grossPrice', 'shopStatus',
                 'catalogPrice', 'outletPrice', 'currency',
                 'imageAlt', 'description', 'longDescription', 'dimensions', 'material', 'color',
-                'height', 'width', 'depth', 'weight', 'packageDimensions', 'producerAvailability', 'leadTime',
+                'height', 'width', 'depth', 'weight', 'packageDimensions', 'packageWeight',
+                'packageLengthCm', 'packageWidthCm', 'packageHeightCm', 'producerAvailability', 'leadTime',
                 'condition', 'status', 'productStatus', 'seoTitle', 'seoDescription', 'slug',
                 'googleStatus', 'googleSentAt', 'googleMediaId', 'googlePostId', 'googleText', 'googleError'
             ];
@@ -188,6 +246,10 @@ try {
             $product['shopVisible'] = isset($_POST['shopVisible']);
             $product['outdoorUse'] = isset($_POST['outdoorUse']);
             $product['fragileTransport'] = isset($_POST['fragileTransport']);
+            $product['delicateProduct'] = isset($_POST['delicateProduct']);
+            $product['handPainted'] = isset($_POST['handPainted']);
+            $product['heavyProduct'] = isset($_POST['heavyProduct']);
+            $product['oversizedProduct'] = isset($_POST['oversizedProduct']);
             $product['googleManualProduct'] = isset($_POST['googleManualProduct']);
             $product['order'] = (int)($_POST['order'] ?? 0);
             $product['currency'] = 'PLN';
@@ -195,20 +257,16 @@ try {
             $product['productStatus'] = $product['productStatus'] !== '' ? $product['productStatus'] : 'Aktywny';
             $product['producerAvailability'] = $product['producerAvailability'] !== '' ? $product['producerAvailability'] : 'Dostępny u producenta';
             $product['leadTime'] = $product['leadTime'] !== '' ? $product['leadTime'] : '2-5 dni roboczych';
-            $deliveryEnabled = array_map('strval', (array)($_POST['delivery_enabled'] ?? []));
-            $deliveryCosts = is_array($_POST['delivery_cost'] ?? null) ? $_POST['delivery_cost'] : [];
-            $deliveryMethods = [];
-            foreach (shop_delivery_labels() as $methodKey => $methodLabel) {
-                if (!in_array($methodKey, $deliveryEnabled, true)) {
-                    continue;
+            $shippingProfileMap = shipping_profiles_by_id(false);
+            $shippingProfileIds = [];
+            foreach ((array)($_POST['shipping_profile_ids'] ?? []) as $profileId) {
+                $profileId = clean_shipping_profile_id((string)$profileId);
+                if ($profileId !== '' && isset($shippingProfileMap[$profileId])) {
+                    $shippingProfileIds[] = $profileId;
                 }
-                $deliveryMethods[] = [
-                    'method' => $methodKey,
-                    'label' => $methodLabel,
-                    'cost' => trim((string)($deliveryCosts[$methodKey] ?? 'do ustalenia')) ?: 'do ustalenia',
-                ];
             }
-            $product['deliveryMethods'] = $deliveryMethods;
+            $product['shippingProfileIds'] = array_values(array_unique($shippingProfileIds));
+            unset($product['deliveryMethods']);
             $product['slug'] = unique_product_slug($product['slug'] !== '' ? $product['slug'] : $name, $catalog['products'], $isEdit ? $index : null);
             if ($product['googleText'] === '') {
                 $product['googleText'] = google_business_description($product);
@@ -331,6 +389,7 @@ $showImport = isset($_GET['import']);
 $showStats = isset($_GET['stats']);
 $showOrders = isset($_GET['orders']);
 $showFigures = isset($_GET['figures']);
+$showShipping = isset($_GET['shipping']);
 $showGoogleConfig = isset($_GET['google_config']);
 $editIndex = $editing ? (int)$editRaw : null;
 $product = $editing ? array_merge(product_defaults(), $products[$editIndex]) : product_defaults();
@@ -352,12 +411,10 @@ $googleTextPreview = trim((string)($product['googleText'] ?? '')) !== ''
     ? (string)$product['googleText']
     : google_business_description($product);
 $googleStatusOptions = ['Nie wysłano', 'Wysłano', 'Błąd', 'Dodane ręcznie'];
-$currentDeliveryMethods = [];
-foreach (($product['deliveryMethods'] ?? []) as $deliveryMethod) {
-    if (is_array($deliveryMethod) && isset($deliveryMethod['method'])) {
-        $currentDeliveryMethods[(string)$deliveryMethod['method']] = (string)($deliveryMethod['cost'] ?? 'do ustalenia');
-    }
-}
+$shippingProfiles = load_shipping_profiles();
+$shippingProfilesById = shipping_profiles_by_id(false);
+$activeShippingProfilesById = shipping_profiles_by_id(true);
+$currentShippingProfileIds = product_shipping_profile_ids($product);
 $search = trim((string)($_GET['q'] ?? ''));
 $isFigureProduct = static fn(array $item): bool => (($item['saleType'] ?? 'showroom') === 'garden_figure');
 $listedProducts = [];
@@ -370,7 +427,7 @@ foreach ($products as $listedIndex => $listedProduct) {
     }
 }
 $activeFiguresTab = $showFigures || (($editing || $newProduct) && (($product['saleType'] ?? 'showroom') === 'garden_figure'));
-$activeOutletTab = !$activeFiguresTab && !$showOrders && !$showStats && !$showGoogleConfig && !$showImport && !$showPassword;
+$activeOutletTab = !$activeFiguresTab && !$showOrders && !$showShipping && !$showStats && !$showGoogleConfig && !$showImport && !$showPassword;
 $statusFilter = trim((string)($_GET['status'] ?? ''));
 $visibilityFilter = trim((string)($_GET['visibility'] ?? ''));
 $deliveryFilter = trim((string)($_GET['delivery'] ?? ''));
@@ -388,6 +445,13 @@ $shopOrders = $showOrders ? shop_load_orders() : [];
 $shopOrderStatuses = shop_order_statuses();
 $shopPaymentStatuses = shop_payment_statuses();
 $shopDeliveryLabels = shop_delivery_labels();
+$shippingEditId = clean_shipping_profile_id((string)($_GET['shipping_edit'] ?? ''));
+$shippingEditing = $shippingEditId !== '' && isset($shippingProfilesById[$shippingEditId]);
+$shippingNew = isset($_GET['shipping_new']);
+$shippingProfile = $shippingEditing ? $shippingProfilesById[$shippingEditId] : shipping_profile_defaults();
+if ($shippingNew && $shippingProfile['sortOrder'] === 100) {
+    $shippingProfile['sortOrder'] = count($shippingProfiles) * 10 + 10;
+}
 $filteredProducts = [];
 foreach ($listedProducts as $listedIndex => $listedProduct) {
     $nameMatch = $search === '' || (function_exists('mb_stripos')
@@ -415,21 +479,13 @@ foreach ($listedProducts as $listedIndex => $listedProduct) {
     }
 
     if ($showFigures && $deliveryFilter !== '') {
-        $hasDelivery = false;
-        foreach (($listedProduct['deliveryMethods'] ?? []) as $method) {
-            $methodKey = is_array($method) ? (string)($method['method'] ?? '') : '';
-            if ($methodKey === $deliveryFilter) {
-                $hasDelivery = true;
-                break;
-            }
-        }
-        if (!$hasDelivery) {
+        if (!in_array($deliveryFilter, product_shipping_profile_ids($listedProduct), true)) {
             continue;
         }
     }
 
     if ($showFigures && $missingFilter !== '') {
-        $deliveryMethods = array_filter((array)($listedProduct['deliveryMethods'] ?? []), 'is_array');
+        $deliveryMethods = product_shipping_profile_ids($listedProduct);
         $missing = false;
         if ($missingFilter === 'price') {
             $missing = trim((string)($listedProduct['grossPrice'] ?? '')) === '';
@@ -482,6 +538,7 @@ if ($showStats) {
       <a class="btn btn-secondary btn-small" href="/sklep-test/figury-ogrodowe" target="_blank" rel="noopener">Podgląd sklepu figur</a>
       <a class="btn btn-secondary btn-small" href="/admin/?stats=1">Statystyki</a>
       <a class="btn btn-secondary btn-small" href="/admin/?orders=1">Zamówienia sklepu</a>
+      <a class="btn btn-secondary btn-small" href="/admin/?shipping=1">Cennik dostaw</a>
       <a class="btn btn-secondary btn-small" href="/admin/?google_config=1">Google API</a>
       <a class="btn btn-secondary btn-small" href="/admin/?download=products">Kopia produktów</a>
       <form method="post">
@@ -501,10 +558,86 @@ if ($showStats) {
       <a class="<?= $activeOutletTab ? 'active' : '' ?>" href="/admin/">Produkty outletowe</a>
       <a class="<?= $activeFiguresTab ? 'active' : '' ?>" href="/admin/?figures=1">Figury ogrodowe / sklep online</a>
       <a class="<?= $showOrders ? 'active' : '' ?>" href="/admin/?orders=1">Zamówienia sklepu</a>
+      <a class="<?= $showShipping ? 'active' : '' ?>" href="/admin/?shipping=1">Cennik dostaw</a>
       <a href="/sklep-test/figury-ogrodowe" target="_blank" rel="noopener">Podgląd sklepu figur</a>
     </nav>
 
-    <?php if ($showStats): ?>
+    <?php if ($showShipping): ?>
+      <div class="page-heading">
+        <div>
+          <p class="muted">Centralne ceny dostawy dla sklepu z figurami</p>
+          <h1>Cennik dostaw</h1>
+        </div>
+        <div class="header-actions">
+          <a class="btn btn-secondary" href="/admin/?figures=1">Figury ogrodowe</a>
+          <a class="btn" href="/admin/?shipping=1&amp;shipping_new=1">Dodaj profil dostawy</a>
+        </div>
+      </div>
+
+      <section class="card shipping-info">
+        <strong>Jak to działa?</strong>
+        <p>Cenę dostawy ustawiasz tutaj jeden raz. Przy produkcie wybierasz tylko pasujące profile dostawy. Zmiana ceny profilu automatycznie zmieni cenę widoczną na karcie produktu, w koszyku i w nowych zamówieniach.</p>
+      </section>
+
+      <section class="shipping-layout">
+        <div class="card">
+          <div class="section-head"><div><p class="muted"><?= e((string)count($shippingProfiles)) ?> profili</p><h2>Profile wysyłek</h2></div></div>
+          <div class="shipping-profile-list">
+            <?php foreach ($shippingProfiles as $profileRow): ?>
+              <article class="shipping-profile-row">
+                <div>
+                  <h3><?= e($profileRow['name']) ?></h3>
+                  <p class="muted"><code><?= e($profileRow['id']) ?></code> · <?= e((string)($profileRow['customerName'] ?? $profileRow['name'])) ?> · <?= e(shipping_profile_price_label($profileRow)) ?></p>
+                  <?php if (trim((string)($profileRow['description'] ?? '')) !== ''): ?><p><?= e($profileRow['description']) ?></p><?php endif; ?>
+                  <div class="meta">
+                    <span><?= !empty($profileRow['active']) ? 'Aktywny' : 'Ukryty' ?></span>
+                    <span><?= e((string)($profileRow['type'] ?? '')) ?></span>
+                    <?php if (!empty($profileRow['requiresConfirmation'])): ?><span>Wymaga potwierdzenia</span><?php endif; ?>
+                    <?php if (!empty($profileRow['priceFrom'])): ?><span>Cena „od”</span><?php endif; ?>
+                  </div>
+                </div>
+                <div class="row-actions">
+                  <a class="btn btn-secondary btn-small" href="/admin/?shipping=1&amp;shipping_edit=<?= e((string)$profileRow['id']) ?>">Edytuj</a>
+                  <form method="post">
+                    <input type="hidden" name="csrf" value="<?= e(csrf_token()) ?>">
+                    <input type="hidden" name="action" value="delete_shipping_profile">
+                    <input type="hidden" name="profile_id" value="<?= e((string)$profileRow['id']) ?>">
+                    <button class="btn btn-danger btn-small" type="submit" data-confirm="Usunąć ten profil dostawy? Produkty z tym ID przejdą na dostawę indywidualną.">Usuń</button>
+                  </form>
+                </div>
+              </article>
+            <?php endforeach; ?>
+          </div>
+        </div>
+
+        <?php if ($shippingNew || $shippingEditing): ?>
+          <form method="post" class="card form-grid shipping-profile-form">
+            <input type="hidden" name="csrf" value="<?= e(csrf_token()) ?>">
+            <input type="hidden" name="action" value="save_shipping_profile">
+            <input type="hidden" name="original_profile_id" value="<?= $shippingEditing ? e((string)$shippingProfile['id']) : '' ?>">
+            <div class="section-title"><?= $shippingEditing ? 'Edytuj profil dostawy' : 'Nowy profil dostawy' ?></div>
+            <div class="field"><label for="shipping-id">ID techniczne / slug</label><input id="shipping-id" name="shipping_id" required value="<?= e((string)$shippingProfile['id']) ?>" placeholder="np. kurier-standardowy"></div>
+            <div class="field"><label for="shipping-name">Nazwa w panelu</label><input id="shipping-name" name="shipping_name" required value="<?= e((string)$shippingProfile['name']) ?>" placeholder="np. Kurier standardowy"></div>
+            <div class="field"><label for="shipping-customer-name">Nazwa dla klienta</label><input id="shipping-customer-name" name="shipping_customer_name" value="<?= e((string)$shippingProfile['customerName']) ?>" placeholder="np. Kurier standardowy"></div>
+            <div class="field"><label for="shipping-type">Typ dostawy</label><select id="shipping-type" name="shipping_type"><?php foreach (shipping_profile_types() as $typeKey => $typeLabel): ?><option value="<?= e($typeKey) ?>"<?= ($shippingProfile['type'] ?? '') === $typeKey ? ' selected' : '' ?>><?= e($typeLabel) ?></option><?php endforeach; ?></select></div>
+            <div class="field"><label for="shipping-price">Cena brutto</label><input id="shipping-price" name="shipping_price" value="<?= ($shippingProfile['price'] ?? null) === null ? '' : e(number_format((float)$shippingProfile['price'], 2, ',', '')) ?>" placeholder="np. 39,99"></div>
+            <div class="field"><label for="shipping-status">Status</label><select id="shipping-status" name="shipping_status"><option value="active"<?= !empty($shippingProfile['active']) ? ' selected' : '' ?>>Aktywny</option><option value="hidden"<?= empty($shippingProfile['active']) ? ' selected' : '' ?>>Ukryty</option></select></div>
+            <div class="field field-full"><label for="shipping-description">Krótki opis dla klienta</label><textarea id="shipping-description" name="shipping_description" rows="3"><?= e((string)$shippingProfile['description']) ?></textarea></div>
+            <div class="field"><label for="shipping-max-weight">Maks. waga paczki</label><input id="shipping-max-weight" name="shipping_max_weight" value="<?= e((string)$shippingProfile['maxWeightKg']) ?>" placeholder="kg"></div>
+            <div class="field"><label for="shipping-max-length">Maks. długość</label><input id="shipping-max-length" name="shipping_max_length" value="<?= e((string)$shippingProfile['maxLengthCm']) ?>" placeholder="cm"></div>
+            <div class="field"><label for="shipping-max-width">Maks. szerokość</label><input id="shipping-max-width" name="shipping_max_width" value="<?= e((string)$shippingProfile['maxWidthCm']) ?>" placeholder="cm"></div>
+            <div class="field"><label for="shipping-max-height">Maks. wysokość</label><input id="shipping-max-height" name="shipping_max_height" value="<?= e((string)$shippingProfile['maxHeightCm']) ?>" placeholder="cm"></div>
+            <div class="field"><label class="check-line"><input type="checkbox" name="shipping_requires_confirmation"<?= !empty($shippingProfile['requiresConfirmation']) ? ' checked' : '' ?>> Wymaga indywidualnego potwierdzenia</label></div>
+            <div class="field"><label class="check-line"><input type="checkbox" name="shipping_price_from"<?= !empty($shippingProfile['priceFrom']) ? ' checked' : '' ?>> Cena jest „od”</label></div>
+            <div class="field"><label for="shipping-sort-order">Kolejność</label><input id="shipping-sort-order" type="number" name="shipping_sort_order" value="<?= e((string)$shippingProfile['sortOrder']) ?>"></div>
+            <div class="field field-full"><label for="shipping-internal-note">Notatka wewnętrzna</label><textarea id="shipping-internal-note" name="shipping_internal_note" rows="2"><?= e((string)$shippingProfile['internalNote']) ?></textarea></div>
+            <div class="field field-full form-actions"><button class="btn" type="submit">Zapisz profil dostawy</button><a class="btn btn-secondary" href="/admin/?shipping=1">Anuluj</a></div>
+          </form>
+        <?php else: ?>
+          <section class="card empty">Wybierz profil z listy albo dodaj nowy profil dostawy.</section>
+        <?php endif; ?>
+      </section>
+    <?php elseif ($showStats): ?>
       <div class="page-heading">
         <div><p class="muted">Anonimowe liczniki bez cookies i danych osobowych</p><h1>Statystyki</h1></div>
         <div class="header-actions"><a class="btn btn-secondary" href="/admin/">Produkty</a><a class="btn" href="/admin/?stats=1&amp;range=<?= e($statsRange) ?>&amp;product_limit=<?= e((string)$statsProductLimit) ?>">Odśwież statystyki</a></div>
@@ -648,6 +781,7 @@ if ($showStats) {
                 <div>
                   <h3>Dostawa i płatność</h3>
                   <p><?= e($delivery['label'] ?? 'Do ustalenia') ?> · <?= e((string)($delivery['costLabel'] ?? 'do ustalenia')) ?></p>
+                  <?php if (trim((string)($delivery['profileId'] ?? '')) !== ''): ?><p class="muted">Profil dostawy: <code><?= e((string)$delivery['profileId']) ?></code><?= !empty($delivery['requiresConfirmation']) ? ' · wymaga potwierdzenia' : '' ?></p><?php endif; ?>
                   <p>Metoda płatności: <?= e((string)($order['paymentMethod'] ?? 'Test')) ?></p>
                   <p>Status płatności: <?= e((string)($order['paymentStatus'] ?? 'Testowe bez płatności')) ?></p>
                   <p>Status zamówienia: <?= e((string)($order['orderStatus'] ?? 'Testowe')) ?></p>
@@ -807,19 +941,27 @@ if ($showStats) {
           <div class="field shop-fields" data-shop-fields><label for="depth">Głębokość</label><input id="depth" name="depth" value="<?= e($product['depth']) ?>" placeholder="np. 28 cm"></div>
           <div class="field shop-fields" data-shop-fields><label for="weight">Waga produktu</label><input id="weight" name="weight" value="<?= e($product['weight']) ?>" placeholder="np. 12 kg"></div>
           <div class="field field-full shop-fields" data-shop-fields><label for="packageDimensions">Wymiary paczki</label><input id="packageDimensions" name="packageDimensions" value="<?= e($product['packageDimensions']) ?>" placeholder="np. 90 × 45 × 45 cm"></div>
+          <div class="field shop-fields" data-shop-fields><label for="packageWeight">Waga po zapakowaniu</label><input id="packageWeight" name="packageWeight" value="<?= e($product['packageWeight']) ?>" placeholder="np. 14 kg"></div>
+          <div class="field shop-fields" data-shop-fields><label for="packageLengthCm">Długość paczki</label><input id="packageLengthCm" name="packageLengthCm" value="<?= e($product['packageLengthCm']) ?>" placeholder="cm"></div>
+          <div class="field shop-fields" data-shop-fields><label for="packageWidthCm">Szerokość paczki</label><input id="packageWidthCm" name="packageWidthCm" value="<?= e($product['packageWidthCm']) ?>" placeholder="cm"></div>
+          <div class="field shop-fields" data-shop-fields><label for="packageHeightCm">Wysokość paczki</label><input id="packageHeightCm" name="packageHeightCm" value="<?= e($product['packageHeightCm']) ?>" placeholder="cm"></div>
           <div class="field shop-fields" data-shop-fields><label class="check-line"><input type="checkbox" name="outdoorUse"<?= !empty($product['outdoorUse']) ? ' checked' : '' ?>> Produkt przeznaczony na zewnątrz</label></div>
           <div class="field shop-fields" data-shop-fields><label class="check-line"><input type="checkbox" name="fragileTransport"<?= !empty($product['fragileTransport']) ? ' checked' : '' ?>> Ciężki / kruchy / wymaga ostrożnego transportu</label></div>
+          <div class="field shop-fields" data-shop-fields><label class="check-line"><input type="checkbox" name="delicateProduct"<?= !empty($product['delicateProduct']) ? ' checked' : '' ?>> Produkt delikatny</label></div>
+          <div class="field shop-fields" data-shop-fields><label class="check-line"><input type="checkbox" name="handPainted"<?= !empty($product['handPainted']) ? ' checked' : '' ?>> Produkt ręcznie malowany</label></div>
+          <div class="field shop-fields" data-shop-fields><label class="check-line"><input type="checkbox" name="heavyProduct"<?= !empty($product['heavyProduct']) ? ' checked' : '' ?>> Produkt ciężki</label></div>
+          <div class="field shop-fields" data-shop-fields><label class="check-line"><input type="checkbox" name="oversizedProduct"<?= !empty($product['oversizedProduct']) ? ' checked' : '' ?>> Produkt gabarytowy</label></div>
           <div class="field field-full shop-fields" data-shop-fields>
-            <label>Dostępne formy dostawy</label>
+            <label>Dostawa produktu</label>
             <div class="delivery-grid">
-              <?php foreach ($shopDeliveryLabels as $deliveryKey => $deliveryLabel): ?>
+              <?php foreach ($shippingProfiles as $deliveryProfile): $deliveryKey = (string)$deliveryProfile['id']; ?>
                 <label class="delivery-option">
-                  <span><input type="checkbox" name="delivery_enabled[]" value="<?= e($deliveryKey) ?>"<?= array_key_exists($deliveryKey, $currentDeliveryMethods) ? ' checked' : '' ?>> <?= e($deliveryLabel) ?></span>
-                  <input name="delivery_cost[<?= e($deliveryKey) ?>]" value="<?= e($currentDeliveryMethods[$deliveryKey] ?? '') ?>" placeholder="koszt albo do ustalenia">
+                  <span><input type="checkbox" name="shipping_profile_ids[]" value="<?= e($deliveryKey) ?>"<?= in_array($deliveryKey, $currentShippingProfileIds, true) ? ' checked' : '' ?>> <?= e((string)$deliveryProfile['name']) ?></span>
+                  <small><?= e(shipping_profile_price_label($deliveryProfile)) ?><?= empty($deliveryProfile['active']) ? ' · ukryty' : '' ?></small>
                 </label>
               <?php endforeach; ?>
             </div>
-            <small>Klient zobaczy tylko dostawy zaznaczone przy konkretnej figurze.</small>
+            <small>Ceny pochodzą z zakładki „Cennik dostaw”. Zmiana ceny profilu automatycznie zmieni ją przy wszystkich produktach korzystających z tej metody.</small>
           </div>
 
           <div class="section-title">Zdjęcia z telefonu</div>

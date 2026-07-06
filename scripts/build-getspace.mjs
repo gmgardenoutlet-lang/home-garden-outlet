@@ -79,6 +79,7 @@ for (const directory of publicDirectories) {
 await mkdir(path.join(publish, "data"), { recursive: true });
 await cp(path.join(root, "data", "products.json"), path.join(publish, "data", "products.json"));
 await cp(path.join(root, "data", "google-reviews.json"), path.join(publish, "data", "google-reviews.json"));
+await cp(path.join(root, "data", "shipping-profiles.json"), path.join(publish, "data", "shipping-profiles.json"));
 
 await mkdir(path.join(publish, "uploads"), { recursive: true });
 await cp(path.join(root, "hosting", "getspace", "uploads", ".htaccess"), path.join(publish, "uploads", ".htaccess"));
