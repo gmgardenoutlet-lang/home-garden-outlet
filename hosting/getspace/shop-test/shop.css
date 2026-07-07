@@ -155,11 +155,17 @@ main {
 .shop-hero-split {
   display: grid;
   grid-template-columns: minmax(0, 1.08fr) minmax(320px, .92fr);
-  gap: clamp(22px, 4vw, 48px);
+  grid-template-areas:
+    "copy media"
+    "badges media"
+    "actions media";
+  column-gap: clamp(22px, 4vw, 48px);
+  row-gap: 18px;
   align-items: center;
 }
 
 .shop-hero-copy {
+  grid-area: copy;
   display: grid;
   gap: 0;
 }
@@ -171,8 +177,14 @@ main {
 }
 
 .shop-hero-media {
+  grid-area: media;
+  align-self: center;
   overflow: hidden;
+  width: 100%;
+  height: min(42vw, 460px);
   min-height: 360px;
+  max-height: 460px;
+  aspect-ratio: 4 / 3;
   border: 1px solid var(--line);
   border-radius: 26px;
   background: var(--green-100);
@@ -230,6 +242,12 @@ main {
   margin-top: 26px;
 }
 
+.shop-hero-split > .hero-badges {
+  grid-area: badges;
+  align-self: start;
+  margin-top: 0;
+}
+
 .hero-badges span,
 .card-facts li,
 .product-status-grid span {
@@ -247,6 +265,12 @@ main {
 
 .hero-actions {
   margin-top: 26px;
+}
+
+.shop-hero-split > .hero-actions {
+  grid-area: actions;
+  align-self: start;
+  margin-top: 0;
 }
 
 .shop-toolbar {
@@ -1002,6 +1026,13 @@ main {
   .confirmation-grid,
   .shop-hero-split,
   .shop-site-footer { grid-template-columns: 1fr; }
+  .shop-hero-split {
+    grid-template-areas:
+      "copy"
+      "media"
+      "badges"
+      "actions";
+  }
 }
 
 @media (max-width: 680px) {
@@ -1046,8 +1077,15 @@ main {
   .confirmation-item { grid-template-columns: 1fr; }
   .shop-actions .btn { flex: 1 1 180px; }
   .hero-badges span { width: 100%; justify-content: center; }
-  .shop-hero-media,
-  .shop-hero-media img {
-    min-height: 260px;
+  .shop-hero-split .shop-hero-media {
+    width: 100%;
+    height: min(58vw, 300px);
+    min-height: 220px;
+    max-height: 300px;
+    aspect-ratio: auto;
+  }
+  .shop-hero-split .shop-hero-media img {
+    height: 100%;
+    min-height: 0;
   }
 }

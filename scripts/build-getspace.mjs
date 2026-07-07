@@ -46,6 +46,9 @@ const publicDirectories = [
 const data = JSON.parse(await readFile(path.join(root, "data", "products.json"), "utf8"));
 const products = Array.isArray(data.products) ? data.products : [];
 const uploadPaths = new Set();
+const staticUploadPaths = [
+  "uploads/figury-ogrodowe/hero-figury-ogrodowe.webp"
+];
 
 for (const product of products) {
   const gallery = Array.isArray(product.gallery) ? product.gallery : [];
@@ -60,6 +63,10 @@ for (const product of products) {
       uploadPaths.add(cleanPath);
     }
   }
+}
+
+for (const relativePath of staticUploadPaths) {
+  uploadPaths.add(relativePath);
 }
 
 await rm(publish, { recursive: true, force: true });

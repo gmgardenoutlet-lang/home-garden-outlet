@@ -25,22 +25,21 @@ $publicProducts = shop_test_public_products();
         <div class="admin-ribbon">Tryb testowy — sklep niepubliczny</div>
         <p class="eyebrow">Figury ogrodowe do ogrodu i na taras</p>
         <h1>Figury ogrodowe</h1>
-        <p class="hero-subtitle">Ręcznie malowane figury ogrodowe do ogrodu, na taras i przed wejście.</p>
-        <p>Wybierz dekoracje do ogrodu, które podkreślą charakter przestrzeni. Produkty są dostępne u producenta, a każda figura może nieznacznie różnić się odcieniem i detalami wykończenia ze względu na ręczne malowanie.</p>
-        <div class="hero-badges" aria-label="Najważniejsze informacje">
-          <span>Ręczne malowanie</span>
-          <span>Dostępne u producenta</span>
-          <span>Realizacja 2-5 dni roboczych</span>
-          <span>Dostawa zależna od produktu</span>
-          <span>Odbiór osobisty w Kębłowicach</span>
-        </div>
-        <div class="shop-actions hero-actions">
-          <a class="btn" href="#produkty">Zobacz produkty</a>
-          <a class="btn btn-light" href="/sklep-test/figury-ogrodowe/koszyk">Przejdź do koszyka</a>
-        </div>
+        <p class="hero-subtitle">Ręcznie malowane dekoracje do ogrodu, na taras i przed wejście</p>
+        <p>Wybierz figury ogrodowe, które podkreślą charakter Twojej przestrzeni. Produkty są dostępne u producenta, a każdy egzemplarz może delikatnie różnić się odcieniem i detalami wykończenia ze względu na ręczne malowanie.</p>
       </div>
       <div class="shop-hero-media">
-        <img src="/ogrod-optimized.jpg" width="760" height="640" alt="Dekoracje i meble ogrodowe Home & Garden Outlet">
+        <img src="/uploads/figury-ogrodowe/hero-figury-ogrodowe.webp" width="1600" height="900" alt="Figury ogrodowe i dekoracje w showroomie Home & Garden Outlet">
+      </div>
+      <div class="hero-badges" aria-label="Najważniejsze informacje">
+        <span>Ręczne malowanie</span>
+        <span>Realizacja 2–5 dni roboczych</span>
+        <span>Dostawa zależna od produktu</span>
+        <span>Odbiór osobisty w Kębłowicach</span>
+      </div>
+      <div class="shop-actions hero-actions">
+        <a class="btn" href="#produkty">Zobacz produkty</a>
+        <a class="btn btn-light" href="/sklep-test/figury-ogrodowe/koszyk">Przejdź do koszyka</a>
       </div>
     </section>
 
