@@ -12,7 +12,7 @@ if (!$product) {
 $view = $product ? shop_test_public_product($product) : null;
 $publicProducts = shop_test_public_products();
 $images = $product ? shop_test_gallery($product) : ['/product-table.jpeg'];
-$galleryJson = json_encode($images, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT);
+$galleryJson = json_encode($images, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
 $details = $product ? array_filter([
     'SKU' => $product['sku'] ?? '',
     'Materiał' => $product['material'] ?? '',
@@ -126,6 +126,6 @@ $details = $product ? array_filter([
   <?php shop_test_footer(); ?>
   <div class="cart-toast" data-cart-toast hidden></div>
   <script>window.HGO_SHOP_PRODUCTS = <?= json_encode($publicProducts, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_HEX_TAG) ?>;</script>
-  <script src="/sklep-test/shop.js"></script>
+  <script src="/sklep-test/shop.js?v=20260707-gallery2"></script>
 </body>
 </html>
