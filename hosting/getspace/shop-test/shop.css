@@ -709,16 +709,57 @@ main {
   background: var(--green-100);
 }
 
+.product-test-main {
+  overflow: hidden;
+  display: block;
+  width: 100%;
+  aspect-ratio: 5 / 4;
+  padding: 0;
+  border: 0;
+  border-radius: 20px;
+  background: var(--green-100);
+  cursor: zoom-in;
+}
+
+.product-test-main:focus-visible,
+.product-thumb:focus-visible {
+  outline: 3px solid rgba(63, 111, 69, .38);
+  outline-offset: 3px;
+}
+
 .product-thumbs {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: repeat(auto-fit, minmax(92px, 1fr));
   gap: 10px;
   margin-top: 10px;
 }
 
+.product-thumb {
+  overflow: hidden;
+  display: block;
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  padding: 0;
+  border: 2px solid transparent;
+  border-radius: 15px;
+  background: var(--green-100);
+  cursor: pointer;
+  transition: border-color .2s ease, box-shadow .2s ease, transform .2s ease;
+}
+
+.product-thumb:hover {
+  transform: translateY(-1px);
+  border-color: rgba(63, 111, 69, .36);
+}
+
+.product-thumb.active {
+  border-color: var(--green-800);
+  box-shadow: 0 0 0 3px rgba(63, 111, 69, .12);
+}
+
 .product-thumbs img {
   aspect-ratio: 4 / 3;
-  border-radius: 13px;
+  border-radius: 12px;
   background: var(--green-100);
 }
 

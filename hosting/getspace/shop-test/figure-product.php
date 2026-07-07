@@ -12,6 +12,7 @@ if (!$product) {
 $view = $product ? shop_test_public_product($product) : null;
 $publicProducts = shop_test_public_products();
 $images = $product ? shop_test_gallery($product) : ['/product-table.jpeg'];
+$galleryJson = json_encode($images, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT);
 $details = $product ? array_filter([
     'SKU' => $product['sku'] ?? '',
     'Materiał' => $product['material'] ?? '',
@@ -54,10 +55,24 @@ $details = $product ? array_filter([
     <?php else: ?>
       <article class="product-test">
         <section class="product-test-gallery">
-          <img class="product-main-image" src="<?= e($images[0]) ?>" width="900" height="720" alt="<?= e($view['alt']) ?>">
+          <button
+            class="product-test-main product-gallery-trigger"
+            type="button"
+            data-gallery="<?= e($galleryJson ?: '[]') ?>"
+            data-gallery-name="<?= e($view['name']) ?>"
+            data-gallery-alt="<?= e($view['alt']) ?>"
+            data-gallery-start="0"
+            aria-label="Otwórz galerię produktu <?= e($view['name']) ?>"
+          >
+            <img class="product-main-image" src="<?= e($images[0]) ?>" width="900" height="720" alt="<?= e($view['alt']) ?>">
+          </button>
           <?php if (count($images) > 1): ?>
             <div class="product-thumbs">
-              <?php foreach ($images as $image): ?><img src="<?= e($image) ?>" width="180" height="140" loading="lazy" alt=""><?php endforeach; ?>
+              <?php foreach ($images as $index => $image): ?>
+                <button class="product-thumb<?= $index === 0 ? ' active' : '' ?>" type="button" data-shop-gallery-index="<?= e((string)$index) ?>" aria-label="Pokaż zdjęcie <?= e((string)($index + 1)) ?>">
+                  <img src="<?= e($image) ?>" width="180" height="140" loading="lazy" alt="">
+                </button>
+              <?php endforeach; ?>
             </div>
           <?php endif; ?>
         </section>

@@ -38,6 +38,98 @@
   const escapeHtml = (value) => String(value || "").replace(/[&<>"']/g, (char) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#039;" }[char]));
   const escapeAttr = escapeHtml;
 
+  const galleryModal = document.createElement("div");
+  galleryModal.className = "gallery-modal";
+  galleryModal.setAttribute("aria-hidden", "true");
+  galleryModal.innerHTML = `
+    <div class="gallery-backdrop" data-gallery-close></div>
+    <section class="gallery-dialog" role="dialog" aria-modal="true" aria-labelledby="shop-gallery-title">
+      <div class="gallery-toolbar">
+        <h2 id="shop-gallery-title">Galeria produktu</h2>
+        <button class="gallery-close" type="button" data-gallery-close aria-label="Zamknij galerię">&times;</button>
+      </div>
+      <div class="gallery-main">
+        <button class="gallery-nav gallery-prev" type="button" data-gallery-prev aria-label="Poprzednie zdjęcie">&#8592;</button>
+        <img class="gallery-main-image" src="" alt="" width="1200" height="900">
+        <button class="gallery-nav gallery-next" type="button" data-gallery-next aria-label="Następne zdjęcie">&#8594;</button>
+      </div>
+      <div class="gallery-thumbnails" aria-label="Miniatury zdjęć"></div>
+    </section>
+  `;
+  document.body.appendChild(galleryModal);
+
+  const galleryMainImage = galleryModal.querySelector(".gallery-main-image");
+  const galleryTitle = galleryModal.querySelector("#shop-gallery-title");
+  const galleryThumbnails = galleryModal.querySelector(".gallery-thumbnails");
+  const productGalleryTrigger = document.querySelector(".product-test-main.product-gallery-trigger");
+  const productGalleryImage = productGalleryTrigger ? productGalleryTrigger.querySelector(".product-main-image") : null;
+  const productGalleryThumbs = Array.from(document.querySelectorAll("[data-shop-gallery-index]"));
+  let activeGalleryImages = [];
+  let activeGalleryIndex = 0;
+  let activeGalleryAlt = "";
+  let galleryTouchStartX = 0;
+
+  const parseGalleryImages = (trigger) => {
+    try {
+      const images = JSON.parse(trigger?.dataset.gallery || "[]");
+      return Array.isArray(images) && images.length > 0 ? images : ["/product-table.jpeg"];
+    } catch (error) {
+      return ["/product-table.jpeg"];
+    }
+  };
+
+  const updateGallery = () => {
+    const image = activeGalleryImages[activeGalleryIndex] || "/product-table.jpeg";
+    if (galleryMainImage instanceof HTMLImageElement) {
+      galleryMainImage.src = image;
+      galleryMainImage.alt = `${activeGalleryAlt || galleryTitle?.textContent || "Galeria produktu"} - zdjęcie ${activeGalleryIndex + 1}`;
+    }
+    if (galleryThumbnails) {
+      galleryThumbnails.innerHTML = activeGalleryImages.map((path, index) => `
+        <button class="gallery-thumbnail${index === activeGalleryIndex ? " active" : ""}" type="button" data-gallery-index="${index}" aria-label="Pokaż zdjęcie ${index + 1}">
+          <img src="${escapeAttr(path)}" alt="" width="120" height="90" loading="lazy">
+        </button>
+      `).join("");
+    }
+    galleryModal.classList.toggle("single-image", activeGalleryImages.length < 2);
+  };
+
+  const openGallery = (images, name, imageAlt = "", startIndex = 0) => {
+    activeGalleryImages = Array.isArray(images) && images.length > 0 ? images : ["/product-table.jpeg"];
+    activeGalleryIndex = Math.max(0, Math.min(Number(startIndex) || 0, activeGalleryImages.length - 1));
+    activeGalleryAlt = imageAlt;
+    if (galleryTitle) galleryTitle.textContent = name || "Galeria produktu";
+    updateGallery();
+    galleryModal.classList.add("open");
+    galleryModal.setAttribute("aria-hidden", "false");
+    document.body.classList.add("gallery-open");
+    const closeButton = galleryModal.querySelector(".gallery-close");
+    if (closeButton instanceof HTMLButtonElement) closeButton.focus();
+  };
+
+  const closeGallery = () => {
+    galleryModal.classList.remove("open");
+    galleryModal.setAttribute("aria-hidden", "true");
+    document.body.classList.remove("gallery-open");
+  };
+
+  const moveGallery = (direction) => {
+    if (activeGalleryImages.length < 2) return;
+    activeGalleryIndex = (activeGalleryIndex + direction + activeGalleryImages.length) % activeGalleryImages.length;
+    updateGallery();
+  };
+
+  const setProductGalleryIndex = (index) => {
+    if (!productGalleryTrigger || !(productGalleryImage instanceof HTMLImageElement)) return;
+    const images = parseGalleryImages(productGalleryTrigger);
+    const nextIndex = Math.max(0, Math.min(Number(index) || 0, images.length - 1));
+    productGalleryImage.src = images[nextIndex] || "/product-table.jpeg";
+    productGalleryTrigger.dataset.galleryStart = String(nextIndex);
+    productGalleryThumbs.forEach((thumb) => {
+      thumb.classList.toggle("active", Number(thumb.getAttribute("data-shop-gallery-index") || 0) === nextIndex);
+    });
+  };
+
   const readCart = () => {
     try {
       const value = JSON.parse(localStorage.getItem(storageKey) || "{}");
@@ -206,6 +298,51 @@
     const target = event.target;
     if (!(target instanceof HTMLElement)) return;
 
+    const productThumb = target.closest("[data-shop-gallery-index]");
+    if (productThumb instanceof HTMLElement) {
+      event.preventDefault();
+      setProductGalleryIndex(Number(productThumb.getAttribute("data-shop-gallery-index") || 0));
+      return;
+    }
+
+    const galleryTrigger = target.closest(".product-gallery-trigger");
+    const closeTrigger = target.closest("[data-gallery-close]");
+    const previousTrigger = target.closest("[data-gallery-prev]");
+    const nextTrigger = target.closest("[data-gallery-next]");
+    const modalThumbnail = target.closest("[data-gallery-index]");
+
+    if (galleryTrigger instanceof HTMLElement) {
+      event.preventDefault();
+      openGallery(
+        parseGalleryImages(galleryTrigger),
+        galleryTrigger.dataset.galleryName || "Galeria produktu",
+        galleryTrigger.dataset.galleryAlt || "",
+        Number(galleryTrigger.dataset.galleryStart || 0)
+      );
+      return;
+    }
+    if (closeTrigger) {
+      event.preventDefault();
+      closeGallery();
+      return;
+    }
+    if (previousTrigger) {
+      event.preventDefault();
+      moveGallery(-1);
+      return;
+    }
+    if (nextTrigger) {
+      event.preventDefault();
+      moveGallery(1);
+      return;
+    }
+    if (modalThumbnail instanceof HTMLElement) {
+      event.preventDefault();
+      activeGalleryIndex = Number(modalThumbnail.getAttribute("data-gallery-index") || 0);
+      updateGallery();
+      return;
+    }
+
     const disabledLink = target.closest("[data-checkout-link].is-disabled");
     if (disabledLink) {
       event.preventDefault();
@@ -258,6 +395,32 @@
       saveCart({ items: [], delivery: "" });
     }
   });
+
+  document.addEventListener("error", (event) => {
+    if (event.target instanceof HTMLImageElement && !event.target.dataset.fallbackApplied) {
+      event.target.dataset.fallbackApplied = "true";
+      event.target.src = "/product-table.jpeg";
+    }
+  }, true);
+
+  document.addEventListener("keydown", (event) => {
+    if (!galleryModal.classList.contains("open")) return;
+    if (event.key === "Escape") closeGallery();
+    if (event.key === "ArrowLeft") moveGallery(-1);
+    if (event.key === "ArrowRight") moveGallery(1);
+  });
+
+  galleryModal.addEventListener("touchstart", (event) => {
+    galleryTouchStartX = event.changedTouches[0]?.clientX || 0;
+  }, { passive: true });
+
+  galleryModal.addEventListener("touchend", (event) => {
+    const touchEndX = event.changedTouches[0]?.clientX || 0;
+    const distance = touchEndX - galleryTouchStartX;
+    if (Math.abs(distance) > 50) {
+      moveGallery(distance > 0 ? -1 : 1);
+    }
+  }, { passive: true });
 
   document.addEventListener("change", (event) => {
     const target = event.target;

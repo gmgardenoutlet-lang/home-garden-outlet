@@ -217,8 +217,6 @@ function shop_test_header(string $active = ''): void
         ['href' => '/', 'label' => 'Strona główna', 'key' => 'home'],
         ['href' => '/dom', 'label' => 'Dom', 'key' => 'dom'],
         ['href' => '/ogrod', 'label' => 'Ogród', 'key' => 'ogrod'],
-        ['href' => '/outlet-meblowy-wroclaw/', 'label' => 'Outlet meblowy Wrocław', 'key' => 'outlet'],
-        ['href' => '/meble-ogrodowe-wroclaw/', 'label' => 'Meble ogrodowe Wrocław', 'key' => 'garden'],
         ['href' => '/#faq-home-title', 'label' => 'FAQ', 'key' => 'faq'],
         ['href' => '/sklep-test/figury-ogrodowe', 'label' => 'Figury ogrodowe', 'key' => 'figures'],
         ['href' => '/sklep-test/figury-ogrodowe/koszyk', 'label' => 'Koszyk <span data-cart-count></span>', 'key' => 'cart'],
@@ -264,8 +262,6 @@ function shop_test_footer(): void
       <strong>Poradnik i FAQ</strong>
       <a href="/poradnik/">Poradnik</a>
       <a href="/#faq-home-title">FAQ</a>
-      <a href="/meble-ogrodowe-wroclaw/">Meble ogrodowe Wrocław</a>
-      <a href="/outlet-meblowy-wroclaw/">Outlet meblowy Wrocław</a>
     </div>
     <div>
       <strong>Figury ogrodowe</strong>
