@@ -145,16 +145,22 @@ $breadcrumbs = [
         <section class="product-detail-info">
           <p class="eyebrow"><?= catalog_e($category) ?></p>
           <h1><?= catalog_e($name) ?></h1>
-          <div class="product-detail-status"><span class="badge-static"><?= catalog_e($status) ?></span><span>Produkt dostępny lokalnie w Kębłowicach</span></div>
-
-          <?php if ($catalogPrice !== '' || $outletPrice !== ''): ?>
-            <div class="product-detail-prices">
-              <?php if ($catalogPrice !== ''): ?><span class="catalog-price<?= $outletPrice !== '' ? ' old-price' : '' ?>">Cena katalogowa: <?= catalog_e($catalogPrice) ?></span><?php endif; ?>
-              <?php if ($outletPrice !== ''): ?><span class="outlet-price">Cena outletowa: <?= catalog_e($outletPrice) ?></span><?php endif; ?>
-              <?php if ($saving !== null): ?><span class="saving-badge">Oszczędzasz: <?= catalog_e((string)$saving) ?> zł</span><?php endif; ?>
-            </div>
+          <?php if ($isSold): ?>
+            <div class="product-detail-status"><span class="badge-static">Produkt sprzedany</span></div>
           <?php else: ?>
-            <p class="product-detail-price-question">Zapytaj o cenę</p>
+            <div class="product-detail-status"><span class="badge-static"><?= catalog_e($status) ?></span><span>Produkt dostępny lokalnie w Kębłowicach</span></div>
+          <?php endif; ?>
+
+          <?php if (!$isSold): ?>
+            <?php if ($catalogPrice !== '' || $outletPrice !== ''): ?>
+              <div class="product-detail-prices">
+                <?php if ($catalogPrice !== ''): ?><span class="catalog-price<?= $outletPrice !== '' ? ' old-price' : '' ?>">Cena katalogowa: <?= catalog_e($catalogPrice) ?></span><?php endif; ?>
+                <?php if ($outletPrice !== ''): ?><span class="outlet-price">Cena outletowa: <?= catalog_e($outletPrice) ?></span><?php endif; ?>
+                <?php if ($saving !== null): ?><span class="saving-badge">Oszczędzasz: <?= catalog_e((string)$saving) ?> zł</span><?php endif; ?>
+              </div>
+            <?php else: ?>
+              <p class="product-detail-price-question">Zapytaj o cenę</p>
+            <?php endif; ?>
           <?php endif; ?>
 
           <p class="product-detail-lead"><?= nl2br(catalog_e($descriptionText)) ?></p>
@@ -174,12 +180,16 @@ $breadcrumbs = [
             </dl>
           <?php endif; ?>
 
-          <div class="product-detail-actions">
-            <a class="btn btn-primary" href="tel:+48577210777">Zadzwoń: 577 210 777</a>
-            <a class="btn btn-outline" href="sms:+48577210777?body=Interesuje%20mnie%20produkt:%20<?= rawurlencode($name) ?>">Zapytaj SMS</a>
-            <a class="btn btn-light" href="https://maps.app.goo.gl/SJ9LvQcub6rzQKAs5" target="_blank" rel="noopener" data-stat-event="navigation_click">Sprawdź dojazd</a>
-          </div>
-          <p class="product-detail-note">Przed przyjazdem zadzwoń i potwierdź aktualną dostępność. Produkty outletowe często występują jako pojedyncze sztuki.</p>
+          <?php if ($isSold): ?>
+            <div class="product-detail-actions"><a class="btn btn-primary" href="<?= catalog_e($categoryUrl) ?>">Zobacz dostępne produkty</a></div>
+          <?php else: ?>
+            <div class="product-detail-actions">
+              <a class="btn btn-primary" href="tel:+48577210777">Zadzwoń: 577 210 777</a>
+              <a class="btn btn-outline" href="sms:+48577210777?body=Interesuje%20mnie%20produkt:%20<?= rawurlencode($name) ?>">Zapytaj SMS</a>
+              <a class="btn btn-light" href="https://maps.app.goo.gl/SJ9LvQcub6rzQKAs5" target="_blank" rel="noopener" data-stat-event="navigation_click">Sprawdź dojazd</a>
+            </div>
+            <p class="product-detail-note">Przed przyjazdem zadzwoń i potwierdź aktualną dostępność. Produkty outletowe często występują jako pojedyncze sztuki.</p>
+          <?php endif; ?>
         </section>
       </article>
 
@@ -191,10 +201,17 @@ $breadcrumbs = [
         </section>
       <?php endif; ?>
 
-      <section class="product-detail-local">
-        <div><p class="eyebrow">Zobacz na żywo</p><h2>Prawdziwy produkt w lokalnym showroomie pod Wrocławiem</h2><p>Zapraszamy do Home & Garden Outlet przy ul. Przelotowej 16 w Kębłowicach. Na miejscu możesz sprawdzić wygląd, wygodę, kolor i rzeczywisty stan produktu.</p></div>
-        <div class="hero-actions"><a class="btn btn-primary" href="<?= catalog_e($categoryUrl) ?>">Zobacz podobne produkty</a><a class="btn btn-outline" href="<?= catalog_e($seoCategoryUrl) ?>"><?= catalog_e($seoCategoryLabel) ?></a><a class="btn btn-outline" href="/#kontakt">Kontakt i godziny otwarcia</a></div>
-      </section>
+      <?php if ($isSold): ?>
+        <section class="product-detail-local">
+          <p>Ten egzemplarz został już sprzedany. Zobacz inne dostępne produkty z tej kategorii.</p>
+          <div class="hero-actions"><a class="btn btn-primary" href="<?= catalog_e($categoryUrl) ?>">Zobacz dostępne produkty</a></div>
+        </section>
+      <?php else: ?>
+        <section class="product-detail-local">
+          <div><p class="eyebrow">Zobacz na żywo</p><h2>Prawdziwy produkt w lokalnym showroomie pod Wrocławiem</h2><p>Zapraszamy do Home & Garden Outlet przy ul. Przelotowej 16 w Kębłowicach. Na miejscu możesz sprawdzić wygląd, wygodę, kolor i rzeczywisty stan produktu.</p></div>
+          <div class="hero-actions"><a class="btn btn-primary" href="<?= catalog_e($categoryUrl) ?>">Zobacz podobne produkty</a><a class="btn btn-outline" href="<?= catalog_e($seoCategoryUrl) ?>"><?= catalog_e($seoCategoryLabel) ?></a><a class="btn btn-outline" href="/#kontakt">Kontakt i godziny otwarcia</a></div>
+        </section>
+      <?php endif; ?>
     <?php endif; ?>
   </main>
 
