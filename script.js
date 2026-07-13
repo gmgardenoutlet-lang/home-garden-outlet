@@ -860,6 +860,13 @@ async function loadProducts() {
     }
   } catch (error) {
     if (productGrid?.querySelector(".product-card-static")) {
+      const staticCards = [...productGrid.querySelectorAll(".product-card-static")]
+        .filter((card) => !card.hidden && getComputedStyle(card).display !== "none");
+      const filters = getDiscoveryFilters();
+      updateProductCount(staticCards.length, filters);
+      if (productEmpty) {
+        productEmpty.hidden = staticCards.length > 0;
+      }
       return;
     }
 
