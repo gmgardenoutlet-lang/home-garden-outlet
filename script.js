@@ -494,7 +494,7 @@ function applyDiscoveryFilters(items, filters) {
 }
 
 function createProductSlug(value) {
-  return normalizeText(String(value || "").replace(/ł/g, "l").replace(/Ł/g, "L"))
+  return normalizeText(String(value || "").replace(/\u0142/g, "l").replace(/\u0141/g, "L"))
     .trim()
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/^-+|-+$/g, "");
@@ -763,17 +763,87 @@ function shuffleProducts(items) {
   return shuffled;
 }
 
-function pickHomepageProducts(items) {
+function getHomepageSelectedSlugs() {
+  if (isCategoryPage || !productGrid) return null;
+
+  const selectedSlugs = productGrid.dataset.homepageSelectedSlugs;
+  if (!selectedSlugs) return null;
+
+  try {
+    const parsedSlugs = JSON.parse(selectedSlugs);
+    if (!Array.isArray(parsedSlugs)) return null;
+
+    const uniqueSlugs = [...new Set(parsedSlugs
+      .map((slug) => createProductSlug(String(slug || "")))
+      .filter(Boolean))];
+
+    return uniqueSlugs.length
+      && uniqueSlugs.length === parsedSlugs.length
+      && uniqueSlugs.length <= homepageProductLimit
+      ? uniqueSlugs
+      : null;
+  } catch {
+    return null;
+  }
+}
+
+function getHomepageStaticCardSlugs() {
+  if (isCategoryPage || !productGrid) return [];
+
+  return [...productGrid.querySelectorAll(".product-card-static")].map((card) => {
+    const href = card.querySelector(".product-image-link")?.getAttribute("href") || "";
+    const match = href.match(/^\/produkt\/([^/?#]+)$/);
+
+    return match ? createProductSlug(match[1]) : "";
+  });
+}
+
+function canKeepHomepageStaticCards() {
+  const selectedSlugs = getHomepageSelectedSlugs();
+  const cardSlugs = getHomepageStaticCardSlugs();
+
+  if (!selectedSlugs || selectedSlugs.length !== cardSlugs.length || selectedSlugs.some((slug, index) => slug !== cardSlugs[index])) {
+    return false;
+  }
+
+  const eligibleSlugs = new Set(products
+    .filter(isProductPublic)
+    .filter((product) => !isSoldProduct(product))
+    .map((product) => getProductSeo(product).slug));
+
+  return selectedSlugs.every((slug) => eligibleSlugs.has(slug));
+}
+
+function pickRandomHomepageProducts(items, limit = homepageProductLimit) {
   const availableItems = items.filter((product) => !isSoldProduct(product));
   const featured = availableItems.filter((product) => product.featured !== false);
   const remaining = availableItems.filter((product) => product.featured === false);
-  const selected = shuffleProducts(featured).slice(0, homepageProductLimit);
+  const selected = shuffleProducts(featured).slice(0, limit);
 
-  if (selected.length < homepageProductLimit) {
-    selected.push(...shuffleProducts(remaining).slice(0, homepageProductLimit - selected.length));
+  if (selected.length < limit) {
+    selected.push(...shuffleProducts(remaining).slice(0, limit - selected.length));
   }
 
   return selected;
+}
+
+function pickHomepageProducts(items, selectedSlugs = null) {
+  if (!Array.isArray(selectedSlugs)) {
+    return pickRandomHomepageProducts(items);
+  }
+
+  const availableItems = items.filter((product) => !isSoldProduct(product));
+  const productsBySlug = new Map(availableItems.map((product) => [getProductSeo(product).slug, product]));
+  const selected = selectedSlugs
+    .map((slug) => productsBySlug.get(slug))
+    .filter(Boolean)
+    .slice(0, homepageProductLimit);
+  const selectedSlugSet = new Set(selected.map((product) => getProductSeo(product).slug));
+
+  return selected.concat(pickRandomHomepageProducts(
+    availableItems.filter((product) => !selectedSlugSet.has(getProductSeo(product).slug)),
+    homepageProductLimit - selected.length
+  ));
 }
 
 function updateProductCount(count, filters) {
@@ -814,7 +884,7 @@ function renderProducts(filter = "all") {
 
   const filteredProducts = applyDiscoveryFilters(categoryProducts, filters);
   const productsToRender = !isCategoryPage && !hasActiveDiscoveryFilters(filters)
-    ? pickHomepageProducts(filteredProducts)
+    ? pickHomepageProducts(filteredProducts, getHomepageSelectedSlugs())
     : sortProducts(filteredProducts);
 
   productGrid.innerHTML = productsToRender.map(productTemplate).join("");
@@ -847,7 +917,7 @@ async function loadProducts() {
     }
 
     const data = await response.json();
-    products = assignProductSlugs(Array.isArray(data.products) && data.products.length > 0
+    products = assignProductSlugs(Array.isArray(data.products)
       ? data.products
       : fallbackProducts);
 
@@ -857,6 +927,16 @@ async function loadProducts() {
       if (productPageItem) {
         applyProductSeo(productPageItem);
       }
+    }
+
+    if (canKeepHomepageStaticCards()) {
+      const filters = getDiscoveryFilters();
+      updateProductCount(getHomepageSelectedSlugs().length, filters);
+      if (productEmpty) {
+        productEmpty.hidden = true;
+      }
+      initializeDescriptionToggles();
+      return;
     }
   } catch (error) {
     if (productGrid?.querySelector(".product-card-static")) {
