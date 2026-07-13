@@ -36,10 +36,6 @@ AddType application/manifest+json .webmanifest
   RewriteRule ^sklep-test/order/?$ shop-test/order.php [L,QSA]
 
   # Stare adresy HTML przekierowujemy na publiczne, czyste adresy.
-  RewriteCond %{THE_REQUEST} \s/+homepage\.php(?:[\s?]) [NC]
-  RewriteRule ^homepage\.php$ / [R=301,L,NE]
-  RewriteCond %{THE_REQUEST} \s/+index\.html(?:[\s?]) [NC]
-  RewriteRule ^index\.html$ / [R=301,L,NE]
   RewriteCond %{THE_REQUEST} \s/+home\.php(?:[\s?]) [NC]
   RewriteRule ^home\.php$ /dom [R=301,L,NE]
   RewriteCond %{THE_REQUEST} \s/+dom\.html(?:[\s?]) [NC]
@@ -50,7 +46,6 @@ AddType application/manifest+json .webmanifest
   RewriteRule ^ogrod\.html$ /ogrod [R=301,L,NE]
 
   # Czyste adresy kategorii.
-  RewriteRule ^$ homepage.php [L,QSA]
   RewriteRule ^dom/?$ home.php [L,QSA]
   RewriteRule ^ogrod/?$ garden.php [L]
 </IfModule>
