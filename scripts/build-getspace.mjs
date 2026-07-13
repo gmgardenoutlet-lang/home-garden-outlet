@@ -103,6 +103,7 @@ await cp(path.join(root, "hosting", "getspace", ".htaccess"), path.join(publish,
 await cp(path.join(root, "hosting", "getspace", "catalog.php"), path.join(publish, "catalog.php"));
 await cp(path.join(root, "hosting", "getspace", "product.php"), path.join(publish, "product.php"));
 await cp(path.join(root, "hosting", "getspace", "garden.php"), path.join(publish, "garden.php"));
+await cp(path.join(root, "hosting", "getspace", "home.php"), path.join(publish, "home.php"));
 await cp(path.join(root, "hosting", "getspace", "sitemap.php"), path.join(publish, "sitemap.php"));
 
 const homepagePath = path.join(publish, "index.html");
