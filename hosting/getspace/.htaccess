@@ -38,14 +38,12 @@ AddType application/manifest+json .webmanifest
   # Stare adresy HTML przekierowujemy na publiczne, czyste adresy.
   RewriteCond %{THE_REQUEST} \s/+dom\.html(?:[\s?]) [NC]
   RewriteRule ^dom\.html$ /dom [R=301,L,NE]
-  RewriteCond %{THE_REQUEST} \s/+garden\.php(?:[\s?]) [NC]
-  RewriteRule ^garden\.php$ /ogrod [R=301,L,NE]
   RewriteCond %{THE_REQUEST} \s/+ogrod\.html(?:[\s?]) [NC]
   RewriteRule ^ogrod\.html$ /ogrod [R=301,L,NE]
 
   # Czyste adresy kategorii.
   RewriteRule ^dom/?$ dom.html [L]
-  RewriteRule ^ogrod/?$ garden.php [L]
+  RewriteRule ^ogrod/?$ ogrod.html [L]
 </IfModule>
 
 <FilesMatch "^(?:\.env(?:\..*)?|.*\.(?:bak|backup|old|orig|save|sql|sqlite|db|log|key|pem|crt|zip|tar|gz|7z))$">
