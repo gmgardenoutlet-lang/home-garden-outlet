@@ -1,4 +1,4 @@
-import { cp, mkdir, readFile, rm, writeFile } from "node:fs/promises";
+import { cp, mkdir, readFile, rm } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
 import path from "node:path";
 
@@ -104,21 +104,7 @@ await cp(path.join(root, "hosting", "getspace", "catalog.php"), path.join(publis
 await cp(path.join(root, "hosting", "getspace", "product.php"), path.join(publish, "product.php"));
 await cp(path.join(root, "hosting", "getspace", "garden.php"), path.join(publish, "garden.php"));
 await cp(path.join(root, "hosting", "getspace", "home.php"), path.join(publish, "home.php"));
+await cp(path.join(root, "hosting", "getspace", "homepage.php"), path.join(publish, "homepage.php"));
 await cp(path.join(root, "hosting", "getspace", "sitemap.php"), path.join(publish, "sitemap.php"));
-
-const homepagePath = path.join(publish, "index.html");
-const homepage = await readFile(homepagePath, "utf8");
-const withoutNetlifyIdentity = homepage.replace(
-  /\s*<script src="https:\/\/identity\.netlify\.com\/v1\/netlify-identity-widget\.js"><\/script>\s*/g,
-  "\n"
-);
-const identityTokenRedirect = `  <script>
-    if (/^#(?:invite_token|recovery_token|confirmation_token)=/.test(window.location.hash)) {
-      window.location.replace("https://classy-lolly-b27cbc.netlify.app/" + window.location.hash);
-    }
-  </script>
-`;
-const getspaceHomepage = withoutNetlifyIdentity.replace("</head>", `${identityTokenRedirect}</head>`);
-await writeFile(homepagePath, getspaceHomepage, "utf8");
 
 console.log(`Przygotowano paczkę Getspace z ${products.length} produktami i ${uploadPaths.size} używanymi zdjęciami.`);
