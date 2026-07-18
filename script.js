@@ -846,13 +846,41 @@ function pickHomepageProducts(items, selectedSlugs = null) {
   ));
 }
 
+function normalizeProductCount(count) {
+  const numericCount = Number(count);
+
+  return Number.isFinite(numericCount) && numericCount >= 0
+    ? Math.trunc(numericCount)
+    : 0;
+}
+
+function getProductCountNoun(count) {
+  const safeCount = normalizeProductCount(count);
+
+  if (safeCount === 1) {
+    return "produkt";
+  }
+
+  const lastDigit = safeCount % 10;
+  const lastTwoDigits = safeCount % 100;
+
+  if (lastDigit >= 2 && lastDigit <= 4 && (lastTwoDigits < 12 || lastTwoDigits > 14)) {
+    return "produkty";
+  }
+
+  return "produktów";
+}
+
 function updateProductCount(count, filters) {
   if (!productCount) {
     return;
   }
 
+  const safeCount = normalizeProductCount(count);
+  const productNoun = getProductCountNoun(safeCount);
+
   if (hasActiveDiscoveryFilters(filters)) {
-    productCount.textContent = `Pokazano ${count} produktów`;
+    productCount.textContent = `Pokazano ${safeCount} ${productNoun}`;
     return;
   }
 
@@ -860,11 +888,11 @@ function updateProductCount(count, filters) {
     const label = normalizeText(pageCategory).includes("ogrod")
       ? "Meble ogrodowe"
       : "Meble do domu";
-    productCount.textContent = `${label} — aktualnie ${count} produktów`;
+    productCount.textContent = `${label} — aktualnie ${safeCount} ${productNoun}`;
     return;
   }
 
-  productCount.textContent = `Aktualnie pokazujemy ${count} produktów z outletu`;
+  productCount.textContent = `Aktualnie pokazujemy ${safeCount} ${productNoun} z outletu`;
 }
 
 function renderProducts(filter = "all") {
