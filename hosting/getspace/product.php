@@ -6,6 +6,13 @@ require __DIR__ . '/catalog.php';
 $slug = (string)($_GET['slug'] ?? '');
 $product = $slug !== '' ? catalog_find_product($slug) : null;
 
+$oldMatinoSlug = 'lawka-schowek-matino-z-drewna-akacjowego-w-brazowym-kolorze-praktyczne-siedzisko-schowek-i-polki-do-ogrodu-na-taras-lub-balkon';
+$newMatinoSlug = 'lawka-schowek-matino';
+if ($slug === $oldMatinoSlug && catalog_find_product($newMatinoSlug) !== null) {
+    header('Location: ' . CATALOG_SITE_URL . '/produkt/' . $newMatinoSlug, true, 301);
+    exit;
+}
+
 if ($product === null) {
     http_response_code(404);
     header('X-Robots-Tag: noindex, follow');
