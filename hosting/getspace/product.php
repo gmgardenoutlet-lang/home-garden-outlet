@@ -109,7 +109,7 @@ $breadcrumbs = [
   <link rel="apple-touch-icon" href="/apple-touch-icon.png">
   <link rel="manifest" href="/site.webmanifest">
   <meta name="theme-color" content="#539730">
-  <link rel="stylesheet" href="/styles.css?v=20260627-poradnik1">
+  <link rel="stylesheet" href="/styles.css?v=20260723-showroom1">
   <?php if ($productSchema !== null): ?><script type="application/ld+json"><?= json_encode($productSchema, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?></script><?php endif; ?>
   <script type="application/ld+json"><?= json_encode($breadcrumbs, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?></script>
 </head>
@@ -214,9 +214,29 @@ $breadcrumbs = [
           <div class="hero-actions"><a class="btn btn-primary" href="<?= catalog_e($categoryUrl) ?>">Zobacz dostępne produkty</a></div>
         </section>
       <?php else: ?>
-        <section class="product-detail-local">
-          <div><p class="eyebrow">Zobacz na żywo</p><h2>Prawdziwy produkt w lokalnym showroomie pod Wrocławiem</h2><p>Zapraszamy do Home & Garden Outlet przy ul. Przelotowej 16 w Kębłowicach. Na miejscu możesz sprawdzić wygląd, wygodę, kolor i rzeczywisty stan produktu.</p></div>
-          <div class="hero-actions"><a class="btn btn-primary" href="<?= catalog_e($categoryUrl) ?>">Zobacz podobne produkty</a><a class="btn btn-outline" href="<?= catalog_e($seoCategoryUrl) ?>"><?= catalog_e($seoCategoryLabel) ?></a><a class="btn btn-outline" href="/#kontakt">Kontakt i godziny otwarcia</a></div>
+        <section class="product-detail-local showroom-cta">
+          <div class="showroom-cta-copy">
+            <p class="eyebrow">Zobacz na żywo</p>
+            <h2>Prawdziwy produkt w lokalnym showroomie pod Wrocławiem</h2>
+            <p>Zapraszamy do Home &amp; Garden Outlet przy ul. Przelotowej 16 w Kębłowicach. Na miejscu możesz sprawdzić wygląd, wygodę, kolor i rzeczywisty stan produktu.</p>
+            <ul class="showroom-benefits" aria-label="Korzyści z wizyty w showroomie">
+              <li><span aria-hidden="true">✓</span>Lokalny showroom pod Wrocławiem</li>
+              <li><span aria-hidden="true">✓</span>Zobacz produkt na żywo</li>
+              <li><span aria-hidden="true">✓</span>Sprawdź jakość, kolor i rzeczywisty stan</li>
+            </ul>
+          </div>
+          <div class="showroom-cta-side">
+            <div class="showroom-cta-actions">
+              <a class="btn btn-primary" href="<?= catalog_e($categoryUrl) ?>">Zobacz podobne produkty</a>
+              <a class="btn btn-outline" href="<?= catalog_e($seoCategoryUrl) ?>"><?= catalog_e($seoCategoryLabel) ?></a>
+              <a class="btn btn-outline" href="/#kontakt">Kontakt i godziny otwarcia</a>
+            </div>
+            <aside class="showroom-contact-card" aria-label="Dane kontaktowe showroomu">
+              <strong>Home &amp; Garden Outlet</strong>
+              <address>ul. Przelotowa 16<br>55-080 Kębłowice</address>
+              <a href="tel:+48577210777">577 210 777</a>
+            </aside>
+          </div>
         </section>
       <?php endif; ?>
     <?php endif; ?>

@@ -1283,10 +1283,109 @@ body.gallery-open {
 
 .product-detail-local {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  gap: 38px;
+  grid-template-columns: minmax(360px, 1.08fr) minmax(320px, 0.92fr);
+  gap: clamp(28px, 4vw, 54px);
   align-items: center;
   background: var(--green-soft);
+}
+
+.showroom-cta-copy {
+  min-width: 0;
+}
+
+.showroom-cta-copy h2 {
+  max-width: 680px;
+  font-size: clamp(30px, 3.4vw, 44px);
+  text-wrap: balance;
+}
+
+.showroom-cta-copy > p:not(.eyebrow) {
+  max-width: 650px;
+  margin: 0;
+}
+
+.showroom-benefits {
+  display: grid;
+  gap: 10px;
+  margin: 24px 0 0;
+  padding: 0;
+  list-style: none;
+  color: var(--heading-deep);
+  font-weight: 800;
+}
+
+.showroom-benefits li {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  line-height: 1.45;
+}
+
+.showroom-benefits span {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  margin-top: 1px;
+  border-radius: 50%;
+  background: var(--green-800);
+  color: var(--white);
+  font-size: 13px;
+  line-height: 1;
+}
+
+.showroom-cta-side {
+  display: grid;
+  gap: 16px;
+  min-width: 0;
+}
+
+.showroom-cta-actions {
+  display: grid;
+  gap: 10px;
+}
+
+.showroom-cta-actions .btn {
+  width: 100%;
+}
+
+.showroom-contact-card {
+  padding: 20px 22px;
+  border: 1px solid rgba(63, 111, 69, 0.2);
+  border-radius: 18px;
+  background: var(--white);
+  box-shadow: 0 12px 28px rgba(36, 69, 51, 0.08);
+}
+
+.showroom-contact-card strong,
+.showroom-contact-card address,
+.showroom-contact-card a {
+  display: block;
+}
+
+.showroom-contact-card strong {
+  color: var(--heading-deep);
+}
+
+.showroom-contact-card address {
+  margin: 8px 0;
+  color: var(--muted);
+  font-style: normal;
+  line-height: 1.55;
+}
+
+.showroom-contact-card a {
+  width: fit-content;
+  color: var(--green-800);
+  font-weight: 900;
+  text-decoration: none;
+}
+
+.showroom-contact-card a:hover {
+  color: var(--green-900);
+  text-decoration: underline;
 }
 
 .product-not-found {
