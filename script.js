@@ -888,7 +888,7 @@ function updateProductCount(count, filters) {
     const label = normalizeText(pageCategory).includes("ogrod")
       ? "Meble ogrodowe"
       : "Meble do domu";
-    productCount.textContent = `${label} — aktualnie ${safeCount} ${productNoun}`;
+    productCount.textContent = `${label} - aktualnie ${safeCount} ${productNoun}`;
     return;
   }
 

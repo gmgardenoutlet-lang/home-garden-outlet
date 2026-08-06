@@ -146,7 +146,7 @@ const productCard = (product) => {
   const status = displayStatus(product);
   const alt = hasValue(product.imageAlt)
     ? product.imageAlt
-    : `${name} — ${category}, Home & Garden Outlet Kębłowice pod Wrocławiem`;
+    : `${name} - ${category}, Home & Garden Outlet Kębłowice pod Wrocławiem`;
   const catalogPrice = hasValue(product.catalogPrice) ? product.catalogPrice : "";
   const outletPrice = hasValue(product.outletPrice) ? product.outletPrice : "";
   const catalogValue = parsePrice(catalogPrice);
