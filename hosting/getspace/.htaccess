@@ -36,7 +36,6 @@ AddType application/manifest+json .webmanifest
   RewriteRule ^sklep/figury-ogrodowe/platnosc/powrot/?$ shop-test/paynow-return.php [L,QSA]
   RewriteRule ^sklep/paynow/notification/?$ shop-test/paynow-notification.php [L,QSA]
   RewriteRule ^sklep/paynow/create-payment/?$ shop-test/paynow-create-payment.php [L,QSA]
-  RewriteRule ^sklep/paynow/private-config-check/?$ shop-test/paynow-private-config-check.php [L,QSA]
 
   # Stary adres testowy nie tworzy drugiej wersji katalogu.
   RewriteRule ^sklep-test/figury-ogrodowe/?$ /sklep/figury-ogrodowe [R=301,L,NE]
