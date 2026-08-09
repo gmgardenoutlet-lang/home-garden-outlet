@@ -591,6 +591,58 @@ function stats_location_row(array $row, array $fields): array
     return $result;
 }
 
+function stats_location_display_region(string $countryCode, string $regionCode, string $name): string
+{
+    if ($countryCode === 'PL' && $regionCode === 'DS') {
+        return 'Dolnośląskie';
+    }
+    return $name !== '' ? $name : 'Nieznana lokalizacja';
+}
+
+function stats_location_display_city(string $countryCode, string $regionCode, string $name): string
+{
+    if ($countryCode === 'PL' && $regionCode === 'DS' && geoip_safe_key($name) === 'wroclaw') {
+        return 'Wrocław';
+    }
+    return $name !== '' ? $name : 'Nieznana lokalizacja';
+}
+
+function stats_local_breakdown(array $countries, array $regions, array $cities): array
+{
+    $poland = $lowerSilesiaTotal = $wroclaw = $foreign = $unknown = 0;
+    foreach ($countries as $row) {
+        $code = strtoupper(trim((string)($row['code'] ?? '')));
+        $count = safe_stat_int($row['count'] ?? 0);
+        if ($code === 'PL') {
+            $poland += $count;
+        } elseif ($code === 'UNKNOWN' || $code === '') {
+            $unknown += $count;
+        } else {
+            $foreign += $count;
+        }
+    }
+    foreach ($regions as $row) {
+        if (($row['country_code'] ?? '') === 'PL' && strtoupper((string)($row['code'] ?? '')) === 'DS') {
+            $lowerSilesiaTotal += safe_stat_int($row['count'] ?? 0);
+        }
+    }
+    foreach ($cities as $row) {
+        if (($row['country_code'] ?? '') === 'PL'
+            && strtoupper((string)($row['region_code'] ?? '')) === 'DS'
+            && geoip_safe_key((string)($row['name'] ?? '')) === 'wroclaw') {
+            $wroclaw += safe_stat_int($row['count'] ?? 0);
+        }
+    }
+
+    return [
+        'wroclaw' => $wroclaw,
+        'lowerSilesia' => max(0, $lowerSilesiaTotal - $wroclaw),
+        'restPoland' => max(0, $poland - $lowerSilesiaTotal),
+        'foreign' => $foreign,
+        'unknown' => $unknown,
+    ];
+}
+
 function load_location_summary(string $range): array
 {
     $range = normalize_stats_range($range);
@@ -637,25 +689,16 @@ function load_location_summary(string $range): array
         }
     }
 
-    foreach ($countries as $row) if (($row['code'] ?? '') === 'PL') $pl = safe_stat_int($row['count'] ?? 0);
-    $pl = $pl ?? 0;
-    foreach ($regions as $row) {
-        if (($row['country_code'] ?? '') === 'PL' && ($row['code'] ?? '') === 'PL-DS') $lowerSilesiaTotal = safe_stat_int($row['count'] ?? 0);
+    foreach ($regions as &$row) {
+        $row['name'] = stats_location_display_region((string)$row['country_code'], strtoupper((string)$row['code']), (string)$row['name']);
     }
-    $lowerSilesiaTotal = $lowerSilesiaTotal ?? 0;
-    foreach ($cities as $row) {
-        $city = geoip_safe_key((string)($row['name'] ?? ''));
-        if (($row['country_code'] ?? '') === 'PL' && ($row['region_code'] ?? '') === 'PL-DS' && $city === 'wroclaw') $wroclaw = safe_stat_int($row['count'] ?? 0);
+    unset($row);
+    foreach ($cities as &$row) {
+        $row['region_name'] = stats_location_display_region((string)$row['country_code'], strtoupper((string)$row['region_code']), (string)$row['region_name']);
+        $row['name'] = stats_location_display_city((string)$row['country_code'], strtoupper((string)$row['region_code']), (string)$row['name']);
     }
-    $wroclaw = $wroclaw ?? 0;
-    $unknown = safe_stat_int($countries['UNKNOWN']['count'] ?? 0);
-    $summary['local'] = [
-        'wroclaw' => $wroclaw,
-        'lowerSilesia' => max(0, $lowerSilesiaTotal - $wroclaw),
-        'restPoland' => max(0, $pl - $lowerSilesiaTotal),
-        'foreign' => max(0, $summary['pageViews'] - $pl - $unknown),
-        'unknown' => $unknown,
-    ];
+    unset($row);
+    $summary['local'] = stats_local_breakdown($countries, $regions, $cities);
 
     uasort($countries, static fn(array $a, array $b): int => ($b['count'] <=> $a['count']) ?: strcmp($a['name'], $b['name']));
     uasort($regions, static fn(array $a, array $b): int => ($b['count'] <=> $a['count']) ?: strcmp($a['name'], $b['name']));
