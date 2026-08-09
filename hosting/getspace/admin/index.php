@@ -129,6 +129,11 @@ try {
             flash('success', $changed ? 'Płatność przelewem oznaczono jako otrzymaną.' : 'Płatność była już oznaczona jako otrzymana.');
             redirect_admin('orders=1');
         }
+        if ($action === 'set_shipping_quote') {
+            $changed = shop_set_shipping_quote(post_text('order_id'), post_text('shipping_cost'), (string)($_SESSION['admin_username'] ?? 'administrator'));
+            flash('success', $changed ? 'Koszt dostawy ustalono i wysłano dane do płatności.' : 'Koszt dostawy został już wcześniej ustalony.');
+            redirect_admin('orders=1');
+        }
 
         if ($action === 'save_shipping_profile') {
             $profiles = shipping_profiles_by_id(false);
@@ -870,6 +875,13 @@ if ($showStats) {
                   <input type="hidden" name="action" value="mark_bank_transfer_paid">
                   <input type="hidden" name="order_id" value="<?= e((string)($order['orderId'] ?? '')) ?>">
                   <button class="btn btn-small" type="submit">Płatność otrzymana</button>
+                </form>
+              <?php endif; ?>
+              <?php if (($order['orderStatus'] ?? '') === 'awaiting_shipping_quote'): ?>
+                <form method="post" class="order-admin-form">
+                  <input type="hidden" name="csrf" value="<?= e(csrf_token()) ?>"><input type="hidden" name="action" value="set_shipping_quote"><input type="hidden" name="order_id" value="<?= e((string)($order['orderId'] ?? '')) ?>">
+                  <label>Finalny koszt dostawy (PLN)<input name="shipping_cost" inputmode="decimal" required></label>
+                  <button class="btn btn-small" type="submit">Ustal koszt dostawy</button>
                 </form>
               <?php endif; ?>
             </article>

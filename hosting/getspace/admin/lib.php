@@ -1185,6 +1185,39 @@ function shop_mark_bank_transfer_paid(string $orderId, string $administrator = '
     return true;
 }
 
+function shop_set_shipping_quote(string $orderId, string $cost, string $administrator = '', ?callable $mailer = null): bool
+{
+    $order = shop_load_order($orderId);
+    if (!$order) throw new RuntimeException('Nie znaleziono zamówienia.');
+    if (($order['orderStatus'] ?? '') !== 'awaiting_shipping_quote') return false;
+    if (!preg_match('/^\d+(?:[,.]\d{1,2})?$/', trim($cost))) throw new RuntimeException('Podaj prawidłowy koszt dostawy w PLN.');
+    $cents = (int)round((float)str_replace(',', '.', $cost) * 100);
+    if ($cents < 0) throw new RuntimeException('Koszt dostawy nie może być ujemny.');
+    $now = (new DateTimeImmutable('now', new DateTimeZone(STATS_TIMEZONE)))->format(DATE_ATOM);
+    $order['deliveryCostCents'] = $cents;
+    $order['deliveryCost'] = $cents / 100;
+    $order['delivery']['costCents'] = $cents;
+    $order['delivery']['cost'] = $cents / 100;
+    $order['delivery']['costLabel'] = number_format($cents / 100, 2, ',', ' ') . ' zł';
+    $order['delivery']['requiresConfirmation'] = false;
+    $order['delivery']['pricingType'] = 'fixed_price';
+    $order['totalCents'] = (int)($order['productsTotalCents'] ?? 0) + $cents;
+    $order['total'] = $order['totalCents'] / 100;
+    $order['status'] = $order['orderStatus'] = 'awaiting_payment';
+    $order['paymentProvider'] = $order['paymentMethod'] = 'bank_transfer';
+    $order['paymentStatus'] = 'awaiting';
+    $order['shippingQuoteConfirmedAt'] = $now;
+    $order['shippingQuoteConfirmedBy'] = $administrator;
+    shop_save_order($order);
+    $mailer ??= static fn(string $to, string $subject, string $body, string $headers): bool => @mail($to, $subject, $body, $headers);
+    $headers = "From: Home & Garden Outlet <biuro@mgoutlet.pl>\r\nReply-To: biuro@mgoutlet.pl\r\nMIME-Version: 1.0\r\nContent-Type: text/plain; charset=UTF-8";
+    $sent = $mailer((string)($order['customer']['email'] ?? ''), 'Dane do płatności – zamówienie ' . $order['orderId'], implode("\n", shop_order_email_lines($order, true)), $headers);
+    $order['emailNotifications']['paymentDetailsSentAt'] = $sent ? $now : null;
+    $order['emailNotifications']['paymentDetailsFailed'] = !$sent;
+    shop_save_order($order);
+    return true;
+}
+
 function save_catalog(array $catalog): void
 {
     $directory = dirname(PRODUCTS_FILE);
