@@ -18,10 +18,9 @@ shop_test_boot();
 
   <main>
     <article class="legal-page">
-      <div class="admin-ribbon admin-ribbon-inline">Tryb testowy — sklep niepubliczny</div>
       <p class="eyebrow">RODO i prywatność</p>
       <h1>Polityka prywatności Home &amp; Garden Outlet</h1>
-      <p class="legal-lead">Ten dokument wyjaśnia, jakie dane osobowe mogą być przetwarzane podczas korzystania ze strony https://mgoutlet.pl oraz testowego modułu sklepu z figurami ogrodowymi.</p>
+      <p class="legal-lead">Ten dokument wyjaśnia, jakie dane osobowe mogą być przetwarzane podczas korzystania ze strony https://mgoutlet.pl oraz katalogu figur ogrodowych.</p>
 
       <section>
         <h2>1. Administrator danych</h2>
@@ -78,14 +77,14 @@ shop_test_boot();
       </section>
 
       <div class="shop-actions legal-actions">
-        <a class="btn" href="/sklep-test/figury-ogrodowe">Wróć do sklepu</a>
-        <a class="btn btn-light" href="/sklep-test/figury-ogrodowe/regulamin">Regulamin</a>
+        <a class="btn" href="/sklep/figury-ogrodowe">Wróć do sklepu</a>
+        <a class="btn btn-light" href="/sklep/figury-ogrodowe/regulamin">Regulamin</a>
       </div>
     </article>
   </main>
 
   <?php shop_test_footer(); ?>
   <script>window.HGO_SHOP_PRODUCTS = <?= json_encode(shop_test_public_products(), JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_HEX_TAG) ?>;</script>
-  <script src="/sklep-test/shop.js"></script>
+  <script src="/sklep/shop.js"></script>
 </body>
 </html>

@@ -314,7 +314,11 @@ function shop_test_footer(): void
     <div>
       <strong>Figury ogrodowe</strong>
       <a href="<?= e(shop_catalog_url()) ?>">Katalog figur</a>
+      <a href="/sklep/figury-ogrodowe/regulamin">Regulamin</a>
       <a href="/polityka-prywatnosci">Polityka prywatności</a>
+      <a href="/sklep/figury-ogrodowe/dostawa-i-platnosci">Dostawa i płatności</a>
+      <a href="/sklep/figury-ogrodowe/zwroty-i-reklamacje">Zwroty i reklamacje</a>
+      <a href="/sklep/figury-ogrodowe/formularz-odstapienia">Formularz odstąpienia</a>
     </div>
   </footer>
     <?php
