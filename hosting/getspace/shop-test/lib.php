@@ -268,7 +268,7 @@ function shop_test_footer(): void
       <a href="/sklep-test/figury-ogrodowe">Kategoria</a>
       <a href="/sklep-test/figury-ogrodowe/koszyk">Koszyk</a>
       <a href="/sklep-test/figury-ogrodowe/regulamin">Regulamin</a>
-      <a href="/sklep-test/figury-ogrodowe/polityka-prywatnosci">Polityka prywatności</a>
+      <a href="/polityka-prywatnosci">Polityka prywatności</a>
     </div>
   </footer>
     <?php

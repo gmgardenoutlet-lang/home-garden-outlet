@@ -15,9 +15,6 @@ try {
     if (empty($_POST['terms'])) {
         throw new RuntimeException('Aby złożyć zamówienie, zaakceptuj Regulamin sklepu.');
     }
-    if (empty($_POST['privacy_notice'])) {
-        throw new RuntimeException('Aby złożyć zamówienie, potwierdź zapoznanie się z Polityką prywatności.');
-    }
 
     $products = shop_test_product_map();
     $cart = shop_test_decode_cart((string)($_POST['cart_payload'] ?? ''), $products);

@@ -41,6 +41,7 @@ const publicDirectories = [
   "poradnik",
   "meble-ogrodowe-wroclaw",
   "outlet-meblowy-wroclaw",
+  "polityka-prywatnosci",
   "hosting/getspace/stats"
 ];
 

@@ -58,7 +58,7 @@ $publicProducts = shop_test_public_products();
           <label>Adres<input name="customer_address" required autocomplete="street-address"></label>
           <div class="form-row"><label>Kod pocztowy<input name="customer_postal" required autocomplete="postal-code"></label><label>Miasto<input name="customer_city" required autocomplete="address-level2"></label></div>
           <label>Uwagi<textarea name="customer_notes" rows="3" placeholder="Np. dogodna godzina kontaktu albo informacja o dostawie"></textarea></label>
-          <p class="privacy-note">Administratorem danych osobowych jest EMAALL GARDEN OUTLET sp. z o.o. Dane będą przetwarzane w celu obsługi zamówienia. Szczegóły znajdziesz w <a href="/sklep-test/figury-ogrodowe/polityka-prywatnosci" target="_blank" rel="noopener noreferrer">Polityce prywatności</a>.</p>
+          <p class="privacy-note">Administratorem Twoich danych osobowych jest EMAALL GARDEN OUTLET sp. z o.o. Dane podane w formularzu wykorzystamy do przyjęcia i realizacji zamówienia, płatności, dostawy, wystawienia dokumentów sprzedaży oraz obsługi posprzedażowej. Dane mogą być przekazywane podmiotom uczestniczącym w realizacji zamówienia, w szczególności operatorowi płatności, firmom kurierskim, operatorom logistycznym oraz producentowi lub dostawcy realizującemu wysyłkę bezpośrednio do klienta. Więcej informacji o przetwarzaniu danych i Twoich prawach znajdziesz w <a href="/polityka-prywatnosci">Polityce prywatności</a>.</p>
         </section>
         <section class="checkout-step payment-step">
           <p class="eyebrow">Krok 4</p>
@@ -73,7 +73,6 @@ $publicProducts = shop_test_public_products();
             <input type="checkbox" name="terms" data-terms-checkbox required>
             <span>Akceptuję <a href="/sklep-test/figury-ogrodowe/regulamin" target="_blank" rel="noopener noreferrer">Regulamin</a> sklepu internetowego Home &amp; Garden Outlet.</span>
           </label>
-          <label class="check optional-check"><input type="checkbox" name="privacy_notice" required> <span>Zapoznałem/am się z <a href="/sklep-test/figury-ogrodowe/polityka-prywatnosci" target="_blank" rel="noopener noreferrer">Polityką prywatności</a>.</span></label>
           <button class="btn btn-wide" type="submit">Złóż zamówienie</button>
         </section>
       </form>
