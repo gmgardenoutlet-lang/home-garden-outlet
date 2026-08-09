@@ -1,0 +1,10 @@
+{
+  "name": "home-garden-outlet/getspace-stats",
+  "description": "Production-only dependencies for the Getspace statistics extension.",
+  "require": {
+    "maxmind-db/reader": "1.12.0"
+  },
+  "config": {
+    "sort-packages": true
+  }
+}

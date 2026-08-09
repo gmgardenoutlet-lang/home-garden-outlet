@@ -1,6 +1,8 @@
 <?php
 declare(strict_types=1);
 
+require_once __DIR__ . '/../lib/geoip.php';
+
 const HGO_STATS_SITE_ROOT = __DIR__ . '/..';
 const HGO_STATS_STORAGE_DIR = HGO_STATS_SITE_ROOT . '/admin/storage/stats';
 const HGO_STATS_PRODUCTS_FILE = HGO_STATS_SITE_ROOT . '/data/products.json';
@@ -231,7 +233,7 @@ function stats_global_rate_allowed(): bool
     return $allowed;
 }
 
-function stats_increment(string $event, string $pagePath, string $productSlug): bool
+function stats_increment(string $event, string $pagePath, string $productSlug, ?array $location = null): bool
 {
     $date = stats_now()->format('Y-m-d');
     $file = HGO_STATS_STORAGE_DIR . '/' . $date . '.json';
@@ -263,6 +265,10 @@ function stats_increment(string $event, string $pagePath, string $productSlug): 
 
         if (in_array($event, HGO_STATS_BUTTON_EVENTS, true)) {
             $stats['buttons'][$event]++;
+        }
+
+        if ($event === 'page_view' && is_array($location)) {
+            geoip_increment($stats, $location);
         }
 
         if ($productSlug !== '' && isset(HGO_STATS_PRODUCT_EVENTS[$event])) {
@@ -346,5 +352,6 @@ if (!stats_global_rate_allowed()) {
     stats_finish(204);
 }
 
-stats_increment($event, $pagePath, $productSlug);
+$location = $event === 'page_view' ? geoip_lookup((string)($_SERVER['REMOTE_ADDR'] ?? '')) : null;
+stats_increment($event, $pagePath, $productSlug, $location);
 stats_finish(204);

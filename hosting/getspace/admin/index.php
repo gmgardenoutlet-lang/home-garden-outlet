@@ -433,10 +433,11 @@ $visibilityFilter = trim((string)($_GET['visibility'] ?? ''));
 $deliveryFilter = trim((string)($_GET['delivery'] ?? ''));
 $missingFilter = trim((string)($_GET['missing'] ?? ''));
 $statsRange = normalize_stats_range((string)($_GET['range'] ?? 'today'));
+$statsTab = (string)($_GET['stats_tab'] ?? 'general') === 'locations' ? 'locations' : 'general';
 $statsProductLimit = normalize_stats_product_limit($_GET['product_limit'] ?? 10);
-$statsRangeLabels = ['today' => 'Dzisiaj', '7' => 'Ostatnie 7 dni', '30' => 'Ostatnie 30 dni'];
+$statsRangeLabels = ['today' => 'Dzisiaj', '7' => 'Ostatnie 7 dni', '30' => 'Ostatnie 30 dni', '90' => 'Ostatnie 90 dni'];
 $statsProductLimitLabels = [10 => 'Top 10', 25 => 'Top 25', 50 => 'Top 50'];
-$statsToday = $stats7 = $stats30 = $statsSelected = null;
+$statsToday = $stats7 = $stats30 = $stats90 = $statsSelected = $statsLocations = null;
 $statsCards = [];
 $statsTopProducts = [];
 $googleConfig = load_google_business_config();
@@ -508,12 +509,15 @@ if ($showStats) {
     $statsToday = load_stats_summary('today', $catalog);
     $stats7 = load_stats_summary('7', $catalog);
     $stats30 = load_stats_summary('30', $catalog);
-    $statsSelected = $statsRange === 'today' ? $statsToday : ($statsRange === '7' ? $stats7 : $stats30);
+    $stats90 = load_stats_summary('90', $catalog);
+    $statsSelected = $statsRange === 'today' ? $statsToday : ($statsRange === '7' ? $stats7 : ($statsRange === '30' ? $stats30 : $stats90));
+    $statsLocations = load_location_summary($statsRange);
     $statsTopProducts = array_slice($statsSelected['topProducts'] ?? [], 0, $statsProductLimit);
     $statsCards = [
         ['label' => 'Odsłony dzisiaj', 'value' => $statsToday['totals']['page_view'] ?? 0],
         ['label' => 'Odsłony 7 dni', 'value' => $stats7['totals']['page_view'] ?? 0],
         ['label' => 'Odsłony 30 dni', 'value' => $stats30['totals']['page_view'] ?? 0],
+        ['label' => 'Odsłony 90 dni', 'value' => $stats90['totals']['page_view'] ?? 0],
         ['label' => 'Produkty dzisiaj', 'value' => $statsToday['totals']['product_view'] ?? 0],
         ['label' => 'Telefony dzisiaj', 'value' => $statsToday['totals']['call_click'] ?? 0],
         ['label' => 'Nawigacja dzisiaj', 'value' => $statsToday['totals']['navigation_click'] ?? 0],
@@ -640,9 +644,21 @@ if ($showStats) {
     <?php elseif ($showStats): ?>
       <div class="page-heading">
         <div><p class="muted">Anonimowe liczniki bez cookies i danych osobowych</p><h1>Statystyki</h1></div>
-        <div class="header-actions"><a class="btn btn-secondary" href="/admin/">Produkty</a><a class="btn" href="/admin/?stats=1&amp;range=<?= e($statsRange) ?>&amp;product_limit=<?= e((string)$statsProductLimit) ?>">Odśwież statystyki</a></div>
+        <div class="header-actions"><a class="btn btn-secondary" href="/admin/">Produkty</a><a class="btn" href="/admin/?stats=1&amp;stats_tab=<?= e($statsTab) ?>&amp;range=<?= e($statsRange) ?>&amp;product_limit=<?= e((string)$statsProductLimit) ?>">Odśwież statystyki</a></div>
       </div>
 
+      <nav class="admin-tabs stats-tabs" aria-label="Widok statystyk">
+        <a class="<?= $statsTab === 'general' ? 'active' : '' ?>" href="/admin/?stats=1&amp;stats_tab=general&amp;range=<?= e($statsRange) ?>&amp;product_limit=<?= e((string)$statsProductLimit) ?>">Statystyki ogólne</a>
+        <a class="<?= $statsTab === 'locations' ? 'active' : '' ?>" href="/admin/?stats=1&amp;stats_tab=locations&amp;range=<?= e($statsRange) ?>&amp;product_limit=<?= e((string)$statsProductLimit) ?>">Lokalizacja odsłon</a>
+      </nav>
+
+      <nav class="range-switch" aria-label="Zakres statystyk">
+        <?php foreach ($statsRangeLabels as $rangeKey => $rangeLabel): ?>
+          <a class="<?= $statsRange === $rangeKey ? 'active' : '' ?>" href="/admin/?stats=1&amp;stats_tab=<?= e($statsTab) ?>&amp;range=<?= e($rangeKey) ?>&amp;product_limit=<?= e((string)$statsProductLimit) ?>"><?= e($rangeLabel) ?></a>
+        <?php endforeach; ?>
+      </nav>
+
+      <?php if ($statsTab === 'general'): ?>
       <section class="stats-grid">
         <?php foreach ($statsCards as $card): ?>
           <article class="stat-card">
@@ -651,12 +667,6 @@ if ($showStats) {
           </article>
         <?php endforeach; ?>
       </section>
-
-      <nav class="range-switch" aria-label="Zakres statystyk">
-        <?php foreach ($statsRangeLabels as $rangeKey => $rangeLabel): ?>
-          <a class="<?= $statsRange === $rangeKey ? 'active' : '' ?>" href="/admin/?stats=1&amp;range=<?= e($rangeKey) ?>&amp;product_limit=<?= e((string)$statsProductLimit) ?>"><?= e($rangeLabel) ?></a>
-        <?php endforeach; ?>
-      </nav>
 
       <?php if (($statsSelected['invalidFiles'] ?? 0) > 0): ?>
         <div class="flash flash-error">Pominięto <?= e((string)$statsSelected['invalidFiles']) ?> uszkodzony plik statystyk. Panel działa dalej i pokazuje poprawne dane.</div>
@@ -679,7 +689,7 @@ if ($showStats) {
             <div><p class="muted">Top <?= e((string)$statsProductLimit) ?></p><h2>Najczęściej oglądane produkty</h2></div>
             <nav class="range-switch range-switch-compact" aria-label="Liczba produktów w tabeli">
               <?php foreach ($statsProductLimitLabels as $limitValue => $limitLabel): ?>
-                <a class="<?= $statsProductLimit === $limitValue ? 'active' : '' ?>" href="/admin/?stats=1&amp;range=<?= e($statsRange) ?>&amp;product_limit=<?= e((string)$limitValue) ?>"><?= e($limitLabel) ?></a>
+                <a class="<?= $statsProductLimit === $limitValue ? 'active' : '' ?>" href="/admin/?stats=1&amp;stats_tab=general&amp;range=<?= e($statsRange) ?>&amp;product_limit=<?= e((string)$limitValue) ?>"><?= e($limitLabel) ?></a>
               <?php endforeach; ?>
             </nav>
           </div>
@@ -737,6 +747,28 @@ if ($showStats) {
             </table>
           </div>
         </section>
+      <?php endif; ?>
+      <?php else: ?>
+        <?php $geoip = geoip_status(); ?>
+        <?php if (!$geoip['ready']): ?>
+          <section class="card empty"><h2>GeoIP nie skonfigurowane</h2><p><?= e($geoip['reason']) ?></p><p class="muted">Statystyki ogólne działają normalnie. Wgraj oficjalny plik GeoLite2-City.mmdb do <code>/home/ogfdvopi/private/geoip/GeoLite2-City.mmdb</code>.</p></section>
+        <?php elseif (($statsLocations['pageViews'] ?? 0) === 0): ?>
+          <section class="card empty"><h2>Brak danych lokalizacji w wybranym okresie</h2><p>Dane lokalizacji będą dostępne od pierwszej odsłony po uruchomieniu GeoIP.</p></section>
+        <?php else: ?>
+          <section class="card stats-section">
+            <div class="section-head"><div><p class="muted">Skąd oglądana jest strona · <?= e($statsRangeLabels[$statsRange]) ?></p><h2>Ruch lokalny vs reszta Polski</h2></div></div>
+            <div class="stats-actions-grid">
+              <?php foreach (['wroclaw' => 'Wrocław', 'lowerSilesia' => 'Dolny Śląsk poza Wrocławiem', 'restPoland' => 'Pozostała Polska', 'foreign' => 'Zagranica'] as $key => $label): ?>
+                <div><span><?= e($label) ?></span><strong><?= e(number_format((int)$statsLocations['local'][$key], 0, ',', ' ')) ?> · <?= e(stats_percent((int)$statsLocations['local'][$key], (int)$statsLocations['pageViews'])) ?></strong></div>
+              <?php endforeach; ?>
+            </div>
+            <?php if (($statsLocations['local']['unknown'] ?? 0) > 0): ?><p class="muted">Nieznana lokalizacja: <?= e(number_format((int)$statsLocations['local']['unknown'], 0, ',', ' ')) ?> odsłon.</p><?php endif; ?>
+          </section>
+          <p class="muted stats-note">Dane lokalizacji są dostępne od <?= e((string)$statsLocations['firstDate']) ?> i obejmują <?= e((string)$statsLocations['daysWithData']) ?> dni z wybranego zakresu.</p>
+          <section class="card stats-section"><div class="section-head"><div><p class="muted">Kraje</p><h2>Lokalizacja odsłon</h2></div></div><div class="table-wrap"><table class="stats-table"><thead><tr><th>Kraj</th><th>Odsłony</th><th>Udział</th></tr></thead><tbody><?php foreach ($statsLocations['countries'] as $row): ?><tr><td><?= e((string)$row['name']) ?> <code><?= e((string)$row['code']) ?></code></td><td><?= e(number_format((int)$row['count'], 0, ',', ' ')) ?></td><td><?= e(stats_percent((int)$row['count'], (int)$statsLocations['pageViews'])) ?></td></tr><?php endforeach; ?></tbody></table></div></section>
+          <section class="card stats-section"><div class="section-head"><div><p class="muted">Polska</p><h2>Województwa / regiony</h2></div></div><div class="table-wrap"><table class="stats-table"><thead><tr><th>Województwo</th><th>Odsłony</th><th>Udział</th></tr></thead><tbody><?php foreach (array_slice($statsLocations['regions'], 0, 20) as $row): ?><tr><td><?= e((string)$row['name']) ?></td><td><?= e(number_format((int)$row['count'], 0, ',', ' ')) ?></td><td><?= e(stats_percent((int)$row['count'], (int)$statsLocations['pageViews'])) ?></td></tr><?php endforeach; ?></tbody></table></div></section>
+          <section class="card stats-section"><div class="section-head"><div><p class="muted">Top 20</p><h2>Najpopularniejsze miasta</h2></div></div><div class="table-wrap"><table class="stats-table"><thead><tr><th>Miasto</th><th>Województwo / region</th><th>Odsłony</th><th>Udział</th></tr></thead><tbody><?php foreach ($statsLocations['cities'] as $row): ?><tr><td><?= e((string)$row['name']) ?></td><td><?= e((string)$row['region_name']) ?></td><td><?= e(number_format((int)$row['count'], 0, ',', ' ')) ?></td><td><?= e(stats_percent((int)$row['count'], (int)$statsLocations['pageViews'])) ?></td></tr><?php endforeach; ?><?php if ($statsLocations['otherCities'] > 0): ?><tr><td>Pozostałe</td><td>—</td><td><?= e(number_format((int)$statsLocations['otherCities'], 0, ',', ' ')) ?></td><td><?= e(stats_percent((int)$statsLocations['otherCities'], (int)$statsLocations['pageViews'])) ?></td></tr><?php endif; ?></tbody></table></div></section>
+        <?php endif; ?>
       <?php endif; ?>
     <?php elseif ($showOrders): ?>
       <div class="page-heading">

@@ -15,6 +15,8 @@ const GOOGLE_BUSINESS_CONFIG_FILE = STORAGE_DIR . '/google-business.php';
 const MAX_UPLOAD_BYTES = 12 * 1024 * 1024;
 const MAX_IMAGE_EDGE = 2200;
 
+require_once SITE_ROOT . '/lib/geoip.php';
+
 if (!function_exists('str_contains')) {
     function str_contains(string $haystack, string $needle): bool
     {
@@ -536,7 +538,7 @@ function stats_event_labels(): array
 
 function normalize_stats_range(string $range): string
 {
-    return in_array($range, ['today', '7', '30'], true) ? $range : 'today';
+    return in_array($range, ['today', '7', '30', '90'], true) ? $range : 'today';
 }
 
 function normalize_stats_product_limit($limit): int
@@ -547,6 +549,9 @@ function normalize_stats_product_limit($limit): int
 
 function stats_range_days(string $range): int
 {
+    if ($range === '90') {
+        return 90;
+    }
     if ($range === '30') {
         return 30;
     }
@@ -554,6 +559,112 @@ function stats_range_days(string $range): int
         return 7;
     }
     return 1;
+}
+
+function stats_percent(int $count, int $total): string
+{
+    return $total > 0 ? number_format(($count * 100) / $total, 1, ',', ' ') . '%' : '0,0%';
+}
+
+function empty_location_summary(string $range): array
+{
+    return [
+        'range' => $range,
+        'days' => stats_range_days($range),
+        'pageViews' => 0,
+        'daysWithData' => 0,
+        'firstDate' => null,
+        'countries' => [],
+        'regions' => [],
+        'cities' => [],
+        'otherCities' => 0,
+        'local' => ['wroclaw' => 0, 'lowerSilesia' => 0, 'restPoland' => 0, 'foreign' => 0, 'unknown' => 0],
+    ];
+}
+
+function stats_location_row(array $row, array $fields): array
+{
+    $result = [];
+    foreach ($fields as $field => $fallback) {
+        $result[$field] = $field === 'count' ? safe_stat_int($row[$field] ?? 0) : trim((string)($row[$field] ?? $fallback));
+    }
+    return $result;
+}
+
+function load_location_summary(string $range): array
+{
+    $range = normalize_stats_range($range);
+    $summary = empty_location_summary($range);
+    $countries = $regions = $cities = [];
+    $today = stats_today();
+
+    for ($offset = 0; $offset < $summary['days']; $offset++) {
+        $date = $today->modify('-' . $offset . ' days')->format('Y-m-d');
+        $raw = @file_get_contents(STATS_DIR . '/' . $date . '.json');
+        $day = json_decode((string)$raw, true);
+        $locations = is_array($day) && is_array($day['locations'] ?? null) ? $day['locations'] : null;
+        $pageViews = is_array($locations) ? safe_stat_int($locations['page_views'] ?? 0) : 0;
+        if ($pageViews === 0) {
+            continue;
+        }
+        $summary['pageViews'] += $pageViews;
+        $summary['daysWithData']++;
+        $summary['firstDate'] = $summary['firstDate'] === null || $date < $summary['firstDate'] ? $date : $summary['firstDate'];
+
+        foreach ((array)($locations['countries'] ?? []) as $code => $row) {
+            if (!is_array($row)) continue;
+            $code = strtoupper(trim((string)$code));
+            if ($code === '') $code = 'UNKNOWN';
+            if (!isset($countries[$code])) $countries[$code] = ['code' => $code, 'name' => '', 'count' => 0];
+            $countries[$code]['name'] = $countries[$code]['name'] ?: trim((string)($row['name'] ?? 'Nieznana lokalizacja'));
+            $countries[$code]['count'] += safe_stat_int($row['count'] ?? 0);
+        }
+        foreach ((array)($locations['regions'] ?? []) as $key => $row) {
+            if (!is_array($row)) continue;
+            $key = (string)$key;
+            if ($key === '') continue;
+            if (!isset($regions[$key])) $regions[$key] = ['country_code' => '', 'code' => '', 'name' => '', 'count' => 0];
+            foreach (['country_code', 'code', 'name'] as $field) if ($regions[$key][$field] === '') $regions[$key][$field] = trim((string)($row[$field] ?? ''));
+            $regions[$key]['count'] += safe_stat_int($row['count'] ?? 0);
+        }
+        foreach ((array)($locations['cities'] ?? []) as $key => $row) {
+            if (!is_array($row)) continue;
+            $key = (string)$key;
+            if ($key === '') continue;
+            if (!isset($cities[$key])) $cities[$key] = ['country_code' => '', 'region_code' => '', 'region_name' => '', 'name' => '', 'count' => 0];
+            foreach (['country_code', 'region_code', 'region_name', 'name'] as $field) if ($cities[$key][$field] === '') $cities[$key][$field] = trim((string)($row[$field] ?? ''));
+            $cities[$key]['count'] += safe_stat_int($row['count'] ?? 0);
+        }
+    }
+
+    foreach ($countries as $row) if (($row['code'] ?? '') === 'PL') $pl = safe_stat_int($row['count'] ?? 0);
+    $pl = $pl ?? 0;
+    foreach ($regions as $row) {
+        if (($row['country_code'] ?? '') === 'PL' && ($row['code'] ?? '') === 'PL-DS') $lowerSilesiaTotal = safe_stat_int($row['count'] ?? 0);
+    }
+    $lowerSilesiaTotal = $lowerSilesiaTotal ?? 0;
+    foreach ($cities as $row) {
+        $city = geoip_safe_key((string)($row['name'] ?? ''));
+        if (($row['country_code'] ?? '') === 'PL' && ($row['region_code'] ?? '') === 'PL-DS' && $city === 'wroclaw') $wroclaw = safe_stat_int($row['count'] ?? 0);
+    }
+    $wroclaw = $wroclaw ?? 0;
+    $unknown = safe_stat_int($countries['UNKNOWN']['count'] ?? 0);
+    $summary['local'] = [
+        'wroclaw' => $wroclaw,
+        'lowerSilesia' => max(0, $lowerSilesiaTotal - $wroclaw),
+        'restPoland' => max(0, $pl - $lowerSilesiaTotal),
+        'foreign' => max(0, $summary['pageViews'] - $pl - $unknown),
+        'unknown' => $unknown,
+    ];
+
+    uasort($countries, static fn(array $a, array $b): int => ($b['count'] <=> $a['count']) ?: strcmp($a['name'], $b['name']));
+    uasort($regions, static fn(array $a, array $b): int => ($b['count'] <=> $a['count']) ?: strcmp($a['name'], $b['name']));
+    uasort($cities, static fn(array $a, array $b): int => ($b['count'] <=> $a['count']) ?: strcmp($a['name'], $b['name']));
+    $summary['countries'] = array_values($countries);
+    $summary['regions'] = array_values(array_filter($regions, static fn(array $row): bool => ($row['country_code'] ?? '') === 'PL'));
+    $summary['cities'] = array_slice(array_values($cities), 0, 20);
+    foreach (array_slice(array_values($cities), 20) as $row) $summary['otherCities'] += safe_stat_int($row['count'] ?? 0);
+    return $summary;
 }
 
 function empty_stats_summary(string $range): array

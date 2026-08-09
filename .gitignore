@@ -17,3 +17,6 @@ hosting/getspace/admin/storage/google-business.php
 hosting/getspace/admin/storage/google-business-log.json
 hosting/getspace/admin/storage/*secret*
 hosting/getspace/admin/storage/*token*
+vendor/
+private/geoip/
+*.mmdb
