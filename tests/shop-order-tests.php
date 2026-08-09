@@ -44,6 +44,28 @@ function test_customer_post(array $overrides = []): array
 test_assert(shop_sales_enabled(), 'Test musi działać z HGO_SHOP_SALES_ENABLED=true.');
 boot_admin();
 
+// Customer-facing delivery code deliberately does not fall back to defaults.
+// Give this isolated test an explicit admin-cennik fixture instead.
+save_shipping_profiles([
+    [
+        'id' => 'kurier-standardowy',
+        'name' => 'Kurier standardowy',
+        'customerName' => 'Kurier standardowy',
+        'price' => 24.99,
+        'active' => true,
+        'sortOrder' => 10,
+    ],
+    [
+        'id' => 'dostawa-indywidualna',
+        'name' => 'Dostawa indywidualna',
+        'customerName' => 'Dostawa indywidualna',
+        'price' => null,
+        'requiresConfirmation' => true,
+        'active' => true,
+        'sortOrder' => 20,
+    ],
+]);
+
 // Fixture keeps this test independent from the editable production catalog.
 $product = array_merge(product_defaults(), [
     '_shopSlug' => 'figura-testowa',
