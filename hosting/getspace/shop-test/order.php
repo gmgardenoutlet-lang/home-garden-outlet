@@ -99,6 +99,14 @@ try {
         $order['bankTransfer'] = shop_bank_transfer_details((string)$order['orderId']);
         shop_save_order($order);
     }
+    $sent = shop_send_order_emails($order);
+    $order['emailNotifications'] = [
+        'customerCreatedAt' => $sent['customer'] ? $now : null,
+        'adminCreatedAt' => $sent['admin'] ? $now : null,
+        'customerFailed' => !$sent['customer'],
+        'adminFailed' => !$sent['admin'],
+    ];
+    shop_save_order($order);
     header('Location: ' . shop_catalog_url() . '/potwierdzenie?id=' . rawurlencode((string)$order['orderId']), true, 303);
     exit;
 } catch (Throwable $exception) {

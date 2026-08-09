@@ -982,6 +982,45 @@ function shop_bank_transfer_details(string $orderId = ''): array
     ];
 }
 
+function shop_order_email_lines(array $order, bool $includeTransfer): array
+{
+    $lines = ['Numer zamówienia: ' . ($order['orderId'] ?? ''), 'Data: ' . ($order['createdAt'] ?? '')];
+    foreach ((array)($order['items'] ?? []) as $item) {
+        $lines[] = sprintf('%s — %d szt. × %s PLN', (string)($item['name'] ?? ''), (int)($item['quantity'] ?? 0), number_format(((int)($item['unitPriceCents'] ?? 0)) / 100, 2, ',', ' '));
+    }
+    $lines[] = 'Dostawa: ' . (string)($order['delivery']['label'] ?? '');
+    if (!$includeTransfer) {
+        $lines[] = 'Koszt dostawy wymaga indywidualnego potwierdzenia. Skontaktujemy się z Tobą przed płatnością.';
+        return $lines;
+    }
+    $lines[] = 'Koszt dostawy: ' . number_format(((int)($order['deliveryCostCents'] ?? 0)) / 100, 2, ',', ' ') . ' PLN';
+    $lines[] = 'Razem: ' . number_format(((int)($order['totalCents'] ?? 0)) / 100, 2, ',', ' ') . ' PLN';
+    $transfer = shop_bank_transfer_details((string)($order['orderId'] ?? ''));
+    $lines[] = 'Płatność: Przelew tradycyjny';
+    $lines[] = 'Odbiorca: ' . $transfer['recipient'];
+    $lines[] = 'Rachunek: ' . $transfer['accountNumber'];
+    $lines[] = 'Tytuł: ' . $transfer['transferTitle'];
+    $lines[] = 'Realizację zamówienia rozpoczniemy po zaksięgowaniu płatności.';
+    return $lines;
+}
+
+function shop_send_order_emails(array $order, ?callable $mailer = null): array
+{
+    $mailer ??= static fn(string $to, string $subject, string $body, string $headers): bool => @mail($to, $subject, $body, $headers);
+    $quote = ($order['orderStatus'] ?? '') === 'awaiting_shipping_quote';
+    $headers = "From: Home & Garden Outlet <biuro@mgoutlet.pl>\r\nReply-To: biuro@mgoutlet.pl\r\nMIME-Version: 1.0\r\nContent-Type: text/plain; charset=UTF-8";
+    $lines = shop_order_email_lines($order, !$quote);
+    $body = implode("\n", $lines);
+    $result = ['customer' => false, 'admin' => false];
+    if (empty($order['emailNotifications']['customerCreatedAt'])) {
+        $result['customer'] = $mailer((string)($order['customer']['email'] ?? ''), ($quote ? 'Przyjęcie zamówienia ' : 'Potwierdzenie zamówienia ') . ($order['orderId'] ?? '') . ' | Home & Garden Outlet', $body, $headers);
+    }
+    if (empty($order['emailNotifications']['adminCreatedAt'])) {
+        $result['admin'] = $mailer('biuro@mgoutlet.pl', 'Nowe zamówienie ' . ($order['orderId'] ?? ''), $body, $headers);
+    }
+    return $result;
+}
+
 function shop_delivery_labels(): array
 {
     $labels = [];

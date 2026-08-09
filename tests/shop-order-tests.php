@@ -217,6 +217,14 @@ $paidBankOrder = shop_load_order((string)$bankOrder['orderId']);
 test_assert(($paidBankOrder['orderStatus'] ?? '') === 'paid' && ($paidBankOrder['paymentStatus'] ?? '') === 'paid' && !empty($paidBankOrder['paymentConfirmedAt']), 'Potwierdzenie przelewu nie zapisało statusów.');
 test_assert(shop_mark_bank_transfer_paid((string)$bankOrder['orderId'], 'test-admin') === false, 'Powtórne potwierdzenie przelewu nie jest idempotentne.');
 
+$mailOrder = $bankOrder + ['orderId' => 'HGO-20260809-0001', 'customer' => ['email' => 'client@example.test'], 'items' => [['name' => 'Figura', 'quantity' => 1, 'unitPriceCents' => 19999]], 'delivery' => ['label' => 'Kurier'], 'deliveryCostCents' => 2499, 'totalCents' => 22498];
+$sentMessages = [];
+$mailResult = shop_send_order_emails($mailOrder, static function (string $to, string $subject, string $body, string $headers) use (&$sentMessages): bool { $sentMessages[] = compact('to', 'subject', 'body', 'headers'); return true; });
+test_assert($mailResult['customer'] && $mailResult['admin'] && count($sentMessages) === 2 && str_contains($sentMessages[0]['body'], 'Razem: 224,98 PLN'), 'E-mail przelewu nie zawiera backendowej kwoty.');
+$quoteMail = $mailOrder; $quoteMail['orderStatus'] = 'awaiting_shipping_quote';
+$quoteLines = shop_order_email_lines($quoteMail, false);
+test_assert(!str_contains(implode("\n", $quoteLines), 'Rachunek:') && !str_contains(implode("\n", $quoteLines), 'Razem:'), 'E-mail wyceny zawiera dane przelewu lub finalną kwotę.');
+
 $quote = shop_test_individual_delivery();
 test_assert(($quote['pricingType'] ?? '') === 'quote_required' && ($quote['costNumber'] ?? null) === null, 'Dostawa indywidualna nie została oznaczona jako quote_required.');
 
