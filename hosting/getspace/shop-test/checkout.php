@@ -81,8 +81,8 @@ $publicProducts = shop_test_public_products();
         <section class="checkout-step payment-step">
           <p class="eyebrow">Krok 5</p>
           <h3>Płatność</h3>
-          <p>Dostępne metody płatności są prezentowane przy produkcie, w koszyku lub podczas składania zamówienia. Płatności online zostaną uruchomione po publicznym starcie sklepu.</p>
-          <strong>Metoda płatności zostanie udostępniona wraz ze startem sprzedaży online.</strong>
+          <label class="check"><input type="radio" name="payment_method" value="bank_transfer" checked required><span><strong>Przelew tradycyjny</strong><br>Po złożeniu zamówienia otrzymasz dane do przelewu. Realizację zamówienia rozpoczniemy po zaksięgowaniu płatności.</span></label>
+          <p>Płatności online przez Paynow są obecnie w trakcie uruchamiania i nie są dostępne.</p>
         </section>
         <section class="checkout-step">
           <p class="eyebrow">Krok 6</p>
@@ -91,7 +91,7 @@ $publicProducts = shop_test_public_products();
             <input type="checkbox" name="terms" data-terms-checkbox required>
             <span>Akceptuję <a href="<?= e(shop_catalog_url()) ?>/regulamin" target="_blank" rel="noopener noreferrer">Regulamin</a> sklepu internetowego Home &amp; Garden Outlet.</span>
           </label>
-          <button class="btn btn-wide" type="submit">Złóż zamówienie</button>
+          <button class="btn btn-wide" type="submit">Kupuję i płacę</button>
         </section>
       </form>
     </section>

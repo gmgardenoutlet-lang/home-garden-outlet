@@ -124,6 +124,12 @@ try {
             redirect_admin('orders=1');
         }
 
+        if ($action === 'mark_bank_transfer_paid') {
+            $changed = shop_mark_bank_transfer_paid(post_text('order_id'), (string)($_SESSION['admin_username'] ?? 'administrator'));
+            flash('success', $changed ? 'Płatność przelewem oznaczono jako otrzymaną.' : 'Płatność była już oznaczona jako otrzymana.');
+            redirect_admin('orders=1');
+        }
+
         if ($action === 'save_shipping_profile') {
             $profiles = shipping_profiles_by_id(false);
             $originalId = clean_shipping_profile_id(post_text('original_profile_id'));
@@ -858,6 +864,14 @@ if ($showStats) {
                 </div>
                 <div class="field field-full"><button class="btn btn-small" type="submit">Zapisz status zamówienia</button></div>
               </form>
+              <?php if (($order['paymentProvider'] ?? '') === 'bank_transfer' && ($order['paymentStatus'] ?? '') === 'awaiting'): ?>
+                <form method="post" class="order-admin-form">
+                  <input type="hidden" name="csrf" value="<?= e(csrf_token()) ?>">
+                  <input type="hidden" name="action" value="mark_bank_transfer_paid">
+                  <input type="hidden" name="order_id" value="<?= e((string)($order['orderId'] ?? '')) ?>">
+                  <button class="btn btn-small" type="submit">Płatność otrzymana</button>
+                </form>
+              <?php endif; ?>
             </article>
           <?php endforeach; ?>
         </section>

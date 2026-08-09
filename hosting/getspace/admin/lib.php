@@ -12,6 +12,10 @@ define('ORDERS_DIR', STORAGE_DIR . '/orders');
 const STATS_TIMEZONE = 'Europe/Warsaw';
 const CREDENTIALS_FILE = __DIR__ . '/.credentials.php';
 const GOOGLE_BUSINESS_CONFIG_FILE = STORAGE_DIR . '/google-business.php';
+const SHOP_BANK_TRANSFER_RECIPIENT = 'EMAALL GARDEN OUTLET sp. z o.o.';
+const SHOP_BANK_TRANSFER_ACCOUNT = 'PL34114020040000390281029165';
+const SHOP_BANK_TRANSFER_BANK = 'mBank';
+const SHOP_BANK_TRANSFER_BIC = 'BREXPLPWMBK';
 const MAX_UPLOAD_BYTES = 12 * 1024 * 1024;
 const MAX_IMAGE_EDGE = 2200;
 
@@ -947,6 +951,7 @@ function shop_payment_statuses(): array
 {
     return [
         'not_started',
+        'awaiting',
         'awaiting_payment',
         'paid',
         'failed',
@@ -956,6 +961,24 @@ function shop_payment_statuses(): array
         'Opłacone',
         'Anulowane',
         'Zwrot',
+    ];
+}
+
+function shop_payment_methods(): array
+{
+    return ['bank_transfer' => true, 'paynow' => false];
+}
+
+function shop_bank_transfer_details(string $orderId = ''): array
+{
+    $title = $orderId !== '' ? 'Zamówienie ' . shop_safe_order_id($orderId) : 'Zamówienie';
+    return [
+        'recipient' => SHOP_BANK_TRANSFER_RECIPIENT,
+        'accountNumber' => SHOP_BANK_TRANSFER_ACCOUNT,
+        'bankName' => SHOP_BANK_TRANSFER_BANK,
+        'bic' => SHOP_BANK_TRANSFER_BIC,
+        'currency' => 'PLN',
+        'transferTitle' => $title,
     ];
 }
 
@@ -1094,6 +1117,33 @@ function shop_update_order(string $orderId, string $orderStatus, string $payment
     $order['internalNote'] = trim($internalNote);
     $order['updatedAt'] = (new DateTimeImmutable('now', new DateTimeZone(STATS_TIMEZONE)))->format(DATE_ATOM);
     shop_save_order($order);
+}
+
+function shop_mark_bank_transfer_paid(string $orderId, string $administrator = ''): bool
+{
+    $order = shop_load_order($orderId);
+    if (!$order) {
+        throw new RuntimeException('Nie znaleziono zamówienia.');
+    }
+    if (($order['paymentProvider'] ?? '') !== 'bank_transfer') {
+        throw new RuntimeException('To zamówienie nie oczekuje na przelew tradycyjny.');
+    }
+    if (($order['paymentStatus'] ?? '') === 'paid' && ($order['orderStatus'] ?? '') === 'paid') {
+        return false;
+    }
+    if (($order['orderStatus'] ?? '') !== 'awaiting_payment' || ($order['paymentStatus'] ?? '') !== 'awaiting') {
+        throw new RuntimeException('Płatności nie można potwierdzić w obecnym statusie zamówienia.');
+    }
+    $now = (new DateTimeImmutable('now', new DateTimeZone(STATS_TIMEZONE)))->format(DATE_ATOM);
+    $order['paymentStatus'] = 'paid';
+    $order['status'] = $order['orderStatus'] = 'paid';
+    $order['paymentConfirmedAt'] = $now;
+    if ($administrator !== '') {
+        $order['paymentConfirmedBy'] = $administrator;
+    }
+    $order['updatedAt'] = $now;
+    shop_save_order($order);
+    return true;
 }
 
 function save_catalog(array $catalog): void

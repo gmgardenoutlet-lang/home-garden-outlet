@@ -201,6 +201,22 @@ test_assert((string)$order['orderId'] !== '' && $order['orderId'] === $order['or
 test_assert(is_file(shop_order_file((string)$order['orderId'])), 'Nie zapisano testowego JSON zamówienia.');
 test_assert($order['totalCents'] === $order['productsTotalCents'] + $order['deliveryCostCents'], 'Suma zamówienia w groszach jest błędna.');
 
+$transfer = shop_bank_transfer_details((string)$order['orderId']);
+test_assert(($transfer['recipient'] ?? '') !== '' && preg_match('/^PL\d{26}$/', (string)($transfer['accountNumber'] ?? '')) === 1, 'Brakuje poprawnej konfiguracji rachunku przelewu.');
+test_assert(($transfer['transferTitle'] ?? '') === 'Zamówienie ' . $order['orderId'], 'Tytuł przelewu nie bazuje na order_id.');
+test_assert(!empty(shop_payment_methods()['bank_transfer']) && empty(shop_payment_methods()['paynow']), 'Metody płatności nie są niezależnie skonfigurowane.');
+
+$bankOrder = shop_create_order([
+    'orderId' => '', 'createdAt' => $now, 'updatedAt' => $now,
+    'status' => 'awaiting_payment', 'orderStatus' => 'awaiting_payment',
+    'paymentProvider' => 'bank_transfer', 'paymentMethod' => 'bank_transfer', 'paymentStatus' => 'awaiting',
+    'totalCents' => 22498,
+]);
+test_assert(shop_mark_bank_transfer_paid((string)$bankOrder['orderId'], 'test-admin') === true, 'Administrator nie oznaczył przelewu jako opłaconego.');
+$paidBankOrder = shop_load_order((string)$bankOrder['orderId']);
+test_assert(($paidBankOrder['orderStatus'] ?? '') === 'paid' && ($paidBankOrder['paymentStatus'] ?? '') === 'paid' && !empty($paidBankOrder['paymentConfirmedAt']), 'Potwierdzenie przelewu nie zapisało statusów.');
+test_assert(shop_mark_bank_transfer_paid((string)$bankOrder['orderId'], 'test-admin') === false, 'Powtórne potwierdzenie przelewu nie jest idempotentne.');
+
 $quote = shop_test_individual_delivery();
 test_assert(($quote['pricingType'] ?? '') === 'quote_required' && ($quote['costNumber'] ?? null) === null, 'Dostawa indywidualna nie została oznaczona jako quote_required.');
 

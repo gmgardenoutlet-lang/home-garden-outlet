@@ -14,6 +14,10 @@ try {
     }
     require_csrf();
     shop_test_require_terms();
+    $paymentMethod = (string)($_POST['payment_method'] ?? '');
+    if ($paymentMethod !== 'bank_transfer' || empty(shop_payment_methods()['bank_transfer'])) {
+        throw new RuntimeException('Wybrana metoda płatności nie jest dostępna.');
+    }
 
     $products = shop_test_product_map();
     $cart = shop_test_decode_cart((string)($_POST['cart_payload'] ?? ''), $products);
@@ -53,8 +57,8 @@ try {
         'orderId' => '',
         'createdAt' => $now,
         'updatedAt' => $now,
-        'status' => $quoteRequired ? 'awaiting_shipping_quote' : 'new',
-        'orderStatus' => $quoteRequired ? 'awaiting_shipping_quote' : 'new',
+        'status' => $quoteRequired ? 'awaiting_shipping_quote' : 'awaiting_payment',
+        'orderStatus' => $quoteRequired ? 'awaiting_shipping_quote' : 'awaiting_payment',
         'customer' => $customerData['customer'],
         'deliveryAddress' => $customerData['deliveryAddress'],
         'invoice' => $customerData['invoice'],
@@ -79,14 +83,22 @@ try {
         'total' => shop_test_cents_to_price($totalCents),
         'totalCents' => $totalCents,
         'currency' => 'PLN',
-        'paymentMethod' => '',
-        'paymentProvider' => '',
+        'paymentMethod' => 'bank_transfer',
+        'paymentProvider' => 'bank_transfer',
         'paymentId' => '',
-        'paymentStatus' => 'not_started',
+        'paymentStatus' => $quoteRequired ? 'not_started' : 'awaiting',
         'internalNote' => '',
     ];
 
+    if (!$quoteRequired) {
+        $order['bankTransfer'] = shop_bank_transfer_details();
+    }
+
     $order = shop_create_order($order);
+    if (!$quoteRequired) {
+        $order['bankTransfer'] = shop_bank_transfer_details((string)$order['orderId']);
+        shop_save_order($order);
+    }
     header('Location: ' . shop_catalog_url() . '/potwierdzenie?id=' . rawurlencode((string)$order['orderId']), true, 303);
     exit;
 } catch (Throwable $exception) {

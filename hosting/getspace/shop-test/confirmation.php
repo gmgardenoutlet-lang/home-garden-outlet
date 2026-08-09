@@ -41,6 +41,17 @@ if (!$order) {
           </section>
         </div>
 
+        <?php if (($order['paymentMethod'] ?? '') === 'bank_transfer' && is_array($order['bankTransfer'] ?? null)): ?>
+          <?php $transfer = $order['bankTransfer']; ?>
+          <section class="confirmation-section">
+            <h2>Przelew tradycyjny</h2>
+            <p>Oczekujemy na zaksięgowanie płatności. Realizację zamówienia rozpoczniemy po jej otrzymaniu.</p>
+            <p><strong>Kwota:</strong> <?= e(shop_test_price_label(((int)($order['totalCents'] ?? 0)) / 100)) ?><br><strong>Odbiorca:</strong> <?= e($transfer['recipient'] ?? '') ?><br><strong>Rachunek:</strong> <?= e($transfer['accountNumber'] ?? '') ?><br><strong>Tytuł:</strong> <?= e($transfer['transferTitle'] ?? '') ?></p>
+          </section>
+        <?php elseif (($order['status'] ?? '') === 'awaiting_shipping_quote'): ?>
+          <section class="confirmation-section"><h2>Koszt dostawy do potwierdzenia</h2><p>Koszt dostawy wymaga indywidualnego potwierdzenia. Skontaktujemy się z Tobą przed płatnością.</p></section>
+        <?php endif; ?>
+
         <section class="confirmation-section">
           <h2>Produkty</h2>
           <div class="confirmation-items">

@@ -61,7 +61,8 @@ shop_test_boot();
 
       <section>
         <h2>7. Płatność</h2>
-        <p>Po uruchomieniu płatności online płatności elektroniczne w Sklepie będą realizowane przy wykorzystaniu Paynow. Podmiotem świadczącym obsługę płatności online jest mElements S.A.</p>
+        <p>Po uruchomieniu sprzedaży online dostępna będzie płatność przelewem tradycyjnym. Realizacja zamówienia rozpoczyna się po zaksięgowaniu płatności.</p>
+        <p>Płatności online przez Paynow są w trakcie uruchamiania i nie są obecnie dostępne. Po ich uruchomieniu płatności elektroniczne w Sklepie będą realizowane przy wykorzystaniu Paynow. Podmiotem świadczącym obsługę płatności online jest mElements S.A.</p>
       </section>
 
       <section>
