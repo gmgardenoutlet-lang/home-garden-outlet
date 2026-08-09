@@ -285,6 +285,9 @@ function shop_test_header(string $active = ''): void
       <?php foreach ($links as $link): ?>
         <a href="<?= e($link['href']) ?>"<?= $active === $link['key'] ? ' aria-current="page"' : '' ?>><?= $link['label'] ?></a>
       <?php endforeach; ?>
+      <?php if (shop_sales_enabled()): ?>
+        <a href="<?= e(shop_catalog_url()) ?>/koszyk"<?= $active === 'cart' ? ' aria-current="page"' : '' ?>>Koszyk <span data-cart-count aria-live="polite"></span></a>
+      <?php endif; ?>
     </nav>
   </header>
     <?php
@@ -321,6 +324,9 @@ function shop_test_footer(): void
       <a href="/sklep/figury-ogrodowe/formularz-odstapienia">Formularz odstąpienia</a>
     </div>
   </footer>
+  <?php if (shop_sales_enabled()): ?>
+    <aside class="cart-toast" data-cart-toast hidden aria-live="polite" aria-atomic="true"></aside>
+  <?php endif; ?>
     <?php
 }
 

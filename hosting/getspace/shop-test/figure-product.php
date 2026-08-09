@@ -97,6 +97,9 @@ $details = $product ? array_filter([
 
           <div class="shop-actions">
             <span class="shop-sales-notice">Płatność: przelew tradycyjny</span>
+            <?php if (shop_sales_enabled() && $view['canBuy']): ?>
+              <button class="btn" type="button" data-add-to-cart="<?= e($view['slug']) ?>">Dodaj do koszyka</button>
+            <?php endif; ?>
             <a class="btn btn-light" href="sms:+48577210777?body=Interesuje%20mnie%20figura:%20<?= rawurlencode($view['name']) ?>">Zapytaj o produkt</a>
           </div>
 

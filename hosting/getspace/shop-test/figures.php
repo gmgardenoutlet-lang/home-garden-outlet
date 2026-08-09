@@ -78,6 +78,9 @@ $publicProducts = shop_test_public_products();
               <strong class="card-price"><?= e($view['priceLabel']) ?></strong>
               <div class="shop-actions">
                 <a class="btn btn-light" href="<?= e(shop_test_product_url($view['slug'])) ?>">Zobacz produkt</a>
+                <?php if (shop_sales_enabled() && $view['canBuy']): ?>
+                  <button class="btn" type="button" data-add-to-cart="<?= e($view['slug']) ?>">Dodaj do koszyka</button>
+                <?php endif; ?>
                 <span class="shop-sales-notice">Dostępny online</span>
               </div>
             </div>
