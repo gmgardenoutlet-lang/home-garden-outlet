@@ -21,7 +21,7 @@ $publicProducts = shop_test_public_products();
 
   <main>
     <section class="shop-hero shop-hero-compact">
-      <div class="admin-ribbon">Tryb testowy — sklep niepubliczny</div>
+      <div class="admin-ribbon">Sklep internetowy</div>
       <p class="eyebrow">Zamówienie</p>
       <h1>Dostawa i dane klienta</h1>
       <p>Uzupełnij dane potrzebne do ręcznego potwierdzenia zamówienia. Płatności online zostaną uruchomione po publicznym starcie sklepu.</p>

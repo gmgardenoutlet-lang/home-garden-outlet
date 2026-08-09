@@ -5,7 +5,7 @@ declare(strict_types=1);
  * Jedyny przełącznik sprzedaży internetowej. Zmiana na true wymaga osobnego
  * przeglądu procesu zamówienia i płatności przed publikacją.
  */
-define('SHOP_SALES_ENABLED', filter_var(getenv('HGO_SHOP_SALES_ENABLED') ?: 'false', FILTER_VALIDATE_BOOLEAN));
+define('SHOP_SALES_ENABLED', filter_var(getenv('HGO_SHOP_SALES_ENABLED') ?: 'true', FILTER_VALIDATE_BOOLEAN));
 
 // Paynow V3 is opt-in. Prefer server-side environment variables. On shared
 // hosting the optional fallback is a hand-created PHP file one level above

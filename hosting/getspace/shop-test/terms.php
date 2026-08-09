@@ -20,7 +20,7 @@ shop_test_boot();
     <article class="legal-page">
       <p class="eyebrow">Regulamin</p>
       <h1>Regulamin sklepu internetowego Home &amp; Garden Outlet</h1>
-      <p class="legal-lead">Możliwość składania zamówień online jest obecnie w trakcie uruchamiania. Niniejszy Regulamin określa zasady sprzedaży internetowej, które będą miały zastosowanie od momentu uruchomienia możliwości składania zamówień online.</p>
+      <p class="legal-lead">Niniejszy Regulamin określa zasady sprzedaży internetowej w sklepie Home &amp; Garden Outlet.</p>
 
       <section>
         <h2>1. Dane sprzedawcy</h2>
@@ -61,7 +61,7 @@ shop_test_boot();
 
       <section>
         <h2>7. Płatność</h2>
-        <p>Po uruchomieniu sprzedaży online dostępna będzie płatność przelewem tradycyjnym. Realizacja zamówienia rozpoczyna się po zaksięgowaniu płatności.</p>
+        <p>Dostępna metodą płatności jest przelew tradycyjny. Realizacja zamówienia rozpoczyna się po zaksięgowaniu płatności.</p>
         <p>Płatności online przez Paynow są w trakcie uruchamiania i nie są obecnie dostępne. Po ich uruchomieniu płatności elektroniczne w Sklepie będą realizowane przy wykorzystaniu Paynow. Podmiotem świadczącym obsługę płatności online jest mElements S.A.</p>
       </section>
 

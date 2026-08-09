@@ -21,7 +21,7 @@ $publicProducts = shop_test_public_products();
 
   <main>
     <section class="shop-hero shop-hero-compact">
-      <div class="admin-ribbon">Tryb testowy — sklep niepubliczny</div>
+      <div class="admin-ribbon">Sklep internetowy</div>
       <p class="eyebrow">Koszyk</p>
       <h1>Twój koszyk</h1>
       <p>Sprawdź wybrane figury ogrodowe, ilości i przejdź dalej do dostawy oraz danych klienta.</p>

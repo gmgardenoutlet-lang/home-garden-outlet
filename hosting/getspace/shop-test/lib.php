@@ -267,7 +267,7 @@ function shop_test_header(string $active = ''): void
         ['href' => '/dom', 'label' => 'Dom', 'key' => 'dom'],
         ['href' => '/ogrod', 'label' => 'Ogród', 'key' => 'ogrod'],
         ['href' => '/#faq-home-title', 'label' => 'FAQ', 'key' => 'faq'],
-        ['href' => shop_catalog_url(), 'label' => 'Sklep online <small>Wkrótce</small>', 'key' => 'figures'],
+        ['href' => shop_catalog_url(), 'label' => 'Sklep online', 'key' => 'figures'],
     ];
     ?>
   <header class="site-header shop-site-header">

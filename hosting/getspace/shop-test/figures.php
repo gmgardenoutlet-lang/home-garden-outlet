@@ -23,7 +23,7 @@ $publicProducts = shop_test_public_products();
   <main>
     <section class="shop-hero shop-hero-split">
       <div class="shop-hero-copy">
-        <div class="admin-ribbon">Sprzedaż online już wkrótce</div>
+        <div class="admin-ribbon">Sklep internetowy</div>
         <p class="eyebrow">Figury ogrodowe do ogrodu i na taras</p>
         <h1>Figury ogrodowe</h1>
         <p class="hero-subtitle">Ręcznie malowane dekoracje do ogrodu, na taras i przed wejście</p>
@@ -41,7 +41,7 @@ $publicProducts = shop_test_public_products();
       </div>
       <div class="shop-actions hero-actions">
         <a class="btn" href="#produkty">Zobacz produkty</a>
-        <span class="shop-sales-notice">Trwają ostatnie prace nad uruchomieniem sklepu internetowego.</span>
+        <span class="shop-sales-notice">Płatność: przelew tradycyjny</span>
       </div>
     </section>
 
@@ -78,7 +78,7 @@ $publicProducts = shop_test_public_products();
               <strong class="card-price"><?= e($view['priceLabel']) ?></strong>
               <div class="shop-actions">
                 <a class="btn btn-light" href="<?= e(shop_test_product_url($view['slug'])) ?>">Zobacz produkt</a>
-                <span class="shop-sales-notice">Sprzedaż online już wkrótce</span>
+                <span class="shop-sales-notice">Dostępny online</span>
               </div>
             </div>
           </article>

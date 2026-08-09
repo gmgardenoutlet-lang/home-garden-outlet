@@ -78,7 +78,7 @@ $details = $product ? array_filter([
           <?php endif; ?>
         </section>
         <section class="product-test-info">
-          <div class="admin-ribbon admin-ribbon-inline">Sprzedaż online już wkrótce</div>
+          <div class="admin-ribbon admin-ribbon-inline">Dostępny online</div>
           <p class="eyebrow">Figura ogrodowa</p>
           <h1><?= e($view['name']) ?></h1>
           <div class="product-status-grid">
@@ -96,7 +96,7 @@ $details = $product ? array_filter([
           <p><a href="/sklep/figury-ogrodowe/dostawa-i-platnosci">Dostawa i płatności</a> · <a href="/sklep/figury-ogrodowe/zwroty-i-reklamacje">Zwroty i reklamacje</a> · <a href="/sklep/figury-ogrodowe/formularz-odstapienia">Formularz odstąpienia</a></p>
 
           <div class="shop-actions">
-            <span class="shop-sales-notice">Sprzedaż online już wkrótce</span>
+            <span class="shop-sales-notice">Płatność: przelew tradycyjny</span>
             <a class="btn btn-light" href="sms:+48577210777?body=Interesuje%20mnie%20figura:%20<?= rawurlencode($view['name']) ?>">Zapytaj o produkt</a>
           </div>
 
