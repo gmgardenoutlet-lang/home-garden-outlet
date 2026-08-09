@@ -666,6 +666,23 @@ main {
   font-weight: 900;
 }
 
+.cart-summary {
+  display: grid;
+  gap: 8px;
+  margin-top: 16px;
+}
+
+.cart-summary > div {
+  display: flex;
+  justify-content: space-between;
+  gap: 14px;
+  color: #526153;
+}
+
+.cart-summary strong {
+  color: var(--green-900);
+}
+
 .checkout-form {
   display: grid;
   gap: 0;

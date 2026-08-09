@@ -38,7 +38,17 @@ $publicProducts = shop_test_public_products();
           <p>Twój koszyk jest pusty.</p>
           <a class="btn" href="<?= e(shop_catalog_url()) ?>">Wróć do sklepu</a>
         </div>
-        <div class="cart-total"><span>Razem</span><strong data-cart-total>0,00 zł</strong></div>
+        <section class="checkout-step">
+          <p class="eyebrow">Sposób dostawy</p>
+          <h2>Wybierz dostawę</h2>
+          <p>Dostępne sposoby dostawy zależą od wybranego produktu. Koszt wybranej dostawy zostanie doliczony do zamówienia przed jego złożeniem.</p>
+          <div data-delivery-options class="delivery-options"></div>
+        </section>
+        <div class="cart-summary" data-cart-summary>
+          <div><span>Produkty</span><strong data-products-total>0,00 zł</strong></div>
+          <div><span>Dostawa</span><strong data-delivery-total>—</strong></div>
+        </div>
+        <div class="cart-total"><span data-cart-total-label>Razem</span><strong data-cart-total>0,00 zł</strong></div>
         <div class="shop-actions cart-next-actions">
           <a class="btn btn-light" href="<?= e(shop_catalog_url()) ?>">Wróć do zakupów</a>
           <a class="btn" href="<?= e(shop_catalog_url()) ?>/zamowienie" data-checkout-link>Przejdź do dostawy i danych</a>

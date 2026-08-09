@@ -40,11 +40,15 @@ $publicProducts = shop_test_public_products();
         </div>
         <div class="checkout-step">
           <p class="eyebrow">Krok 2</p>
-          <h3>Dostawa</h3>
+          <h3>Sposób dostawy</h3>
           <p>Wybierz jedną z metod dostępnych wspólnie dla produktów w koszyku. Przy większych, ciężkich lub delikatnych figurach koszt dostawy może wymagać indywidualnego potwierdzenia.</p>
           <div data-delivery-options class="delivery-options"></div>
         </div>
-        <div class="cart-total"><span>Razem</span><strong data-cart-total>0,00 zł</strong></div>
+        <div class="cart-summary" data-cart-summary>
+          <div><span>Produkty</span><strong data-products-total>0,00 zł</strong></div>
+          <div><span>Dostawa</span><strong data-delivery-total>—</strong></div>
+        </div>
+        <div class="cart-total"><span data-cart-total-label>Razem</span><strong data-cart-total>0,00 zł</strong></div>
       </div>
 
       <form method="post" action="/sklep/order" class="checkout-form" data-checkout-form>

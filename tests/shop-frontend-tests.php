@@ -27,6 +27,7 @@ $product = (string)file_get_contents($root . '/hosting/getspace/shop-test/figure
 $layout = (string)file_get_contents($root . '/hosting/getspace/shop-test/lib.php');
 $checkout = (string)file_get_contents($root . '/hosting/getspace/shop-test/checkout.php');
 $javascript = (string)file_get_contents($root . '/hosting/getspace/shop-test/shop.js');
+$order = (string)file_get_contents($root . '/hosting/getspace/shop-test/order.php');
 
 frontend_assert(str_contains($config, "=== 'true'"), 'Sprzedaż nie wymaga jawnej wartości true.');
 frontend_assert(!str_contains($config, "?: 'true'"), 'W konfiguracji pozostał niebezpieczny fallback true.');
@@ -40,5 +41,10 @@ frontend_assert(str_contains($javascript, 'localStorage.setItem(storageKey'), 'I
 frontend_assert(str_contains($javascript, 'showToast(product)'), 'Dodawanie do koszyka nie wywołuje toastu.');
 frontend_assert(str_contains($checkout, 'value="bank_transfer"'), 'Checkout nie zawiera przelewu tradycyjnego.');
 frontend_assert(str_contains($checkout, 'Kupuję i płacę'), 'Checkout nie ma jednoznacznego przycisku finalizacji.');
+frontend_assert(str_contains($checkout, 'data-delivery-options'), 'Checkout nie zawiera wyboru dostawy.');
+frontend_assert(str_contains($javascript, 'deliverySelected'), 'Frontend nie wymaga świadomego wyboru dostawy.');
+frontend_assert(str_contains($javascript, 'Koszt wymaga indywidualnego potwierdzenia'), 'Frontend nie komunikuje wyceny indywidualnej.');
+frontend_assert(str_contains($javascript, 'data-products-total') && str_contains($javascript, 'data-delivery-total'), 'Frontend nie rozbija podsumowania na produkty i dostawę.');
+frontend_assert(str_contains($order, "\$deliveryKey = \$cart['delivery'];"), 'Backend nadal wybiera dostawę domyślnie.');
 
 echo 'PASS: shop frontend ' . ($expectedSales ? 'enabled' : 'disabled') . " tests\n";

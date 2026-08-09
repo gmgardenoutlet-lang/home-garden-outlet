@@ -22,7 +22,10 @@ try {
     $products = shop_test_product_map();
     $cart = shop_test_decode_cart((string)($_POST['cart_payload'] ?? ''), $products);
     $deliveryMethods = shop_test_cart_common_delivery($cart['items']);
-    $deliveryKey = $cart['delivery'] !== '' ? $cart['delivery'] : array_key_first($deliveryMethods);
+    $deliveryKey = $cart['delivery'];
+    if ($deliveryKey === '') {
+        throw new RuntimeException('Wybierz sposób dostawy przed złożeniem zamówienia.');
+    }
     if (!isset($deliveryMethods[$deliveryKey])) {
         throw new RuntimeException('Wybrana metoda dostawy nie pasuje do produktów w koszyku.');
     }

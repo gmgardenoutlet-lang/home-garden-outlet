@@ -6,6 +6,9 @@
   const formatter = new Intl.NumberFormat("pl-PL", { style: "currency", currency: "PLN" });
   const cartItems = document.querySelector("[data-cart-items]");
   const cartTotal = document.querySelector("[data-cart-total]");
+  const cartTotalLabel = document.querySelector("[data-cart-total-label]");
+  const productsTotal = document.querySelector("[data-products-total]");
+  const deliveryTotal = document.querySelector("[data-delivery-total]");
   const deliveryBox = document.querySelector("[data-delivery-options]");
   const cartPayload = document.querySelector("[data-cart-payload]");
   const form = document.querySelector("[data-checkout-form]");
@@ -17,6 +20,7 @@
   const cartCounts = Array.from(document.querySelectorAll("[data-cart-count]"));
   const emptyActions = document.querySelector("[data-cart-empty-actions]");
   const checkoutLink = document.querySelector("[data-checkout-link]");
+  const checkoutSubmit = form ? form.querySelector('button[type="submit"]') : null;
   const menuToggle = document.querySelector(".menu-toggle");
   const mainMenu = document.querySelector("#main-menu");
   const productCards = productGrid ? Array.from(productGrid.querySelectorAll("[data-product-card]")) : [];
@@ -136,9 +140,9 @@
   const readCart = () => {
     try {
       const value = JSON.parse(localStorage.getItem(storageKey) || "{}");
-      return Array.isArray(value.items) ? value : { items: [], delivery: "" };
+      return Array.isArray(value.items) ? value : { items: [], delivery: "", deliverySelected: false };
     } catch (error) {
-      return { items: [], delivery: "" };
+      return { items: [], delivery: "", deliverySelected: false };
     }
   };
 
@@ -147,7 +151,7 @@
     const items = cart.items
       .filter((item) => bySlug.has(item.slug))
       .map((item) => ({ slug: item.slug, quantity: Math.max(1, Math.min(20, Number(item.quantity) || 1)) }));
-    return { items, delivery: cart.delivery || "" };
+    return { items, delivery: cart.delivery || "", deliverySelected: cart.deliverySelected === true };
   };
 
   const saveCart = (cart) => {
@@ -185,9 +189,25 @@
     cartCounts.forEach((node) => {
       node.textContent = count > 0 ? `(${count})` : "";
     });
+  };
+
+  const deliveryRequiresConfirmation = (method) => Boolean(method?.requiresConfirmation) || method?.costNumber === null || method?.costNumber === undefined;
+
+  const deliveryCostLabel = (method) => {
+    if (deliveryRequiresConfirmation(method)) return "Koszt wymaga indywidualnego potwierdzenia";
+    return Number(method.costNumber) === 0 ? "Bezpłatnie" : formatter.format(Number(method.costNumber));
+  };
+
+  const setCheckoutAvailability = (cart, deliveryMethods) => {
+    const hasDelivery = cart.deliverySelected && deliveryMethods.some((method) => method.method === cart.delivery);
+    const canContinue = cart.items.length > 0 && hasDelivery;
     if (checkoutLink) {
-      checkoutLink.classList.toggle("is-disabled", count === 0);
-      checkoutLink.setAttribute("aria-disabled", count === 0 ? "true" : "false");
+      checkoutLink.classList.toggle("is-disabled", !canContinue);
+      checkoutLink.setAttribute("aria-disabled", canContinue ? "false" : "true");
+    }
+    if (checkoutSubmit instanceof HTMLButtonElement) {
+      checkoutSubmit.disabled = !canContinue;
+      checkoutSubmit.setAttribute("aria-disabled", canContinue ? "false" : "true");
     }
   };
 
@@ -211,8 +231,9 @@
   const render = () => {
     const cart = cartWithValidItems();
     const deliveryMethods = commonDelivery(cart.items);
-    if (cart.items.length > 0 && deliveryBox && !deliveryMethods.some((method) => method.method === cart.delivery)) {
-      cart.delivery = deliveryMethods[0]?.method || "";
+    if (cart.items.length > 0 && !deliveryMethods.some((method) => method.method === cart.delivery)) {
+      cart.delivery = deliveryMethods.length === 1 ? deliveryMethods[0]?.method || "" : "";
+      cart.deliverySelected = deliveryMethods.length === 1;
       localStorage.setItem(storageKey, JSON.stringify(cart));
     }
 
@@ -228,7 +249,11 @@
     if (isEmpty) {
       if (!emptyActions) cartItems.innerHTML = "<p>Twój koszyk jest pusty.</p>";
       if (deliveryBox) deliveryBox.innerHTML = "";
+      if (productsTotal) productsTotal.textContent = formatter.format(0);
+      if (deliveryTotal) deliveryTotal.textContent = "—";
+      if (cartTotalLabel) cartTotalLabel.textContent = "Razem";
       cartTotal.textContent = formatter.format(0);
+      setCheckoutAvailability(cart, deliveryMethods);
       if (cartPayload) cartPayload.value = JSON.stringify(cart);
       return;
     }
@@ -259,24 +284,39 @@
       deliveryMethods.forEach((method) => {
         const inputId = `delivery-${method.method}`;
         const label = document.createElement("label");
-        const costText = method.costNumber === null || method.costNumber === undefined ? method.cost : formatter.format(Number(method.costNumber));
+        const costText = deliveryCostLabel(method);
         const description = method.description ? `<small>${escapeHtml(method.description)}</small>` : "";
         label.innerHTML = `<input type="radio" name="cart_delivery" id="${escapeAttr(inputId)}" value="${escapeAttr(method.method)}"${cart.delivery === method.method ? " checked" : ""}> <span><strong>${escapeHtml(method.label)}</strong> — ${escapeHtml(costText)}</span>${description}`;
         deliveryBox.appendChild(label);
-        if (cart.delivery === method.method && method.costNumber !== null && method.costNumber !== undefined) {
+        if (cart.delivery === method.method && !deliveryRequiresConfirmation(method)) {
           deliveryCost = Number(method.costNumber) || 0;
         }
       });
-      if (deliveryMethods.some((method) => method.costNumber == null)) {
+      const selectedDelivery = deliveryMethods.find((method) => method.method === cart.delivery);
+      if (selectedDelivery && deliveryRequiresConfirmation(selectedDelivery)) {
         const note = document.createElement("p");
         note.className = "delivery-note";
-        note.textContent = "Koszt dostawy wymaga indywidualnego potwierdzenia. Po otrzymaniu zamówienia skontaktujemy się w celu ustalenia dostawy. Płatność online nie będzie dostępna do czasu potwierdzenia kosztu.";
+        note.textContent = "Koszt dostawy wymaga indywidualnego potwierdzenia. Po złożeniu zamówienia skontaktujemy się z Tobą w celu ustalenia kosztu dostawy. Płatność wykonasz dopiero po otrzymaniu pełnej kwoty zamówienia.";
         deliveryBox.appendChild(note);
       }
     }
 
     const selectedDelivery = deliveryMethods.find((method) => method.method === cart.delivery);
     cartTotal.textContent = formatter.format(productTotal + deliveryCost) + (deliveryBox && selectedDelivery?.costNumber == null ? " + dostawa do ustalenia" : "");
+    const quoteRequired = selectedDelivery && deliveryRequiresConfirmation(selectedDelivery);
+    if (productsTotal) productsTotal.textContent = formatter.format(productTotal);
+    if (deliveryTotal) deliveryTotal.textContent = selectedDelivery ? deliveryCostLabel(selectedDelivery) : "Wybierz sposób dostawy";
+    if (!selectedDelivery) {
+      if (cartTotalLabel) cartTotalLabel.textContent = "Wybierz sposób dostawy";
+      cartTotal.textContent = "—";
+    } else if (quoteRequired) {
+      if (cartTotalLabel) cartTotalLabel.textContent = "Pełna kwota po potwierdzeniu dostawy";
+      cartTotal.textContent = "—";
+    } else {
+      if (cartTotalLabel) cartTotalLabel.textContent = "Razem";
+      cartTotal.textContent = formatter.format(productTotal + deliveryCost);
+    }
+    setCheckoutAvailability(cart, deliveryMethods);
     if (cartPayload) cartPayload.value = JSON.stringify(cart);
   };
 
@@ -349,6 +389,11 @@
 
     const disabledLink = target.closest("[data-checkout-link].is-disabled");
     if (disabledLink) {
+      if (cartWithValidItems().items.length > 0) {
+        event.preventDefault();
+        alert("Wybierz sposób dostawy przed przejściem do zamówienia.");
+        return;
+      }
       event.preventDefault();
       alert("Twój koszyk jest pusty.");
       return;
@@ -396,7 +441,7 @@
     }
 
     if (salesEnabled && target.matches("[data-cart-clear]")) {
-      saveCart({ items: [], delivery: "" });
+      saveCart({ items: [], delivery: "", deliverySelected: false });
     }
   });
 
@@ -435,6 +480,7 @@
     if (target instanceof HTMLInputElement && target.name === "cart_delivery") {
       const cart = cartWithValidItems();
       cart.delivery = target.value;
+      cart.deliverySelected = true;
       saveCart(cart);
       return;
     }
@@ -449,6 +495,12 @@
       if (cart.items.length === 0) {
         event.preventDefault();
         alert("Twój koszyk jest pusty.");
+        return;
+      }
+      const deliveryMethods = commonDelivery(cart.items);
+      if (!cart.deliverySelected || !deliveryMethods.some((method) => method.method === cart.delivery)) {
+        event.preventDefault();
+        alert("Wybierz sposób dostawy przed złożeniem zamówienia.");
         return;
       }
       const terms = form.querySelector("[data-terms-checkbox]");
