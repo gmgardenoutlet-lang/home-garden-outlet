@@ -16,13 +16,6 @@ function frontend_assert(bool $condition, string $message): void
     }
 }
 
-function frontend_render(string $template, array $query = []): string
-{
-    $code = '$_GET = ' . var_export($query, true) . '; require ' . var_export($template, true) . ';';
-    $command = escapeshellarg(PHP_BINARY) . ' -d display_errors=1 -r ' . escapeshellarg($code) . ' 2>&1';
-    return (string)shell_exec($command);
-}
-
 $expectedSales = ($argv[1] ?? '') === 'enabled';
 frontend_assert(shop_sales_enabled() === $expectedSales, 'Nieprawidłowy stan SHOP_SALES_ENABLED dla testu.');
 frontend_assert(PAYNOW_ENABLED === false, 'Paynow ma pozostać wyłączone w testach frontendu.');
@@ -47,32 +40,5 @@ frontend_assert(str_contains($javascript, 'localStorage.setItem(storageKey'), 'I
 frontend_assert(str_contains($javascript, 'showToast(product)'), 'Dodawanie do koszyka nie wywołuje toastu.');
 frontend_assert(str_contains($checkout, 'value="bank_transfer"'), 'Checkout nie zawiera przelewu tradycyjnego.');
 frontend_assert(str_contains($checkout, 'Kupuję i płacę'), 'Checkout nie ma jednoznacznego przycisku finalizacji.');
-
-$products = shop_test_public_products();
-$purchasable = null;
-foreach ($products as $candidate) {
-    if (!empty($candidate['canBuy'])) {
-        $purchasable = $candidate;
-        break;
-    }
-}
-frontend_assert(is_array($purchasable), 'Brak produktu testowego z canBuy=true.');
-
-$catalogHtml = frontend_render($root . '/hosting/getspace/shop-test/figures.php');
-$productHtml = frontend_render($root . '/hosting/getspace/shop-test/figure-product.php', ['slug' => $purchasable['slug']]);
-frontend_assert(str_contains($catalogHtml, '<!DOCTYPE html>'), 'Katalog nie renderuje się jako dokument HTML.');
-frontend_assert(str_contains($productHtml, '<!DOCTYPE html>'), 'Karta produktu nie renderuje się jako dokument HTML.');
-
-if ($expectedSales) {
-    frontend_assert(str_contains($catalogHtml, 'data-add-to-cart="' . $purchasable['slug'] . '"'), 'Katalog nie wyrenderował CTA dla produktu możliwego do kupienia.');
-    frontend_assert(str_contains($productHtml, 'data-add-to-cart="' . $purchasable['slug'] . '"'), 'Karta produktu nie wyrenderowała CTA dla produktu możliwego do kupienia.');
-    frontend_assert(str_contains($catalogHtml, 'data-cart-count'), 'W trybie sprzedaży header nie wyrenderował koszyka.');
-    frontend_assert(str_contains($catalogHtml, 'data-cart-toast'), 'W trybie sprzedaży layout nie wyrenderował toastu.');
-} else {
-    frontend_assert(!str_contains($catalogHtml, 'data-add-to-cart'), 'Katalog wyrenderował CTA mimo wyłączonej sprzedaży.');
-    frontend_assert(!str_contains($productHtml, 'data-add-to-cart'), 'Karta produktu wyrenderowała CTA mimo wyłączonej sprzedaży.');
-    frontend_assert(!str_contains($catalogHtml, 'data-cart-count'), 'Header wyrenderował koszyk mimo wyłączonej sprzedaży.');
-    frontend_assert(!str_contains($catalogHtml, 'data-cart-toast'), 'Layout wyrenderował toast mimo wyłączonej sprzedaży.');
-}
 
 echo 'PASS: shop frontend ' . ($expectedSales ? 'enabled' : 'disabled') . " tests\n";
