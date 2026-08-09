@@ -1,0 +1,6 @@
+<?php
+declare(strict_types=1);
+require __DIR__ . '/lib.php'; shop_test_boot();
+$profiles = load_shipping_profiles();
+?>
+<!doctype html><html lang="pl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Dostawa i płatności | Home &amp; Garden Outlet</title><?php shop_test_stylesheets(); ?></head><body><?php shop_test_header('figures'); ?><main><article class="legal-page"><p class="eyebrow">Informacje dla kupujących</p><h1>Dostawa i płatności</h1><p class="legal-lead">Dostępne metody i ceny wynikają z aktualnej konfiguracji sklepu.</p><?php foreach ($profiles as $profile): if (empty($profile['active'])) continue; $public=shipping_profile_public($profile); $quote=$public['costNumber']===null || !empty($public['requiresConfirmation']); ?><section><h2><?= e($public['label']) ?></h2><p><?= e((string)($public['description'] ?? '')) ?></p><p><strong><?= $quote ? 'Koszt wymaga indywidualnego potwierdzenia' : (($public['costNumber'] ?? null) === 0 ? 'Bezpłatnie' : e((string)$public['cost'])) ?></strong></p></section><?php endforeach; ?><section><h2>Metody wymagające potwierdzenia</h2><p>Pełny koszt dostawy jest potwierdzany przed płatnością. Płatność online nie zostanie uruchomiona, dopóki pełna wartość zamówienia nie jest znana.</p></section></article></main><?php shop_test_footer(); ?></body></html>
