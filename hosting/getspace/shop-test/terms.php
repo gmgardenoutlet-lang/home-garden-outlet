@@ -57,6 +57,7 @@ shop_test_boot();
         <p>Standardowy czas wysyłki produktów dostępnych u producenta wynosi zwykle 2-5 dni roboczych, o ile przy produkcie nie wskazano inaczej.</p>
         <p>W przypadku produktów ciężkich, delikatnych, wielkogabarytowych lub wymagających specjalnego transportu koszt i forma dostawy mogą być ustalane indywidualnie.</p>
         <p>Dostępne metody mogą obejmować odbiór osobisty, kuriera, przesyłkę gabarytową, paletę albo transport ustalany indywidualnie.</p>
+        <p>Kupującemu zaleca się sprawdzenie stanu przesyłki przy odbiorze, w miarę możliwości w obecności kuriera. W przypadku stwierdzenia widocznych uszkodzeń przesyłki lub towaru zaleca się sporządzenie protokołu szkody z przewoźnikiem oraz wykonanie dokumentacji fotograficznej. Działania te mogą ułatwić i przyspieszyć rozpatrzenie zgłoszenia. Brak protokołu szkody lub niesprawdzenie przesyłki w obecności kuriera nie pozbawia Kupującego prawa do złożenia reklamacji.</p>
       </section>
 
       <section>

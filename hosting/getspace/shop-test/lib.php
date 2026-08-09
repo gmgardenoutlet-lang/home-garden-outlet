@@ -208,6 +208,16 @@ function shop_test_delivery_methods(array $product): array
     return $methods;
 }
 
+function shop_test_has_shipping_method(array $product): bool
+{
+    foreach (shop_test_delivery_methods($product) as $method) {
+        if (($method['type'] ?? '') !== 'odbior_osobisty') {
+            return true;
+        }
+    }
+    return false;
+}
+
 function shop_test_individual_delivery(): array
 {
     $profiles = shipping_profiles_by_id_for_shop(false);

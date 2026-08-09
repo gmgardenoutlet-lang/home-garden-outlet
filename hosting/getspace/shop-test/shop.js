@@ -21,6 +21,7 @@
   const emptyActions = document.querySelector("[data-cart-empty-actions]");
   const checkoutLink = document.querySelector("[data-checkout-link]");
   const checkoutSubmit = form ? form.querySelector('button[type="submit"]') : null;
+  const shipmentCheckNotice = document.querySelector("[data-shipment-check-notice]");
   const menuToggle = document.querySelector(".menu-toggle");
   const mainMenu = document.querySelector("#main-menu");
   const productCards = productGrid ? Array.from(productGrid.querySelectorAll("[data-product-card]")) : [];
@@ -255,6 +256,7 @@
       if (deliveryTotal) deliveryTotal.textContent = "—";
       if (cartTotalLabel) cartTotalLabel.textContent = "Razem";
       cartTotal.textContent = formatter.format(0);
+      if (shipmentCheckNotice) shipmentCheckNotice.hidden = true;
       setCheckoutAvailability(cart, deliveryMethods);
       if (cartPayload) cartPayload.value = JSON.stringify(cart);
       return;
@@ -356,6 +358,7 @@
     let productTotal = 0;
     let shippingTotal = 0;
     let quoteRequired = false;
+    let hasShipment = false;
     cart.items.forEach((item) => {
       const product = bySlug.get(item.slug);
       const price = Number(product.price) || 0;
@@ -364,6 +367,7 @@
       productTotal += price * item.quantity;
       if (selected && !deliveryRequiresConfirmation(selected)) shippingTotal += (Number(selected.costNumber) || 0) * item.quantity;
       if (selected && deliveryRequiresConfirmation(selected)) quoteRequired = true;
+      if (selected && selected.type !== "odbior_osobisty") hasShipment = true;
       const options = methods.map((method) => {
         const inputId = `item-delivery-${item.slug}-${method.method}`;
         return `<label><input type="radio" name="item_delivery_${escapeAttr(item.slug)}" value="${escapeAttr(method.method)}" data-item-shipping="${escapeAttr(item.slug)}"${item.shippingProfileId === method.method ? " checked" : ""}> <span><strong>${escapeHtml(method.label)}</strong> — ${escapeHtml(deliveryCostLabel(method))}</span></label>`;
@@ -390,6 +394,7 @@
       cartTotal.textContent = formatter.format(productTotal + shippingTotal);
     }
     setCheckoutAvailability(cart);
+    if (shipmentCheckNotice) shipmentCheckNotice.hidden = !hasShipment;
     if (cartPayload) cartPayload.value = JSON.stringify(cart);
   };
 

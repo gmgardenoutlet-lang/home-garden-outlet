@@ -122,6 +122,13 @@ $details = $product ? array_filter([
               </article>
             <?php endforeach; ?>
           </section>
+          <?php if (shop_test_has_shipping_method($product)): ?>
+            <aside class="shipment-check-note">
+              <strong>Ważne przy odbiorze przesyłki</strong>
+              <p>Zalecamy sprawdzenie stanu przesyłki przy odbiorze, najlepiej w obecności kuriera. W przypadku widocznych uszkodzeń opakowania lub produktu prosimy, jeśli to możliwe, o sporządzenie z kurierem protokołu szkody oraz wykonanie zdjęć. Ułatwi to sprawne rozpatrzenie zgłoszenia.</p>
+              <p>Brak protokołu szkody nie wyłącza prawa do złożenia reklamacji.</p>
+            </aside>
+          <?php endif; ?>
         </section>
       </article>
     <?php endif; ?>
@@ -129,6 +136,6 @@ $details = $product ? array_filter([
 
   <?php shop_test_footer(); ?>
   <script>window.HGO_SHOP_SALES_ENABLED = <?= shop_sales_enabled() ? 'true' : 'false' ?>; window.HGO_SHOP_PRODUCTS = <?= json_encode($publicProducts, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_HEX_TAG) ?>;</script>
-  <script src="/sklep/shop.js?v=20260809-delivery-per-item1"></script>
+  <script src="/sklep/shop.js?v=20260809-shipment-check1"></script>
 </body>
 </html>

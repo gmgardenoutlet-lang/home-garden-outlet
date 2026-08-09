@@ -928,6 +928,19 @@ main {
   font-weight: 700;
 }
 
+.shipment-check-note {
+  margin-top: 16px;
+  padding: 14px 16px;
+  border: 1px solid rgba(216, 185, 138, .5);
+  border-radius: 18px;
+  background: #fff9ed;
+  color: #584b32;
+  font-size: 14px;
+}
+
+.shipment-check-note p { margin: 7px 0 0; }
+.shipment-check-note[hidden] { display: none; }
+
 .cart-toast {
   position: fixed;
   right: clamp(14px, 3vw, 34px);

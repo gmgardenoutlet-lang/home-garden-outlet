@@ -49,6 +49,10 @@ $publicProducts = shop_test_public_products();
           <div><span>Dostawa</span><strong data-delivery-total>—</strong></div>
         </div>
         <div class="cart-total"><span data-cart-total-label>Razem</span><strong data-cart-total>0,00 zł</strong></div>
+        <aside class="shipment-check-note" data-shipment-check-notice hidden>
+          <strong>Odbiór przesyłki</strong>
+          <p>Zalecamy sprawdzenie przesyłki przy odbiorze, najlepiej w obecności kuriera. W przypadku widocznych uszkodzeń warto sporządzić protokół szkody i wykonać zdjęcia. Brak protokołu nie wyłącza prawa do reklamacji.</p>
+        </aside>
       </div>
 
       <form method="post" action="/sklep/order" class="checkout-form" data-checkout-form>
@@ -103,6 +107,6 @@ $publicProducts = shop_test_public_products();
 
   <?php shop_test_footer(); ?>
   <script>window.HGO_SHOP_SALES_ENABLED = <?= shop_sales_enabled() ? 'true' : 'false' ?>; window.HGO_SHOP_PRODUCTS = <?= json_encode($publicProducts, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_HEX_TAG) ?>;</script>
-  <script src="/sklep/shop.js?v=20260809-delivery-per-item1"></script>
+  <script src="/sklep/shop.js?v=20260809-shipment-check1"></script>
 </body>
 </html>
