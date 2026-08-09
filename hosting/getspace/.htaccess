@@ -2,7 +2,7 @@ Options -Indexes
 DirectoryIndex index.php index.html
 
 <IfModule mod_env.c>
-  SetEnv HGO_SHOP_SALES_ENABLED true
+  SetEnv HGO_SHOP_SALES_ENABLED false
   SetEnv HGO_PAYNOW_ENABLED false
 </IfModule>
 
