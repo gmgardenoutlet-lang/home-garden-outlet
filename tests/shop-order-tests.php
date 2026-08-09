@@ -44,19 +44,22 @@ function test_customer_post(array $overrides = []): array
 test_assert(shop_sales_enabled(), 'Test musi działać z HGO_SHOP_SALES_ENABLED=true.');
 boot_admin();
 
-$products = shop_test_product_map();
-test_assert($products !== [], 'Brak aktywnego produktu sklepowego do testów.');
-
-$product = null;
-foreach ($products as $candidate) {
-    foreach (shop_test_delivery_methods($candidate) as $method) {
-        if (($method['pricingType'] ?? '') === 'fixed_price') {
-            $product = $candidate;
-            break 2;
-        }
-    }
-}
-test_assert(is_array($product), 'Brak produktu z dostawą o znanym koszcie do testów.');
+// Fixture keeps this test independent from the editable production catalog.
+$product = array_merge(product_defaults(), [
+    '_shopSlug' => 'figura-testowa',
+    'slug' => 'figura-testowa',
+    'name' => 'Figura testowa',
+    'saleType' => 'garden_figure',
+    'shopVisible' => true,
+    'shopStatus' => 'Dostępny',
+    'productStatus' => 'Aktywny',
+    'status' => 'Dostępne',
+    'grossPrice' => '199,99',
+    'shippingProfileIds' => ['kurier-standardowy'],
+]);
+$products = [(string)$product['_shopSlug'] => $product];
+test_assert(shop_test_is_figure($product), 'Fixture produktu nie kwalifikuje się do sprzedaży.');
+test_assert(shop_test_delivery_methods($product) !== [], 'Fixture nie ma dostępnej metody dostawy.');
 
 $slug = (string)$product['_shopSlug'];
 $payload = json_encode([
