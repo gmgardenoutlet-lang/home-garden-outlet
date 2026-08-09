@@ -248,13 +248,25 @@ $paidBankOrder = shop_load_order((string)$bankOrder['orderId']);
 test_assert(($paidBankOrder['orderStatus'] ?? '') === 'paid' && ($paidBankOrder['paymentStatus'] ?? '') === 'paid' && !empty($paidBankOrder['paymentConfirmedAt']), 'Potwierdzenie przelewu nie zapisało statusów.');
 test_assert(shop_mark_bank_transfer_paid((string)$bankOrder['orderId'], 'test-admin') === false, 'Powtórne potwierdzenie przelewu nie jest idempotentne.');
 
-$quoteOrder = shop_create_order(['orderId' => '', 'createdAt' => $now, 'updatedAt' => $now, 'status' => 'awaiting_shipping_quote', 'orderStatus' => 'awaiting_shipping_quote', 'paymentProvider' => 'bank_transfer', 'paymentStatus' => 'not_started', 'productsTotalCents' => 19999, 'totalCents' => 19999, 'customer' => ['email' => 'client@example.test'], 'items' => [['name' => 'Figura', 'quantity' => 1, 'unitPriceCents' => 19999]], 'delivery' => ['label' => 'Paleta']]);
+$quoteOrder = shop_create_order(['orderId' => '', 'createdAt' => $now, 'updatedAt' => $now, 'status' => 'awaiting_shipping_quote', 'orderStatus' => 'awaiting_shipping_quote', 'paymentProvider' => 'bank_transfer', 'paymentStatus' => 'not_started', 'productsTotalCents' => 19999, 'totalCents' => 19999, 'customer' => ['email' => 'client@example.test'], 'items' => [['name' => 'Figura', 'quantity' => 1, 'unitPriceCents' => 19999, 'shippingName' => 'Paleta', 'shippingRequiresConfirmation' => true, 'shippingUnitCents' => null, 'shippingLineCents' => null]], 'delivery' => ['label' => 'Paleta']]);
 $quoteMessages = [];
-test_assert(shop_set_shipping_quote((string)$quoteOrder['orderId'], '150,00', 'test-admin', static function ($to, $subject, $body, $headers) use (&$quoteMessages): bool { $quoteMessages[] = $body; return true; }), 'Nie ustalono kosztu dostawy.');
+test_assert(shop_set_item_shipping_quote((string)$quoteOrder['orderId'], 0, '150,00', 'test-admin', static function ($to, $subject, $body, $headers) use (&$quoteMessages): bool { $quoteMessages[] = $body; return true; }), 'Nie ustalono kosztu dostawy.');
 $quoted = shop_load_order((string)$quoteOrder['orderId']);
 test_assert(($quoted['totalCents'] ?? 0) === 34999 && ($quoted['orderStatus'] ?? '') === 'awaiting_payment' && ($quoted['paymentStatus'] ?? '') === 'awaiting', 'Wycena dostawy nie wyliczyła poprawnej kwoty lub statusu.');
 test_assert(str_contains($quoteMessages[0] ?? '', 'Rachunek:'), 'E-mail po wycenie nie zawiera danych przelewu.');
-test_assert(shop_set_shipping_quote((string)$quoteOrder['orderId'], '999,00', 'test-admin') === false, 'Ponowne ustalenie kosztu nie jest idempotentne.');
+test_assert(shop_set_item_shipping_quote((string)$quoteOrder['orderId'], 0, '999,00', 'test-admin') === false, 'Ponowne ustalenie kosztu nie jest idempotentne.');
+
+$multiQuote = shop_create_order(['orderId' => '', 'createdAt' => $now, 'updatedAt' => $now, 'status' => 'awaiting_shipping_quote', 'orderStatus' => 'awaiting_shipping_quote', 'paymentProvider' => 'bank_transfer', 'paymentStatus' => 'not_started', 'productsTotalCents' => 30000, 'customer' => ['email' => 'client@example.test'], 'items' => [
+    ['name' => 'Znana dostawa', 'quantity' => 1, 'shippingLineCents' => 2499, 'shippingRequiresConfirmation' => false],
+    ['name' => 'Wycena A', 'quantity' => 2, 'shippingLineCents' => null, 'shippingRequiresConfirmation' => true],
+    ['name' => 'Wycena B', 'quantity' => 1, 'shippingLineCents' => null, 'shippingRequiresConfirmation' => true],
+], 'delivery' => ['label' => 'Per produkt']]);
+test_assert(shop_set_item_shipping_quote((string)$multiQuote['orderId'], 1, '80,00', 'test-admin') === true, 'Nie zapisano pierwszej wyceny pozycji.');
+$multiPartial = shop_load_order((string)$multiQuote['orderId']);
+test_assert(($multiPartial['orderStatus'] ?? '') === 'awaiting_shipping_quote' && ($multiPartial['shippingTotalCents'] ?? 0) === 18499, 'Częściowa wycena zmieniła status lub znany koszt dostawy.');
+test_assert(shop_set_item_shipping_quote((string)$multiQuote['orderId'], 2, '35,00', 'test-admin') === true, 'Nie zapisano drugiej wyceny pozycji.');
+$multiFinal = shop_load_order((string)$multiQuote['orderId']);
+test_assert(($multiFinal['orderStatus'] ?? '') === 'awaiting_payment' && ($multiFinal['shippingTotalCents'] ?? 0) === 21999 && ($multiFinal['totalCents'] ?? 0) === 51999, 'Ostatnia wycena nie wyliczyła poprawnych sum lub statusu.');
 
 $mailOrder = $bankOrder + ['orderId' => 'HGO-20260809-0001', 'customer' => ['email' => 'client@example.test'], 'items' => [['name' => 'Figura', 'quantity' => 1, 'unitPriceCents' => 19999]], 'delivery' => ['label' => 'Kurier'], 'deliveryCostCents' => 2499, 'totalCents' => 22498];
 $sentMessages = [];

@@ -129,9 +129,9 @@ try {
             flash('success', $changed ? 'Płatność przelewem oznaczono jako otrzymaną.' : 'Płatność była już oznaczona jako otrzymana.');
             redirect_admin('orders=1');
         }
-        if ($action === 'set_shipping_quote') {
-            $changed = shop_set_shipping_quote(post_text('order_id'), post_text('shipping_cost'), (string)($_SESSION['admin_username'] ?? 'administrator'));
-            flash('success', $changed ? 'Koszt dostawy ustalono i wysłano dane do płatności.' : 'Koszt dostawy został już wcześniej ustalony.');
+        if ($action === 'set_item_shipping_quote') {
+            $changed = shop_set_item_shipping_quote(post_text('order_id'), (int)post_text('item_index'), post_text('shipping_unit_cost'), (string)($_SESSION['admin_username'] ?? 'administrator'));
+            flash('success', $changed ? 'Koszt dostawy pozycji został zapisany.' : 'Koszt tej pozycji był już ustalony.');
             redirect_admin('orders=1');
         }
 
@@ -879,11 +879,22 @@ if ($showStats) {
                 </form>
               <?php endif; ?>
               <?php if (($order['orderStatus'] ?? '') === 'awaiting_shipping_quote'): ?>
+                <?php foreach ($items as $itemIndex => $item): ?>
+                  <?php if (!empty($item['shippingRequiresConfirmation'])): ?>
+                    <form method="post" class="order-admin-form">
+                      <input type="hidden" name="csrf" value="<?= e(csrf_token()) ?>"><input type="hidden" name="action" value="set_item_shipping_quote"><input type="hidden" name="order_id" value="<?= e((string)($order['orderId'] ?? '')) ?>"><input type="hidden" name="item_index" value="<?= e((string)$itemIndex) ?>">
+                      <label>Ustal koszt dostawy jednej sztuki: <?= e((string)($item['name'] ?? 'Produkt')) ?> (ilość <?= e((string)($item['quantity'] ?? 1)) ?>)<input name="shipping_unit_cost" inputmode="decimal" required></label>
+                      <button class="btn btn-small" type="submit">Ustal koszt tej pozycji</button>
+                    </form>
+                  <?php endif; ?>
+                <?php endforeach; ?>
+              <?php if (false): ?>
                 <form method="post" class="order-admin-form">
                   <input type="hidden" name="csrf" value="<?= e(csrf_token()) ?>"><input type="hidden" name="action" value="set_shipping_quote"><input type="hidden" name="order_id" value="<?= e((string)($order['orderId'] ?? '')) ?>">
                   <label>Finalny koszt dostawy (PLN)<input name="shipping_cost" inputmode="decimal" required></label>
                   <button class="btn btn-small" type="submit">Ustal koszt dostawy</button>
                 </form>
+              <?php endif; ?>
               <?php endif; ?>
             </article>
           <?php endforeach; ?>

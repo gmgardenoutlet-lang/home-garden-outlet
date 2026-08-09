@@ -988,7 +988,14 @@ function shop_order_email_lines(array $order, bool $includeTransfer): array
     foreach ((array)($order['items'] ?? []) as $item) {
         $lines[] = sprintf('%s — %d szt. × %s PLN', (string)($item['name'] ?? ''), (int)($item['quantity'] ?? 0), number_format(((int)($item['unitPriceCents'] ?? 0)) / 100, 2, ',', ' '));
     }
-    $lines[] = 'Dostawa: ' . (string)($order['delivery']['label'] ?? '');
+    foreach ((array)($order['items'] ?? []) as $item) {
+        if (!empty($item['shippingRequiresConfirmation'])) {
+            $lines[] = 'Dostawa ' . (string)($item['name'] ?? '') . ': ' . (string)($item['shippingName'] ?? 'Dostawa') . ' — koszt do potwierdzenia';
+        } else {
+            $lines[] = 'Dostawa ' . (string)($item['name'] ?? '') . ': ' . (string)($item['shippingName'] ?? 'Dostawa') . ' — ' . number_format(((int)($item['shippingLineCents'] ?? 0)) / 100, 2, ',', ' ') . ' PLN';
+        }
+    }
+    $lines[] = 'Dostawa razem: ' . number_format(((int)($order['shippingTotalCents'] ?? $order['deliveryCostCents'] ?? 0)) / 100, 2, ',', ' ') . ' PLN';
     if (!$includeTransfer) {
         $lines[] = 'Koszt dostawy wymaga indywidualnego potwierdzenia. Skontaktujemy się z Tobą przed płatnością.';
         return $lines;
@@ -1185,6 +1192,62 @@ function shop_mark_bank_transfer_paid(string $orderId, string $administrator = '
     return true;
 }
 
+function shop_recalculate_item_shipping(array &$order): bool
+{
+    $shippingTotal = 0;
+    $allKnown = true;
+    foreach ((array)($order['items'] ?? []) as $item) {
+        if (!empty($item['shippingRequiresConfirmation']) || !isset($item['shippingLineCents']) || $item['shippingLineCents'] === null) {
+            $allKnown = false;
+            continue;
+        }
+        $shippingTotal += (int)$item['shippingLineCents'];
+    }
+    $order['shippingTotalCents'] = $shippingTotal;
+    $order['shippingTotal'] = $shippingTotal / 100;
+    $order['deliveryCostCents'] = $allKnown ? $shippingTotal : null;
+    $order['deliveryCost'] = $allKnown ? $shippingTotal / 100 : null;
+    $order['totalCents'] = (int)($order['productsTotalCents'] ?? 0) + $shippingTotal;
+    $order['total'] = $order['totalCents'] / 100;
+    return $allKnown;
+}
+
+function shop_set_item_shipping_quote(string $orderId, int $itemIndex, string $unitCost, string $administrator = '', ?callable $mailer = null): bool
+{
+    $order = shop_load_order($orderId);
+    if (!$order) throw new RuntimeException('Nie znaleziono zamówienia.');
+    if (($order['orderStatus'] ?? '') !== 'awaiting_shipping_quote') return false;
+    if (!preg_match('/^\d+(?:[,.]\d{1,2})?$/', trim($unitCost))) throw new RuntimeException('Podaj prawidłowy koszt dostawy jednej sztuki w PLN.');
+    if (!isset($order['items'][$itemIndex]) || !is_array($order['items'][$itemIndex])) throw new RuntimeException('Nie znaleziono pozycji zamówienia.');
+    if (empty($order['items'][$itemIndex]['shippingRequiresConfirmation'])) return false;
+    $unitCents = (int)round((float)str_replace(',', '.', $unitCost) * 100);
+    $quantity = (int)($order['items'][$itemIndex]['quantity'] ?? 0);
+    if ($unitCents < 0 || $quantity < 1) throw new RuntimeException('Nieprawidłowy koszt lub ilość pozycji.');
+    $now = (new DateTimeImmutable('now', new DateTimeZone(STATS_TIMEZONE)))->format(DATE_ATOM);
+    $order['items'][$itemIndex]['shippingUnitCents'] = $unitCents;
+    $order['items'][$itemIndex]['shippingLineCents'] = $unitCents * $quantity;
+    $order['items'][$itemIndex]['shippingRequiresConfirmation'] = false;
+    $order['items'][$itemIndex]['shippingQuotedAt'] = $now;
+    $order['items'][$itemIndex]['shippingQuotedBy'] = $administrator;
+    $allKnown = shop_recalculate_item_shipping($order);
+    if ($allKnown) {
+        $order['status'] = $order['orderStatus'] = 'awaiting_payment';
+        $order['paymentProvider'] = $order['paymentMethod'] = 'bank_transfer';
+        $order['paymentStatus'] = 'awaiting';
+        $order['shippingQuoteConfirmedAt'] = $now;
+        $order['shippingQuoteConfirmedBy'] = $administrator;
+    }
+    shop_save_order($order);
+    if (!$allKnown || !empty($order['emailNotifications']['paymentDetailsSentAt'])) return true;
+    $mailer ??= static fn(string $to, string $subject, string $body, string $headers): bool => @mail($to, $subject, $body, $headers);
+    $headers = "From: Home & Garden Outlet <biuro@mgoutlet.pl>\r\nReply-To: biuro@mgoutlet.pl\r\nMIME-Version: 1.0\r\nContent-Type: text/plain; charset=UTF-8";
+    $sent = $mailer((string)($order['customer']['email'] ?? ''), 'Dane do płatności – zamówienie ' . $order['orderId'], implode("\n", shop_order_email_lines($order, true)), $headers);
+    $order['emailNotifications']['paymentDetailsSentAt'] = $sent ? $now : null;
+    $order['emailNotifications']['paymentDetailsFailed'] = !$sent;
+    shop_save_order($order);
+    return true;
+}
+
 function shop_set_shipping_quote(string $orderId, string $cost, string $administrator = '', ?callable $mailer = null): bool
 {
     $order = shop_load_order($orderId);
@@ -1194,14 +1257,22 @@ function shop_set_shipping_quote(string $orderId, string $cost, string $administ
     $cents = (int)round((float)str_replace(',', '.', $cost) * 100);
     if ($cents < 0) throw new RuntimeException('Koszt dostawy nie może być ujemny.');
     $now = (new DateTimeImmutable('now', new DateTimeZone(STATS_TIMEZONE)))->format(DATE_ATOM);
-    $order['deliveryCostCents'] = $cents;
+    $knownShippingCents = 0;
+    foreach ((array)($order['items'] ?? []) as $item) {
+        if (empty($item['shippingRequiresConfirmation'])) {
+            $knownShippingCents += (int)($item['shippingLineCents'] ?? 0);
+        }
+    }
+    $order['shippingTotalCents'] = $knownShippingCents + $cents;
+    $order['shippingTotal'] = $order['shippingTotalCents'] / 100;
+    $order['deliveryCostCents'] = $order['shippingTotalCents'];
     $order['deliveryCost'] = $cents / 100;
     $order['delivery']['costCents'] = $cents;
     $order['delivery']['cost'] = $cents / 100;
     $order['delivery']['costLabel'] = number_format($cents / 100, 2, ',', ' ') . ' zł';
     $order['delivery']['requiresConfirmation'] = false;
     $order['delivery']['pricingType'] = 'fixed_price';
-    $order['totalCents'] = (int)($order['productsTotalCents'] ?? 0) + $cents;
+    $order['totalCents'] = (int)($order['productsTotalCents'] ?? 0) + $order['shippingTotalCents'];
     $order['total'] = $order['totalCents'] / 100;
     $order['status'] = $order['orderStatus'] = 'awaiting_payment';
     $order['paymentProvider'] = $order['paymentMethod'] = 'bank_transfer';
