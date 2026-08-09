@@ -89,9 +89,11 @@ $details = $product ? array_filter([
           <?php if ($view['shortDescription'] !== ''): ?><p><?= nl2br(e($view['shortDescription'])) ?></p><?php endif; ?>
           <?php if (trim((string)($product['longDescription'] ?? '')) !== ''): ?><p><?= nl2br(e($product['longDescription'])) ?></p><?php endif; ?>
 
-          <div class="shop-note">
-            Produkt malowany ręcznie. Poszczególne egzemplarze mogą nieznacznie różnić się odcieniem, układem kolorów, fakturą i detalami wykończenia. Zdjęcia przedstawiają przykładowy egzemplarz.
-          </div>
+          <?php if (!empty($product['handPainted'])): ?>
+            <div class="shop-note">Figury są malowane ręcznie, dlatego poszczególne egzemplarze mogą nieznacznie różnić się od siebie oraz od produktu prezentowanego na zdjęciach, w szczególności odcieniem, intensywnością barw i detalami wykończenia. Takie niewielkie różnice są naturalną cechą ręcznego wykonania.</div>
+          <?php endif; ?>
+
+          <p><a href="/sklep/figury-ogrodowe/dostawa-i-platnosci">Dostawa i płatności</a> · <a href="/sklep/figury-ogrodowe/zwroty-i-reklamacje">Zwroty i reklamacje</a> · <a href="/sklep/figury-ogrodowe/formularz-odstapienia">Formularz odstąpienia</a></p>
 
           <div class="shop-actions">
             <span class="shop-sales-notice">Sprzedaż online już wkrótce</span>

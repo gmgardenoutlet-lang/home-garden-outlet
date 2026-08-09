@@ -91,12 +91,15 @@ shop_test_boot();
 
       <div class="shop-actions legal-actions">
         <a class="btn btn-light" href="<?= e(shop_catalog_url()) ?>">Wróć do sklepu</a>
+        <a class="btn btn-light" href="/sklep/figury-ogrodowe/dostawa-i-platnosci">Dostawa i płatności</a>
+        <a class="btn btn-light" href="/sklep/figury-ogrodowe/zwroty-i-reklamacje">Zwroty i reklamacje</a>
+        <a class="btn btn-light" href="/sklep/figury-ogrodowe/formularz-odstapienia">Formularz odstąpienia</a>
       </div>
     </article>
   </main>
 
   <?php shop_test_footer(); ?>
   <script>window.HGO_SHOP_PRODUCTS = <?= json_encode(shop_test_public_products(), JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_HEX_TAG) ?>;</script>
-  <script src="/sklep-test/shop.js"></script>
+  <script src="/sklep/shop.js"></script>
 </body>
 </html>

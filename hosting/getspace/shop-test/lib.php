@@ -190,7 +190,7 @@ function shop_test_find_product(string $slug): ?array
 
 function shop_test_delivery_methods(array $product): array
 {
-    $profiles = shipping_profiles_by_id(true);
+    $profiles = shipping_profiles_by_id_for_shop(true);
     $methods = [];
 
     foreach (product_shipping_profile_ids($product) as $profileId) {
@@ -205,45 +205,18 @@ function shop_test_delivery_methods(array $product): array
         $methods[$profileId] = $method;
     }
 
-    if (!$methods) {
-        $fallback = $profiles['dostawa-indywidualna'] ?? [
-            'id' => 'dostawa-indywidualna',
-            'customerName' => 'Dostawa do ustalenia indywidualnie',
-            'type' => 'do_ustalenia',
-            'price' => null,
-            'requiresConfirmation' => true,
-            'description' => 'Skontaktujemy się po złożeniu zamówienia w celu potwierdzenia kosztu i sposobu transportu.',
-        ];
-        $methods['dostawa-indywidualna'] = shipping_profile_public($fallback);
-        if (empty($methods['dostawa-indywidualna']['cost'])) {
-            $methods['dostawa-indywidualna']['cost'] = 'do ustalenia';
-        }
-        $methods['dostawa-indywidualna']['pricingType'] = 'quote_required';
-    }
-
     return $methods;
 }
 
 function shop_test_individual_delivery(): array
 {
-    $profiles = shipping_profiles_by_id(false);
-    if (isset($profiles['dostawa-indywidualna'])) {
-        $method = shipping_profile_public($profiles['dostawa-indywidualna']);
-        $method['pricingType'] = 'quote_required';
-        return $method;
+    $profiles = shipping_profiles_by_id_for_shop(false);
+    if (!isset($profiles['dostawa-indywidualna'])) {
+        return [];
     }
-    return [
-        'method' => 'dostawa-indywidualna',
-        'profileId' => 'dostawa-indywidualna',
-        'label' => 'Dostawa do ustalenia indywidualnie',
-        'type' => 'do_ustalenia',
-        'cost' => 'do ustalenia',
-        'costNumber' => null,
-        'priceFrom' => false,
-        'requiresConfirmation' => true,
-        'pricingType' => 'quote_required',
-        'description' => 'Skontaktujemy się po złożeniu zamówienia w celu potwierdzenia kosztu i sposobu transportu.',
-    ];
+    $method = shipping_profile_public($profiles['dostawa-indywidualna']);
+    $method['pricingType'] = 'quote_required';
+    return $method;
 }
 
 function shop_test_public_product(array $product): array
@@ -359,6 +332,9 @@ function shop_test_cart_common_delivery(array $items): array
     }
     if (!$common) {
         $individual = shop_test_individual_delivery();
+        if (!$individual) {
+            return [];
+        }
         return [
             (string)$individual['method'] => $individual,
         ];

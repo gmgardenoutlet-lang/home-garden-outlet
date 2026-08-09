@@ -33,6 +33,8 @@ AddType application/manifest+json .webmanifest
   RewriteRule ^sklep/figury-ogrodowe/potwierdzenie/?$ shop-test/confirmation.php [L,QSA]
   RewriteRule ^sklep/figury-ogrodowe/regulamin/?$ shop-test/terms.php [L,QSA]
   RewriteRule ^sklep/figury-ogrodowe/dostawa-i-platnosci/?$ shop-test/delivery.php [L,QSA]
+  RewriteRule ^sklep/figury-ogrodowe/zwroty-i-reklamacje/?$ shop-test/returns.php [L,QSA]
+  RewriteRule ^sklep/figury-ogrodowe/formularz-odstapienia/?$ shop-test/withdrawal-form.php [L,QSA]
   RewriteRule ^sklep/figury-ogrodowe/polityka-prywatnosci/?$ shop-test/privacy.php [L,QSA]
   RewriteRule ^sklep/figury-ogrodowe/platnosc/powrot/?$ shop-test/paynow-return.php [L,QSA]
   RewriteRule ^sklep/paynow/notification/?$ shop-test/paynow-notification.php [L,QSA]

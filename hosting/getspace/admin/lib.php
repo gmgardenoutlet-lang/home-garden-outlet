@@ -418,6 +418,52 @@ function load_shipping_profiles(): array
     return array_values($result);
 }
 
+/**
+ * Customer-facing shop paths must use the current cennik saved by the admin
+ * panel. Unlike load_shipping_profiles(), this deliberately has no defaults:
+ * an unreadable or malformed production file means that delivery is unavailable.
+ */
+function load_shipping_profiles_for_shop(): array
+{
+    if (!is_file(SHIPPING_PROFILES_FILE)) {
+        return [];
+    }
+
+    $json = @file_get_contents(SHIPPING_PROFILES_FILE);
+    if ($json === false || trim($json) === '') {
+        return [];
+    }
+    $data = json_decode($json, true);
+    if (!is_array($data)) {
+        return [];
+    }
+    $rawProfiles = is_array($data['profiles'] ?? null)
+        ? $data['profiles']
+        : (array_is_list($data) ? $data : null);
+    if (!is_array($rawProfiles) || !$rawProfiles) {
+        return [];
+    }
+
+    $result = [];
+    foreach ($rawProfiles as $profile) {
+        if (!is_array($profile)) {
+            return [];
+        }
+        $normalized = normalize_shipping_profile($profile);
+        if ($normalized['id'] === '' || $normalized['name'] === '') {
+            return [];
+        }
+        $result[$normalized['id']] = $normalized;
+    }
+    if (!$result) {
+        return [];
+    }
+    uasort($result, static function (array $a, array $b): int {
+        return ((int)$a['sortOrder'] <=> (int)$b['sortOrder']) ?: strcmp((string)$a['name'], (string)$b['name']);
+    });
+    return array_values($result);
+}
+
 function save_shipping_profiles(array $profiles): void
 {
     $normalized = [];
@@ -454,6 +500,18 @@ function shipping_profiles_by_id(bool $activeOnly = false): array
 {
     $profiles = [];
     foreach (load_shipping_profiles() as $profile) {
+        if ($activeOnly && empty($profile['active'])) {
+            continue;
+        }
+        $profiles[(string)$profile['id']] = $profile;
+    }
+    return $profiles;
+}
+
+function shipping_profiles_by_id_for_shop(bool $activeOnly = false): array
+{
+    $profiles = [];
+    foreach (load_shipping_profiles_for_shop() as $profile) {
         if ($activeOnly && empty($profile['active'])) {
             continue;
         }

@@ -28,6 +28,7 @@ $publicProducts = shop_test_public_products();
         <h1>Figury ogrodowe</h1>
         <p class="hero-subtitle">Ręcznie malowane dekoracje do ogrodu, na taras i przed wejście</p>
         <p>Wybierz figury ogrodowe, które podkreślą charakter Twojej przestrzeni. Produkty są dostępne u producenta, a każdy egzemplarz może delikatnie różnić się odcieniem i detalami wykończenia ze względu na ręczne malowanie.</p>
+        <p><a href="/sklep/figury-ogrodowe/dostawa-i-platnosci">Dostawa i płatności</a> · <a href="/sklep/figury-ogrodowe/zwroty-i-reklamacje">Zwroty i reklamacje</a> · <a href="/sklep/figury-ogrodowe/formularz-odstapienia">Formularz odstąpienia</a></p>
       </div>
       <div class="shop-hero-media">
         <img src="/assets/images/figury-ogrodowe-hero.webp" width="1600" height="900" alt="Figury ogrodowe i dekoracje w showroomie Home & Garden Outlet">
