@@ -12,7 +12,8 @@ $publicProducts = shop_test_public_products();
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="robots" content="noindex, nofollow">
+  <meta name="robots" content="index, follow">
+  <link rel="canonical" href="https://mgoutlet.pl/sklep/figury-ogrodowe">
   <title>Figury ogrodowe do ogrodu i na taras | Home & Garden Outlet</title>
   <?php shop_test_stylesheets(); ?>
 </head>
@@ -22,7 +23,7 @@ $publicProducts = shop_test_public_products();
   <main>
     <section class="shop-hero shop-hero-split">
       <div class="shop-hero-copy">
-        <div class="admin-ribbon">Tryb testowy — sklep niepubliczny</div>
+        <div class="admin-ribbon">Sprzedaż online już wkrótce</div>
         <p class="eyebrow">Figury ogrodowe do ogrodu i na taras</p>
         <h1>Figury ogrodowe</h1>
         <p class="hero-subtitle">Ręcznie malowane dekoracje do ogrodu, na taras i przed wejście</p>
@@ -39,7 +40,7 @@ $publicProducts = shop_test_public_products();
       </div>
       <div class="shop-actions hero-actions">
         <a class="btn" href="#produkty">Zobacz produkty</a>
-        <a class="btn btn-light" href="/sklep-test/figury-ogrodowe/koszyk">Przejdź do koszyka</a>
+        <span class="shop-sales-notice">Trwają ostatnie prace nad uruchomieniem sklepu internetowego.</span>
       </div>
     </section>
 
@@ -76,7 +77,7 @@ $publicProducts = shop_test_public_products();
               <strong class="card-price"><?= e($view['priceLabel']) ?></strong>
               <div class="shop-actions">
                 <a class="btn btn-light" href="<?= e(shop_test_product_url($view['slug'])) ?>">Zobacz produkt</a>
-                <button class="btn" type="button" data-add-to-cart="<?= e($view['slug']) ?>"<?= $view['canBuy'] ? '' : ' disabled' ?>>Dodaj do koszyka</button>
+                <span class="shop-sales-notice">Sprzedaż online już wkrótce</span>
               </div>
             </div>
           </article>
@@ -86,8 +87,7 @@ $publicProducts = shop_test_public_products();
   </main>
 
   <?php shop_test_footer(); ?>
-  <div class="cart-toast" data-cart-toast hidden></div>
-  <script>window.HGO_SHOP_PRODUCTS = <?= json_encode($publicProducts, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_HEX_TAG) ?>;</script>
-  <script src="/sklep-test/shop.js"></script>
+  <script>window.HGO_SHOP_SALES_ENABLED = <?= shop_sales_enabled() ? 'true' : 'false' ?>; window.HGO_SHOP_PRODUCTS = <?= json_encode($publicProducts, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_HEX_TAG) ?>;</script>
+  <script src="/sklep/shop.js"></script>
 </body>
 </html>

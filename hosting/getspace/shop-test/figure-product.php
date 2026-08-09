@@ -42,7 +42,8 @@ $details = $product ? array_filter([
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="robots" content="noindex, nofollow">
+  <meta name="robots" content="<?= $view ? 'index, follow' : 'noindex, nofollow' ?>">
+  <?php if ($view): ?><link rel="canonical" href="https://mgoutlet.pl<?= e(shop_test_product_url($view['slug'])) ?>"><?php endif; ?>
   <title><?= $view ? e($view['name']) : 'Figura niedostępna' ?> | Home & Garden Outlet</title>
   <?php shop_test_stylesheets(); ?>
 </head>
@@ -51,7 +52,7 @@ $details = $product ? array_filter([
 
   <main>
     <?php if (!$product || !$view): ?>
-      <section class="empty"><h1>Nie znaleziono figury</h1><p>Produkt nie jest widoczny w sklepie albo został ukryty.</p><a class="btn" href="/sklep-test/figury-ogrodowe">Wróć</a></section>
+      <section class="empty"><h1>Nie znaleziono figury</h1><p>Produkt nie jest widoczny w sklepie albo został ukryty.</p><a class="btn" href="<?= e(shop_catalog_url()) ?>">Wróć</a></section>
     <?php else: ?>
       <article class="product-test">
         <section class="product-test-gallery">
@@ -77,7 +78,7 @@ $details = $product ? array_filter([
           <?php endif; ?>
         </section>
         <section class="product-test-info">
-          <div class="admin-ribbon admin-ribbon-inline">Tryb testowy — sklep niepubliczny</div>
+          <div class="admin-ribbon admin-ribbon-inline">Sprzedaż online już wkrótce</div>
           <p class="eyebrow">Figura ogrodowa</p>
           <h1><?= e($view['name']) ?></h1>
           <div class="product-status-grid">
@@ -93,9 +94,8 @@ $details = $product ? array_filter([
           </div>
 
           <div class="shop-actions">
-            <button class="btn" type="button" data-add-to-cart="<?= e($view['slug']) ?>"<?= $view['canBuy'] ? '' : ' disabled' ?>>Dodaj do koszyka</button>
+            <span class="shop-sales-notice">Sprzedaż online już wkrótce</span>
             <a class="btn btn-light" href="sms:+48577210777?body=Interesuje%20mnie%20figura:%20<?= rawurlencode($view['name']) ?>">Zapytaj o produkt</a>
-            <a class="btn btn-light" href="/sklep-test/figury-ogrodowe/koszyk">Koszyk</a>
           </div>
 
           <?php if ($details): ?>
@@ -124,8 +124,7 @@ $details = $product ? array_filter([
   </main>
 
   <?php shop_test_footer(); ?>
-  <div class="cart-toast" data-cart-toast hidden></div>
-  <script>window.HGO_SHOP_PRODUCTS = <?= json_encode($publicProducts, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_HEX_TAG) ?>;</script>
-  <script src="/sklep-test/shop.js?v=20260707-gallery2"></script>
+  <script>window.HGO_SHOP_SALES_ENABLED = <?= shop_sales_enabled() ? 'true' : 'false' ?>; window.HGO_SHOP_PRODUCTS = <?= json_encode($publicProducts, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_HEX_TAG) ?>;</script>
+  <script src="/sklep/shop.js?v=20260707-gallery2"></script>
 </body>
 </html>

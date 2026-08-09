@@ -1,5 +1,6 @@
 (function () {
   const products = Array.isArray(window.HGO_SHOP_PRODUCTS) ? window.HGO_SHOP_PRODUCTS : [];
+  const salesEnabled = window.HGO_SHOP_SALES_ENABLED === true;
   const bySlug = new Map(products.map((product) => [product.slug, product]));
   const storageKey = "hgo-shop-test-cart";
   const formatter = new Intl.NumberFormat("pl-PL", { style: "currency", currency: "PLN" });
@@ -148,6 +149,7 @@
   };
 
   const saveCart = (cart) => {
+    if (!salesEnabled) return;
     localStorage.setItem(storageKey, JSON.stringify(cart));
     render();
   };
@@ -352,7 +354,7 @@
 
     const addButton = target.closest("[data-add-to-cart]");
     const addSlug = addButton instanceof HTMLElement ? addButton.getAttribute("data-add-to-cart") : "";
-    if (addSlug && bySlug.has(addSlug)) {
+    if (salesEnabled && addSlug && bySlug.has(addSlug)) {
       const product = bySlug.get(addSlug);
       if (!product.canBuy) return;
       const cart = cartWithValidItems();
@@ -369,7 +371,7 @@
     }
 
     const plusSlug = target.getAttribute("data-cart-plus");
-    if (plusSlug) {
+    if (salesEnabled && plusSlug) {
       const cart = cartWithValidItems();
       const item = cart.items.find((row) => row.slug === plusSlug);
       if (item) item.quantity = Math.min(20, item.quantity + 1);
@@ -377,7 +379,7 @@
     }
 
     const minusSlug = target.getAttribute("data-cart-minus");
-    if (minusSlug) {
+    if (salesEnabled && minusSlug) {
       const cart = cartWithValidItems();
       const item = cart.items.find((row) => row.slug === minusSlug);
       if (item) item.quantity = Math.max(1, item.quantity - 1);
@@ -385,13 +387,13 @@
     }
 
     const removeSlug = target.getAttribute("data-cart-remove");
-    if (removeSlug) {
+    if (salesEnabled && removeSlug) {
       const cart = cartWithValidItems();
       cart.items = cart.items.filter((item) => item.slug !== removeSlug);
       saveCart(cart);
     }
 
-    if (target.matches("[data-cart-clear]")) {
+    if (salesEnabled && target.matches("[data-cart-clear]")) {
       saveCart({ items: [], delivery: "" });
     }
   });
@@ -439,7 +441,7 @@
     }
   });
 
-  if (form) {
+  if (form && salesEnabled) {
     form.addEventListener("submit", (event) => {
       const cart = cartWithValidItems();
       if (cart.items.length === 0) {
@@ -459,5 +461,8 @@
     });
   }
 
+  if (!salesEnabled) {
+    try { localStorage.removeItem(storageKey); } catch (error) {}
+  }
   render();
 })();

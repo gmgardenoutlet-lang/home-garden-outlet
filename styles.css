@@ -2019,6 +2019,22 @@ body.gallery-open {
   color: var(--muted);
 }
 
+.shop-launch {
+  border-top: 0;
+  border-bottom: 1px solid var(--line);
+}
+
+.main-nav small,
+.shop-main-nav small {
+  display: inline-block;
+  margin-left: 4px;
+  color: var(--green-800);
+  font-size: 10px;
+  font-weight: 900;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
 .homepage-guide {
   background: var(--sand-100);
 }

@@ -2,6 +2,7 @@
 declare(strict_types=1);
 
 require __DIR__ . '/catalog.php';
+require __DIR__ . '/shop-test/lib.php';
 
 header('Content-Type: application/xml; charset=UTF-8');
 header('Cache-Control: public, max-age=900');
@@ -52,7 +53,15 @@ $urls = [
     sitemap_url(CATALOG_SITE_URL . '/poradnik/meble-z-ekspozycji-czy-warto/'),
     sitemap_url(CATALOG_SITE_URL . '/outlet-meblowy-wroclaw/'),
     sitemap_url(CATALOG_SITE_URL . '/meble-ogrodowe-wroclaw/'),
+    sitemap_url(CATALOG_SITE_URL . '/sklep/figury-ogrodowe', $lastModified),
 ];
+
+foreach (shop_test_products() as $product) {
+    $urls[] = sitemap_url(
+        CATALOG_SITE_URL . shop_test_product_url((string)($product['_shopSlug'] ?? '')),
+        $lastModified
+    );
+}
 
 foreach (catalog_products_with_slugs() as $product) {
     if (!catalog_is_public($product)) {

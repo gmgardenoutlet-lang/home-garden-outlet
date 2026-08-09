@@ -3,6 +3,7 @@ declare(strict_types=1);
 
 require __DIR__ . '/lib.php';
 shop_test_boot();
+shop_test_require_sales();
 
 $error = '';
 

@@ -1,13 +1,71 @@
 <?php
 declare(strict_types=1);
 
+require_once __DIR__ . '/config.php';
 require_once __DIR__ . '/../admin/lib.php';
 
 function shop_test_boot(): void
 {
     boot_admin();
-    require_login();
+    header('X-Robots-Tag: index, follow');
+}
+
+function shop_sales_enabled(): bool
+{
+    return SHOP_SALES_ENABLED;
+}
+
+function shop_catalog_url(): string
+{
+    return '/sklep/figury-ogrodowe';
+}
+
+function shop_test_purchase_unavailable(): void
+{
+    http_response_code(403);
     header('X-Robots-Tag: noindex, nofollow, noarchive');
+    header('Cache-Control: no-store, max-age=0');
+
+    $accept = (string)($_SERVER['HTTP_ACCEPT'] ?? '');
+    if (str_contains($accept, 'application/json')) {
+        header('Content-Type: application/json; charset=UTF-8');
+        echo json_encode([
+            'error' => 'shop_sales_disabled',
+            'message' => 'Sprzedaż online nie została jeszcze uruchomiona.',
+        ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+        exit;
+    }
+
+    ?><!DOCTYPE html>
+<html lang="pl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex, nofollow">
+  <title>Sprzedaż online wkrótce | Home &amp; Garden Outlet</title>
+  <?php shop_test_stylesheets(); ?>
+</head>
+<body>
+  <?php shop_test_header(); ?>
+  <main class="order-result">
+    <section class="success-box error-box">
+      <p class="eyebrow">Sprzedaż online wkrótce</p>
+      <h1>Sprzedaż online nie została jeszcze uruchomiona.</h1>
+      <p>Trwają ostatnie prace nad uruchomieniem sklepu internetowego. Obecnie możesz przeglądać ofertę.</p>
+      <div class="shop-actions"><a class="btn" href="<?= e(shop_catalog_url()) ?>">Zobacz figury ogrodowe</a></div>
+    </section>
+  </main>
+  <?php shop_test_footer(); ?>
+</body>
+</html><?php
+    exit;
+}
+
+function shop_test_require_sales(): void
+{
+    if (!shop_sales_enabled()) {
+        shop_test_purchase_unavailable();
+    }
 }
 
 function shop_test_image_url(string $path): string
@@ -202,13 +260,13 @@ function shop_test_public_products(): array
 
 function shop_test_product_url(string $slug): string
 {
-    return '/sklep-test/figury-ogrodowe/produkt/' . rawurlencode(clean_filename($slug));
+    return shop_catalog_url() . '/produkt/' . rawurlencode(clean_filename($slug));
 }
 
 function shop_test_stylesheets(): void
 {
     echo '<link rel="stylesheet" href="/styles.css">' . PHP_EOL;
-    echo '  <link rel="stylesheet" href="/sklep-test/shop.css">' . PHP_EOL;
+    echo '  <link rel="stylesheet" href="/sklep/shop.css">' . PHP_EOL;
 }
 
 function shop_test_header(string $active = ''): void
@@ -218,8 +276,7 @@ function shop_test_header(string $active = ''): void
         ['href' => '/dom', 'label' => 'Dom', 'key' => 'dom'],
         ['href' => '/ogrod', 'label' => 'Ogród', 'key' => 'ogrod'],
         ['href' => '/#faq-home-title', 'label' => 'FAQ', 'key' => 'faq'],
-        ['href' => '/sklep-test/figury-ogrodowe', 'label' => 'Figury ogrodowe', 'key' => 'figures'],
-        ['href' => '/sklep-test/figury-ogrodowe/koszyk', 'label' => 'Koszyk <span data-cart-count></span>', 'key' => 'cart'],
+        ['href' => shop_catalog_url(), 'label' => 'Sklep online <small>Wkrótce</small>', 'key' => 'figures'],
     ];
     ?>
   <header class="site-header shop-site-header">
@@ -233,7 +290,7 @@ function shop_test_header(string $active = ''): void
       <span></span>
     </button>
 
-    <nav id="main-menu" class="main-nav shop-main-nav" aria-label="Menu sklepu testowego">
+    <nav id="main-menu" class="main-nav shop-main-nav" aria-label="Menu sklepu">
       <?php foreach ($links as $link): ?>
         <a href="<?= e($link['href']) ?>"<?= $active === $link['key'] ? ' aria-current="page"' : '' ?>><?= $link['label'] ?></a>
       <?php endforeach; ?>
@@ -265,9 +322,7 @@ function shop_test_footer(): void
     </div>
     <div>
       <strong>Figury ogrodowe</strong>
-      <a href="/sklep-test/figury-ogrodowe">Kategoria</a>
-      <a href="/sklep-test/figury-ogrodowe/koszyk">Koszyk</a>
-      <a href="/sklep-test/figury-ogrodowe/regulamin">Regulamin</a>
+      <a href="<?= e(shop_catalog_url()) ?>">Katalog figur</a>
       <a href="/polityka-prywatnosci">Polityka prywatności</a>
     </div>
   </footer>
