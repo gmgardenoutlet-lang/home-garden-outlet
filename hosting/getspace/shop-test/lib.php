@@ -239,7 +239,6 @@ function shop_test_public_product(array $product): array
             : $name . ' dostępna w Home & Garden Outlet',
         'shortDescription' => trim((string)($product['description'] ?? '')),
         'leadTime' => trim((string)($product['leadTime'] ?? '2-5 dni roboczych')),
-        'availability' => trim((string)($product['producerAvailability'] ?? 'Dostępny u producenta')),
         'deliveryMethods' => array_values(shop_test_delivery_methods($product)),
     ];
 }
