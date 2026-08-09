@@ -352,6 +352,36 @@ function shop_test_cart_common_delivery(array $items): array
     return $common;
 }
 
+function shop_test_resolve_item_delivery(array $item): array
+{
+    $methods = shop_test_delivery_methods($item['product']);
+    $profileId = shop_test_delivery_key((string)($item['shippingProfileId'] ?? ''));
+    if ($profileId === '' && count($methods) === 1) {
+        $profileId = (string)array_key_first($methods);
+    }
+    if ($profileId === '' || !isset($methods[$profileId])) {
+        throw new RuntimeException('Wybierz prawidłowy sposób dostawy dla każdego produktu.');
+    }
+
+    $method = $methods[$profileId];
+    $requiresConfirmation = !empty($method['requiresConfirmation']) || ($method['pricingType'] ?? '') === 'quote_required';
+    $unitCents = $requiresConfirmation || ($method['costNumber'] ?? null) === null
+        ? null
+        : shop_test_price_cents((float)$method['costNumber']);
+    $quantity = (int)$item['quantity'];
+
+    return [
+        'shippingProfileId' => $profileId,
+        'shippingName' => (string)$method['label'],
+        'shippingUnitCents' => $unitCents,
+        'shippingLineCents' => $unitCents === null ? null : $unitCents * $quantity,
+        'shippingRequiresConfirmation' => $requiresConfirmation,
+        'shippingCostLabel' => $requiresConfirmation
+            ? 'Koszt wymaga indywidualnego potwierdzenia'
+            : ($unitCents === 0 ? 'Bezpłatnie' : shop_test_price_label(shop_test_cents_to_price($unitCents))),
+    ];
+}
+
 function shop_test_decode_cart(string $payload, array $products): array
 {
     if (strlen($payload) > 20000) {
@@ -396,6 +426,7 @@ function shop_test_decode_cart(string $payload, array $products): array
             'priceCents' => shop_test_price_cents($price),
             'lineTotalCents' => (int)shop_test_price_cents($price) * $quantity,
             'lineTotal' => shop_test_cents_to_price((int)shop_test_price_cents($price) * $quantity),
+            'shippingProfileId' => shop_test_delivery_key((string)($row['shippingProfileId'] ?? '')),
         ];
     }
 
@@ -406,7 +437,6 @@ function shop_test_decode_cart(string $payload, array $products): array
 
     return [
         'items' => $items,
-        'delivery' => shop_test_delivery_key((string)($data['delivery'] ?? '')),
     ];
 }
 

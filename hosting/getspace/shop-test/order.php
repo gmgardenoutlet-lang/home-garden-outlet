@@ -21,20 +21,20 @@ try {
 
     $products = shop_test_product_map();
     $cart = shop_test_decode_cart((string)($_POST['cart_payload'] ?? ''), $products);
-    $deliveryMethods = shop_test_cart_common_delivery($cart['items']);
-    $deliveryKey = $cart['delivery'];
-    if ($deliveryKey === '') {
-        throw new RuntimeException('Wybierz sposób dostawy przed złożeniem zamówienia.');
-    }
-    if (!isset($deliveryMethods[$deliveryKey])) {
-        throw new RuntimeException('Wybrana metoda dostawy nie pasuje do produktów w koszyku.');
-    }
 
     $productTotalCents = 0;
+    $shippingTotalCents = 0;
+    $quoteRequired = false;
     $items = [];
     foreach ($cart['items'] as $row) {
         $product = $row['product'];
+        $shipping = shop_test_resolve_item_delivery($row);
         $productTotalCents += (int)$row['lineTotalCents'];
+        if ($shipping['shippingLineCents'] !== null) {
+            $shippingTotalCents += (int)$shipping['shippingLineCents'];
+        } else {
+            $quoteRequired = true;
+        }
         $items[] = [
             'productId' => $row['slug'],
             'name' => (string)($product['name'] ?? $row['slug']),
@@ -45,14 +45,10 @@ try {
             'lineTotal' => shop_test_cents_to_price((int)$row['lineTotalCents']),
             'lineTotalCents' => (int)$row['lineTotalCents'],
             'currency' => 'PLN',
-        ];
+        ] + $shipping;
     }
 
-    $delivery = $deliveryMethods[$deliveryKey];
-    $deliveryCost = $delivery['costNumber'];
-    $deliveryCostCents = $deliveryCost === null ? null : shop_test_price_cents((float)$deliveryCost);
-    $totalCents = $productTotalCents + ($deliveryCostCents ?? 0);
-    $quoteRequired = ($delivery['pricingType'] ?? '') === 'quote_required' || $deliveryCostCents === null;
+    $totalCents = $productTotalCents + $shippingTotalCents;
     $now = (new DateTimeImmutable('now', new DateTimeZone(STATS_TIMEZONE)))->format(DATE_ATOM);
     $customerData = shop_test_customer_from_post();
 
@@ -69,20 +65,11 @@ try {
         'items' => $items,
         'productsTotal' => shop_test_cents_to_price($productTotalCents),
         'productsTotalCents' => $productTotalCents,
-        'delivery' => [
-            'method' => $delivery['method'],
-            'profileId' => $delivery['profileId'] ?? $delivery['method'],
-            'label' => $delivery['label'],
-            'cost' => $deliveryCost,
-            'costCents' => $deliveryCostCents,
-            'costLabel' => (string)($delivery['cost'] ?? ($deliveryCost === null ? 'do ustalenia' : shop_test_price_label($deliveryCost))),
-            'requiresConfirmation' => !empty($delivery['requiresConfirmation']),
-            'priceFrom' => !empty($delivery['priceFrom']),
-            'doUstalenia' => $deliveryCost === null || !empty($delivery['requiresConfirmation']),
-            'pricingType' => $quoteRequired ? 'quote_required' : 'fixed_price',
-        ],
-        'deliveryCost' => $deliveryCost,
-        'deliveryCostCents' => $deliveryCostCents,
+        'shippingTotalCents' => $shippingTotalCents,
+        'shippingTotal' => shop_test_cents_to_price($shippingTotalCents),
+        'delivery' => ['label' => 'Dostawa per produkt', 'requiresConfirmation' => $quoteRequired, 'pricingType' => $quoteRequired ? 'quote_required' : 'fixed_price'],
+        'deliveryCost' => $quoteRequired ? null : shop_test_cents_to_price($shippingTotalCents),
+        'deliveryCostCents' => $quoteRequired ? null : $shippingTotalCents,
         'total' => shop_test_cents_to_price($totalCents),
         'totalCents' => $totalCents,
         'currency' => 'PLN',

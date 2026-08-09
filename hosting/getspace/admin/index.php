@@ -833,7 +833,7 @@ if ($showStats) {
 
               <div class="table-wrap">
                 <table class="stats-table">
-                  <thead><tr><th>Produkt</th><th>Ilość</th><th>Cena</th><th>Suma</th></tr></thead>
+                  <thead><tr><th>Produkt</th><th>Ilość</th><th>Cena</th><th>Suma</th><th>Dostawa pozycji</th></tr></thead>
                   <tbody>
                     <?php foreach ($items as $item): ?>
                       <tr>
@@ -841,6 +841,7 @@ if ($showStats) {
                         <td><?= e((string)($item['quantity'] ?? 0)) ?></td>
                         <td><?= e(number_format((float)($item['price'] ?? 0), 2, ',', ' ')) ?> zł</td>
                         <td><?= e(number_format((float)($item['lineTotal'] ?? 0), 2, ',', ' ')) ?> zł</td>
+                        <td><?= e((string)($item['shippingName'] ?? 'Dostawa')) ?><br><small><?= !empty($item['shippingRequiresConfirmation']) ? 'koszt do potwierdzenia' : e(number_format(((int)($item['shippingLineCents'] ?? 0)) / 100, 2, ',', ' ') . ' zł') ?></small></td>
                       </tr>
                     <?php endforeach; ?>
                   </tbody>

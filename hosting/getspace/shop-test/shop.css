@@ -538,6 +538,27 @@ main {
 
 .cart-row strong { color: var(--green-900); }
 
+.cart-row-delivery { align-items: flex-start; }
+
+.item-delivery {
+  display: grid;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.item-delivery label {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 8px;
+  align-items: start;
+  padding: 9px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: #fff;
+}
+
+.item-delivery small { color: var(--muted); }
+
 .qty {
   display: inline-flex;
   align-items: center;

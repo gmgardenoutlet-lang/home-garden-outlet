@@ -130,6 +130,6 @@ $details = $product ? array_filter([
 
   <?php shop_test_footer(); ?>
   <script>window.HGO_SHOP_SALES_ENABLED = <?= shop_sales_enabled() ? 'true' : 'false' ?>; window.HGO_SHOP_PRODUCTS = <?= json_encode($publicProducts, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_HEX_TAG) ?>;</script>
-  <script src="/sklep/shop.js?v=20260809-delivery1"></script>
+  <script src="/sklep/shop.js?v=20260809-delivery-per-item1"></script>
 </body>
 </html>

@@ -64,6 +64,22 @@ save_shipping_profiles([
         'active' => true,
         'sortOrder' => 20,
     ],
+    [
+        'id' => 'kurier-sredni',
+        'name' => 'Kurier średni',
+        'customerName' => 'Kurier średni',
+        'price' => 35.00,
+        'active' => true,
+        'sortOrder' => 30,
+    ],
+    [
+        'id' => 'odbior-osobisty',
+        'name' => 'Odbiór osobisty',
+        'customerName' => 'Odbiór osobisty',
+        'price' => 0.00,
+        'active' => true,
+        'sortOrder' => 40,
+    ],
 ]);
 
 // Fixture keeps this test independent from the editable production catalog.
@@ -84,6 +100,7 @@ $secondProduct = array_merge($product, [
     'slug' => 'figura-testowa-druga',
     'name' => 'Druga figura testowa',
     'grossPrice' => '100,01',
+    'shippingProfileIds' => ['kurier-sredni'],
 ]);
 $products = [
     (string)$product['_shopSlug'] => $product,
@@ -94,17 +111,28 @@ test_assert(shop_test_delivery_methods($product) !== [], 'Fixture nie ma dostęp
 
 $slug = (string)$product['_shopSlug'];
 $payload = json_encode([
-    'delivery' => 'kurier-standardowy',
     'shippingCost' => 0.01,
     'items' => [[
         'slug' => $slug,
         'quantity' => 1,
+        'shippingProfileId' => 'kurier-standardowy',
         'price' => 0.01,
         'name' => 'Zmodyfikowana nazwa klienta',
     ]],
 ]);
 $cart = shop_test_decode_cart((string)$payload, $products);
-test_assert($cart['delivery'] === 'kurier-standardowy' && !isset($cart['shippingCost']), 'Koszt dostawy z przeglądarki nie został odrzucony.');
+test_assert($cart['items'][0]['shippingProfileId'] === 'kurier-standardowy' && !isset($cart['shippingCost']), 'Koszt dostawy z przeglądarki nie został odrzucony.');
+$itemShipping = shop_test_resolve_item_delivery($cart['items'][0]);
+test_assert($itemShipping['shippingLineCents'] === 2499, 'Dostawa pozycji nie została policzona z profilu serwera.');
+
+$perItemCart = shop_test_decode_cart((string)json_encode(['items' => [
+    ['slug' => $slug, 'quantity' => 1, 'shippingProfileId' => 'kurier-standardowy'],
+    ['slug' => $secondProduct['_shopSlug'], 'quantity' => 1, 'shippingProfileId' => 'kurier-sredni'],
+]]), $products);
+$perItemShipping = array_map('shop_test_resolve_item_delivery', $perItemCart['items']);
+test_assert(array_sum(array_map(static fn(array $shipping): int => (int)$shipping['shippingLineCents'], $perItemShipping)) === 5999, 'Różne profile dostawy nie sumują się per produkt.');
+$quantityShipping = shop_test_resolve_item_delivery(array_merge($cart['items'][0], ['quantity' => 2]));
+test_assert($quantityShipping['shippingLineCents'] === 4998, 'Koszt dostawy nie mnoży się przez quantity.');
 $expectedPrice = shop_test_price_number($product['grossPrice'] ?? '');
 test_assert($cart['items'][0]['price'] === $expectedPrice, 'Cena z payloadu klienta nie została zignorowana.');
 test_assert($cart['items'][0]['lineTotalCents'] === shop_test_price_cents($expectedPrice), 'Nieprawidłowa suma pozycji w groszach.');

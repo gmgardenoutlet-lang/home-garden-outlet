@@ -45,6 +45,6 @@ frontend_assert(str_contains($checkout, 'data-delivery-options'), 'Checkout nie 
 frontend_assert(str_contains($javascript, 'deliverySelected'), 'Frontend nie wymaga świadomego wyboru dostawy.');
 frontend_assert(str_contains($javascript, 'Koszt wymaga indywidualnego potwierdzenia'), 'Frontend nie komunikuje wyceny indywidualnej.');
 frontend_assert(str_contains($javascript, 'data-products-total') && str_contains($javascript, 'data-delivery-total'), 'Frontend nie rozbija podsumowania na produkty i dostawę.');
-frontend_assert(str_contains($order, "\$deliveryKey = \$cart['delivery'];"), 'Backend nadal wybiera dostawę domyślnie.');
+frontend_assert(str_contains($order, 'shop_test_resolve_item_delivery'), 'Backend nie rozlicza dostawy per pozycja.');
 
 echo 'PASS: shop frontend ' . ($expectedSales ? 'enabled' : 'disabled') . " tests\n";

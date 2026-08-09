@@ -140,9 +140,9 @@
   const readCart = () => {
     try {
       const value = JSON.parse(localStorage.getItem(storageKey) || "{}");
-      return Array.isArray(value.items) ? value : { items: [], delivery: "", deliverySelected: false };
+      return Array.isArray(value.items) ? value : { items: [] };
     } catch (error) {
-      return { items: [], delivery: "", deliverySelected: false };
+      return { items: [] };
     }
   };
 
@@ -150,14 +150,14 @@
     const cart = readCart();
     const items = cart.items
       .filter((item) => bySlug.has(item.slug))
-      .map((item) => ({ slug: item.slug, quantity: Math.max(1, Math.min(20, Number(item.quantity) || 1)) }));
-    return { items, delivery: cart.delivery || "", deliverySelected: cart.deliverySelected === true };
+      .map((item) => ({ slug: item.slug, quantity: Math.max(1, Math.min(20, Number(item.quantity) || 1)), shippingProfileId: item.shippingProfileId || "" }));
+    return { items };
   };
 
   const saveCart = (cart) => {
     if (!salesEnabled) return;
     localStorage.setItem(storageKey, JSON.stringify(cart));
-    render();
+    renderPerItemCart();
   };
 
   const commonDelivery = (items) => {
@@ -198,8 +198,10 @@
     return Number(method.costNumber) === 0 ? "Bezpłatnie" : formatter.format(Number(method.costNumber));
   };
 
-  const setCheckoutAvailability = (cart, deliveryMethods) => {
-    const hasDelivery = cart.deliverySelected && deliveryMethods.some((method) => method.method === cart.delivery);
+  const itemDeliveryMethods = (item) => Array.isArray(bySlug.get(item.slug)?.deliveryMethods) ? bySlug.get(item.slug).deliveryMethods : [];
+
+  const setCheckoutAvailability = (cart) => {
+    const hasDelivery = cart.items.every((item) => itemDeliveryMethods(item).some((method) => method.method === item.shippingProfileId));
     const canContinue = cart.items.length > 0 && hasDelivery;
     if (checkoutLink) {
       checkoutLink.classList.toggle("is-disabled", !canContinue);
@@ -320,6 +322,77 @@
     if (cartPayload) cartPayload.value = JSON.stringify(cart);
   };
 
+  const renderPerItemCart = () => {
+    const cart = cartWithValidItems();
+    let changed = false;
+    cart.items.forEach((item) => {
+      const methods = itemDeliveryMethods(item);
+      if (!methods.some((method) => method.method === item.shippingProfileId)) {
+        item.shippingProfileId = methods.length === 1 ? methods[0].method : "";
+        changed = true;
+      }
+    });
+    if (changed) localStorage.setItem(storageKey, JSON.stringify(cart));
+    updateCount(cart);
+    if (!cartItems || !cartTotal) return;
+    if (deliveryBox) {
+      const section = deliveryBox.closest('.checkout-step');
+      if (section) section.hidden = true;
+    }
+    cartItems.innerHTML = "";
+    const isEmpty = cart.items.length === 0;
+    if (emptyActions) emptyActions.hidden = !isEmpty;
+    if (isEmpty) {
+      if (!emptyActions) cartItems.innerHTML = "<p>Twój koszyk jest pusty.</p>";
+      if (productsTotal) productsTotal.textContent = formatter.format(0);
+      if (deliveryTotal) deliveryTotal.textContent = "—";
+      if (cartTotalLabel) cartTotalLabel.textContent = "Razem";
+      cartTotal.textContent = formatter.format(0);
+      setCheckoutAvailability(cart);
+      if (cartPayload) cartPayload.value = JSON.stringify(cart);
+      return;
+    }
+
+    let productTotal = 0;
+    let shippingTotal = 0;
+    let quoteRequired = false;
+    cart.items.forEach((item) => {
+      const product = bySlug.get(item.slug);
+      const price = Number(product.price) || 0;
+      const methods = itemDeliveryMethods(item);
+      const selected = methods.find((method) => method.method === item.shippingProfileId);
+      productTotal += price * item.quantity;
+      if (selected && !deliveryRequiresConfirmation(selected)) shippingTotal += (Number(selected.costNumber) || 0) * item.quantity;
+      if (selected && deliveryRequiresConfirmation(selected)) quoteRequired = true;
+      const options = methods.map((method) => {
+        const inputId = `item-delivery-${item.slug}-${method.method}`;
+        return `<label><input type="radio" name="item_delivery_${escapeAttr(item.slug)}" value="${escapeAttr(method.method)}" data-item-shipping="${escapeAttr(item.slug)}"${item.shippingProfileId === method.method ? " checked" : ""}> <span><strong>${escapeHtml(method.label)}</strong> — ${escapeHtml(deliveryCostLabel(method))}</span></label>`;
+      }).join("");
+      const selectedText = selected ? `${escapeHtml(selected.label)}: ${escapeHtml(deliveryCostLabel(selected))}` : "Wybierz sposób dostawy";
+      const lineShipping = selected && !deliveryRequiresConfirmation(selected) ? formatter.format((Number(selected.costNumber) || 0) * item.quantity) : "Koszt do potwierdzenia";
+      const row = document.createElement("div");
+      row.className = "cart-row cart-row-delivery";
+      row.innerHTML = `
+        <img src="${escapeAttr(product.image)}" alt="" width="82" height="82">
+        <div class="cart-row-main"><strong>${escapeHtml(product.name)}</strong><br><span>${formatter.format(price)} / szt.</span><div class="item-delivery"><strong>Sposób dostawy</strong>${options}<small>${selectedText}${selected ? ` · ${item.quantity} × ${lineShipping}` : ""}</small></div></div>
+        <div class="qty"><button type="button" data-cart-minus="${escapeAttr(item.slug)}">-</button><span>${item.quantity}</span><button type="button" data-cart-plus="${escapeAttr(item.slug)}">+</button></div>
+        <button type="button" class="cart-clear" data-cart-remove="${escapeAttr(item.slug)}">Usuń</button>
+      `;
+      cartItems.appendChild(row);
+    });
+    if (productsTotal) productsTotal.textContent = formatter.format(productTotal);
+    if (deliveryTotal) deliveryTotal.textContent = quoteRequired ? "Koszt wymaga indywidualnego potwierdzenia" : formatter.format(shippingTotal);
+    if (quoteRequired) {
+      if (cartTotalLabel) cartTotalLabel.textContent = "Pełna kwota po potwierdzeniu dostawy";
+      cartTotal.textContent = "—";
+    } else {
+      if (cartTotalLabel) cartTotalLabel.textContent = "Razem";
+      cartTotal.textContent = formatter.format(productTotal + shippingTotal);
+    }
+    setCheckoutAvailability(cart);
+    if (cartPayload) cartPayload.value = JSON.stringify(cart);
+  };
+
   const parsePrice = (value) => {
     const normalized = String(value || "").replace(/\s/g, "").replace(",", ".");
     const match = normalized.match(/\d+(?:\.\d+)?/);
@@ -407,7 +480,7 @@
       const cart = cartWithValidItems();
       const existing = cart.items.find((item) => item.slug === addSlug);
       if (existing) existing.quantity = Math.min(20, existing.quantity + 1);
-      else cart.items.push({ slug: addSlug, quantity: 1 });
+      else cart.items.push({ slug: addSlug, quantity: 1, shippingProfileId: "" });
       saveCart(cart);
       showToast(product);
       if (!cartToast && addButton) {
@@ -441,7 +514,7 @@
     }
 
     if (salesEnabled && target.matches("[data-cart-clear]")) {
-      saveCart({ items: [], delivery: "", deliverySelected: false });
+      saveCart({ items: [] });
     }
   });
 
@@ -477,10 +550,10 @@
       sortProductCards();
       return;
     }
-    if (target instanceof HTMLInputElement && target.name === "cart_delivery") {
+    if (target instanceof HTMLInputElement && target.matches("[data-item-shipping]")) {
       const cart = cartWithValidItems();
-      cart.delivery = target.value;
-      cart.deliverySelected = true;
+      const item = cart.items.find((row) => row.slug === target.dataset.itemShipping);
+      if (item) item.shippingProfileId = target.value;
       saveCart(cart);
       return;
     }
@@ -497,10 +570,9 @@
         alert("Twój koszyk jest pusty.");
         return;
       }
-      const deliveryMethods = commonDelivery(cart.items);
-      if (!cart.deliverySelected || !deliveryMethods.some((method) => method.method === cart.delivery)) {
+      if (!cart.items.every((item) => itemDeliveryMethods(item).some((method) => method.method === item.shippingProfileId))) {
         event.preventDefault();
-        alert("Wybierz sposób dostawy przed złożeniem zamówienia.");
+        alert("Wybierz sposób dostawy dla każdego produktu przed złożeniem zamówienia.");
         return;
       }
       const terms = form.querySelector("[data-terms-checkbox]");
@@ -531,5 +603,5 @@
   if (!salesEnabled) {
     try { localStorage.removeItem(storageKey); } catch (error) {}
   }
-  render();
+  renderPerItemCart();
 })();
