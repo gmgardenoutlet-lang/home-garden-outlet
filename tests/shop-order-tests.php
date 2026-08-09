@@ -94,6 +94,8 @@ test_assert(shop_test_delivery_methods($product) !== [], 'Fixture nie ma dostęp
 
 $slug = (string)$product['_shopSlug'];
 $payload = json_encode([
+    'delivery' => 'kurier-standardowy',
+    'shippingCost' => 0.01,
     'items' => [[
         'slug' => $slug,
         'quantity' => 1,
@@ -102,6 +104,7 @@ $payload = json_encode([
     ]],
 ]);
 $cart = shop_test_decode_cart((string)$payload, $products);
+test_assert($cart['delivery'] === 'kurier-standardowy' && !isset($cart['shippingCost']), 'Koszt dostawy z przeglądarki nie został odrzucony.');
 $expectedPrice = shop_test_price_number($product['grossPrice'] ?? '');
 test_assert($cart['items'][0]['price'] === $expectedPrice, 'Cena z payloadu klienta nie została zignorowana.');
 test_assert($cart['items'][0]['lineTotalCents'] === shop_test_price_cents($expectedPrice), 'Nieprawidłowa suma pozycji w groszach.');
