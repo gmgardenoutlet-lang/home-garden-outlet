@@ -57,7 +57,16 @@ $product = array_merge(product_defaults(), [
     'grossPrice' => '199,99',
     'shippingProfileIds' => ['kurier-standardowy'],
 ]);
-$products = [(string)$product['_shopSlug'] => $product];
+$secondProduct = array_merge($product, [
+    '_shopSlug' => 'figura-testowa-druga',
+    'slug' => 'figura-testowa-druga',
+    'name' => 'Druga figura testowa',
+    'grossPrice' => '100,01',
+]);
+$products = [
+    (string)$product['_shopSlug'] => $product,
+    (string)$secondProduct['_shopSlug'] => $secondProduct,
+];
 test_assert(shop_test_is_figure($product), 'Fixture produktu nie kwalifikuje się do sprzedaży.');
 test_assert(shop_test_delivery_methods($product) !== [], 'Fixture nie ma dostępnej metody dostawy.');
 
@@ -74,6 +83,15 @@ $cart = shop_test_decode_cart((string)$payload, $products);
 $expectedPrice = shop_test_price_number($product['grossPrice'] ?? '');
 test_assert($cart['items'][0]['price'] === $expectedPrice, 'Cena z payloadu klienta nie została zignorowana.');
 test_assert($cart['items'][0]['lineTotalCents'] === shop_test_price_cents($expectedPrice), 'Nieprawidłowa suma pozycji w groszach.');
+
+$multiCart = shop_test_decode_cart((string)json_encode(['items' => [
+    ['slug' => $slug, 'quantity' => 2],
+    ['slug' => $secondProduct['_shopSlug'], 'quantity' => 3],
+]]), $products);
+$multiItemsCents = array_sum(array_map(static fn(array $item): int => (int)$item['lineTotalCents'], $multiCart['items']));
+test_assert($multiCart['items'][0]['lineTotalCents'] === 39998, 'Błędna suma pierwszej pozycji koszyka wielopozycyjnego.');
+test_assert($multiCart['items'][1]['lineTotalCents'] === 30003, 'Błędna suma drugiej pozycji koszyka wielopozycyjnego.');
+test_assert($multiItemsCents === 70001, 'Błędna suma pozycji koszyka wielopozycyjnego.');
 
 foreach ([0, -1, 1.5, 'abc', 21, '999999999'] as $quantity) {
     test_throws(static function () use ($slug, $quantity, $products): void {
