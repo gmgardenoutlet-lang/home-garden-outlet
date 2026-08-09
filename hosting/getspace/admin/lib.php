@@ -591,9 +591,14 @@ function stats_location_row(array $row, array $fields): array
     return $result;
 }
 
+function stats_is_lower_silesia(string $countryCode, string $regionCode): bool
+{
+    return $countryCode === 'PL' && in_array(strtoupper($regionCode), ['DS', '02'], true);
+}
+
 function stats_location_display_region(string $countryCode, string $regionCode, string $name): string
 {
-    if ($countryCode === 'PL' && $regionCode === 'DS') {
+    if (stats_is_lower_silesia($countryCode, $regionCode)) {
         return 'Dolnośląskie';
     }
     return $name !== '' ? $name : 'Nieznana lokalizacja';
@@ -601,7 +606,7 @@ function stats_location_display_region(string $countryCode, string $regionCode, 
 
 function stats_location_display_city(string $countryCode, string $regionCode, string $name): string
 {
-    if ($countryCode === 'PL' && $regionCode === 'DS' && geoip_safe_key($name) === 'wroclaw') {
+    if (stats_is_lower_silesia($countryCode, $regionCode) && geoip_safe_key($name) === 'wroclaw') {
         return 'Wrocław';
     }
     return $name !== '' ? $name : 'Nieznana lokalizacja';
@@ -622,13 +627,12 @@ function stats_local_breakdown(array $countries, array $regions, array $cities):
         }
     }
     foreach ($regions as $row) {
-        if (($row['country_code'] ?? '') === 'PL' && strtoupper((string)($row['code'] ?? '')) === 'DS') {
+        if (stats_is_lower_silesia((string)($row['country_code'] ?? ''), (string)($row['code'] ?? ''))) {
             $lowerSilesiaTotal += safe_stat_int($row['count'] ?? 0);
         }
     }
     foreach ($cities as $row) {
-        if (($row['country_code'] ?? '') === 'PL'
-            && strtoupper((string)($row['region_code'] ?? '')) === 'DS'
+        if (stats_is_lower_silesia((string)($row['country_code'] ?? ''), (string)($row['region_code'] ?? ''))
             && geoip_safe_key((string)($row['name'] ?? '')) === 'wroclaw') {
             $wroclaw += safe_stat_int($row['count'] ?? 0);
         }
