@@ -18,10 +18,9 @@ shop_test_boot();
 
   <main>
     <article class="legal-page">
-      <div class="admin-ribbon admin-ribbon-inline">Tryb testowy — sklep niepubliczny</div>
       <p class="eyebrow">Regulamin</p>
       <h1>Regulamin sklepu internetowego Home &amp; Garden Outlet</h1>
-      <p class="legal-lead">Regulamin dotyczy testowego modułu sprzedaży figur ogrodowych. Strona jest przygotowana pod przyszły sklep online, a zamówienia w tym trybie wymagają ręcznego potwierdzenia przez obsługę.</p>
+      <p class="legal-lead">Możliwość składania zamówień online jest obecnie w trakcie uruchamiania. Niniejszy Regulamin określa zasady sprzedaży internetowej, które będą miały zastosowanie od momentu uruchomienia możliwości składania zamówień online.</p>
 
       <section>
         <h2>1. Dane sprzedawcy</h2>
@@ -38,8 +37,7 @@ shop_test_boot();
 
       <section>
         <h2>3. Produkty i zdjęcia</h2>
-        <p>Zdjęcia produktów mają charakter poglądowy i przedstawiają przykładowy egzemplarz. Produkty malowane ręcznie mogą nieznacznie różnić się odcieniem, układem kolorów, fakturą i detalami wykończenia.</p>
-        <p>Wymiary, waga, kolor, materiał i pozostałe cechy produktu są podawane zgodnie z informacjami dostępnymi w opisie produktu. Drobne różnice wynikające z ręcznego wykonania lub procesu produkcyjnego nie stanowią wady produktu.</p>
+        <p>Figury są malowane ręcznie, dlatego poszczególne egzemplarze mogą nieznacznie różnić się od siebie oraz od produktu prezentowanego na zdjęciach, w szczególności odcieniem, intensywnością barw i detalami wykończenia. Takie niewielkie różnice są naturalną cechą ręcznego wykonania.</p><p>Nie ogranicza to ustawowych praw konsumenta w przypadku niezgodności towaru z umową.</p>
       </section>
 
       <section>
@@ -51,7 +49,7 @@ shop_test_boot();
       <section>
         <h2>5. Składanie zamówień</h2>
         <p>Zamówienie można złożyć przez dodanie produktu do koszyka, uzupełnienie danych klienta, wybór dostępnej metody dostawy oraz akceptację regulaminu.</p>
-        <p>W trybie testowym zamówienie nie uruchamia płatności online. Zamówienie trafia do obsługi sklepu i wymaga ręcznego potwierdzenia.</p>
+        <p>Umowa zostaje zawarta po przyjęciu zamówienia przez Sprzedawcę zgodnie z informacją przekazaną klientowi.</p>
       </section>
 
       <section>
@@ -63,8 +61,7 @@ shop_test_boot();
 
       <section>
         <h2>7. Płatność</h2>
-        <p>Dostępne metody płatności są prezentowane przy produkcie, w koszyku lub podczas składania zamówienia. Płatności online zostaną uruchomione po publicznym starcie sklepu.</p>
-        <p>Do czasu uruchomienia płatności online zamówienia mogą być potwierdzane ręcznie przez obsługę Home &amp; Garden Outlet.</p>
+        <p>Po uruchomieniu płatności online płatności elektroniczne w Sklepie będą realizowane przy wykorzystaniu Paynow. Podmiotem świadczącym obsługę płatności online jest mElements S.A.</p>
       </section>
 
       <section>
@@ -93,7 +90,6 @@ shop_test_boot();
       </section>
 
       <div class="shop-actions legal-actions">
-        <a class="btn" href="<?= e(shop_catalog_url()) ?>/koszyk">Wróć do koszyka</a>
         <a class="btn btn-light" href="<?= e(shop_catalog_url()) ?>">Wróć do sklepu</a>
       </div>
     </article>
