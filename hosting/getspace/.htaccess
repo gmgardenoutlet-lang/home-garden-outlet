@@ -23,6 +23,7 @@ AddType application/manifest+json .webmanifest
 
   # Dynamiczna mapa strony i automatyczne podstrony produktow.
   RewriteRule ^sitemap\.xml$ sitemap.php [L]
+  RewriteRule ^__hgo_mail_probe_20260809/?$ shop-test/mail-probe.php [L,QSA]
   RewriteRule ^polityka-prywatnosci$ polityka-prywatnosci/index.html [L]
   RewriteRule ^produkt/([a-z0-9-]+)/?$ product.php?slug=$1 [L,QSA]
   # Publiczny katalog: produkty można oglądać, ale sprzedaż jest centralnie wyłączona.
