@@ -44,6 +44,7 @@ jobs:
         run: |
           find hosting/getspace -name "*.php" -print0 | xargs -0 -n1 php -l
           HGO_STORAGE_DIR="$(mktemp -d)" HGO_SHOP_SALES_ENABLED=true php tests/shop-order-tests.php
+          HGO_SHOP_SALES_ENABLED=true php tests/paynow-v3-tests.php
 
       - name: Przygotuj paczkę Getspace
         run: node scripts/build-getspace.mjs

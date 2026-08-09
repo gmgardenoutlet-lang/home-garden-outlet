@@ -1,0 +1,137 @@
+<?php
+declare(strict_types=1);
+
+/* Small Paynow API V3 helper. Secrets are environment-only (see config.php). */
+
+function paynow_environment(): string
+{
+    if (!in_array(PAYNOW_ENV, ['sandbox', 'production'], true)) {
+        throw new RuntimeException('Nieprawidłowe środowisko Paynow.');
+    }
+    return PAYNOW_ENV;
+}
+
+function paynow_base_url(): string
+{
+    return paynow_environment() === 'sandbox' ? 'https://api.sandbox.paynow.pl' : 'https://api.paynow.pl';
+}
+
+function paynow_is_enabled(): bool
+{
+    return PAYNOW_ENABLED && PAYNOW_API_KEY !== '' && PAYNOW_SIGNATURE_KEY !== '';
+}
+
+function paynow_sorted_parameters(array $parameters): array
+{
+    ksort($parameters, SORT_STRING);
+    return $parameters;
+}
+
+function paynow_request_signature(string $apiKey, string $signatureKey, string $idempotencyKey, string $body, array $parameters = []): string
+{
+    $payload = json_encode([
+        'headers' => ['Api-Key' => $apiKey, 'Idempotency-Key' => $idempotencyKey],
+        'parameters' => (object)paynow_sorted_parameters($parameters),
+        'body' => $body,
+    ], JSON_UNESCAPED_SLASHES);
+    if ($payload === false) {
+        throw new RuntimeException('Nie udało się przygotować podpisu Paynow.');
+    }
+    return base64_encode(hash_hmac('sha256', $payload, $signatureKey, true));
+}
+
+function paynow_notification_signature(string $rawBody, string $signatureKey): string
+{
+    return base64_encode(hash_hmac('sha256', $rawBody, $signatureKey, true));
+}
+
+function paynow_verify_notification_signature(string $rawBody, string $signature): bool
+{
+    return $signature !== '' && hash_equals(paynow_notification_signature($rawBody, PAYNOW_SIGNATURE_KEY), trim($signature));
+}
+
+function paynow_idempotency_key(array $order): string
+{
+    $stored = trim((string)($order['paynowIdempotencyKey'] ?? ''));
+    if ($stored !== '') {
+        return $stored;
+    }
+    // 36 characters, below Paynow's documented 45-character limit.
+    return bin2hex(random_bytes(18));
+}
+
+function paynow_external_id(array $order): string
+{
+    $id = trim((string)($order['orderId'] ?? $order['order_id'] ?? ''));
+    if ($id === '' || !preg_match('/^HGO-[0-9]{8}-(?:[0-9]{4}|[a-f0-9]{12})$/', $id)) {
+        throw new RuntimeException('Nieprawidłowy identyfikator zamówienia do płatności.');
+    }
+    return $id;
+}
+
+function paynow_payment_allowed(array $order): void
+{
+    shop_test_require_sales();
+    if (!paynow_is_enabled()) {
+        throw new RuntimeException('Płatności Paynow nie są skonfigurowane.');
+    }
+    if (($order['status'] ?? '') === 'cancelled' || ($order['orderStatus'] ?? '') === 'cancelled') {
+        throw new RuntimeException('Nie można opłacić anulowanego zamówienia.');
+    }
+    if (strtolower((string)($order['paymentStatus'] ?? '')) === 'confirmed' || in_array(($order['status'] ?? ''), ['paid', 'processing', 'shipped', 'completed'], true)) {
+        throw new RuntimeException('Zamówienie jest już opłacone.');
+    }
+    if (($order['delivery']['pricingType'] ?? '') !== 'fixed_price' || !isset($order['totalCents']) || (int)$order['totalCents'] <= 0) {
+        throw new RuntimeException('Płatność online jest dostępna wyłącznie dla dostawy ze znanym kosztem.');
+    }
+}
+
+function paynow_payment_payload(array $order): array
+{
+    if (($order['delivery']['pricingType'] ?? '') !== 'fixed_price' || (int)($order['totalCents'] ?? 0) <= 0) {
+        throw new RuntimeException('Płatność online jest dostępna wyłącznie dla dostawy ze znanym kosztem.');
+    }
+    $customer = (array)($order['customer'] ?? []);
+    $address = (array)($order['deliveryAddress'] ?? []);
+    $buyer = ['email' => (string)($customer['email'] ?? '')];
+    foreach (['firstName' => 'firstName', 'lastName' => 'lastName', 'phone' => 'phone'] as $target => $source) {
+        if (!empty($customer[$source])) $buyer[$target] = (string)$customer[$source];
+    }
+    if ($address) {
+        $buyer['address'] = ['shipping' => [
+            'street' => (string)($address['street'] ?? ''), 'zipcode' => (string)($address['postalCode'] ?? ''),
+            'city' => (string)($address['city'] ?? ''), 'country' => (string)($address['country'] ?? 'PL'),
+        ]];
+    }
+    $items = [];
+    foreach ((array)($order['items'] ?? []) as $item) {
+        $items[] = ['name' => (string)($item['name'] ?? $item['productId']), 'category' => 'Garden', 'quantity' => (int)$item['quantity'], 'price' => (int)$item['unitPriceCents']];
+    }
+    return ['amount' => (int)$order['totalCents'], 'currency' => 'PLN', 'externalId' => paynow_external_id($order),
+        'description' => 'Zamówienie ' . paynow_external_id($order), 'buyer' => $buyer, 'orderItems' => $items];
+}
+
+function paynow_status_mapping(string $status): array
+{
+    return match (strtoupper($status)) {
+        'NEW', 'PENDING' => ['orderStatus' => 'awaiting_payment', 'paymentStatus' => 'awaiting_payment', 'terminal' => false],
+        'CONFIRMED' => ['orderStatus' => 'paid', 'paymentStatus' => 'confirmed', 'terminal' => true],
+        'REJECTED', 'ERROR', 'EXPIRED' => ['orderStatus' => 'payment_failed', 'paymentStatus' => strtolower($status), 'terminal' => true],
+        'ABANDONED' => ['orderStatus' => 'awaiting_payment', 'paymentStatus' => 'abandoned', 'terminal' => false],
+        default => throw new RuntimeException('Nieznany status Paynow.'),
+    };
+}
+
+function paynow_apply_status(array $order, string $paymentId, string $externalId, string $status, string $modifiedAt = ''): array
+{
+    if (!hash_equals(paynow_external_id($order), $externalId) || !hash_equals((string)($order['paymentId'] ?? ''), $paymentId)) {
+        throw new RuntimeException('Powiadomienie nie pasuje do zamówienia.');
+    }
+    if (($order['paymentStatus'] ?? '') === 'confirmed') return $order; // terminal success: out-of-order events are no-op
+    $mapped = paynow_status_mapping($status);
+    $order['paymentProvider'] = 'paynow';
+    $order['paymentStatus'] = $mapped['paymentStatus'];
+    $order['status'] = $order['orderStatus'] = $mapped['orderStatus'];
+    $order['paymentModifiedAt'] = $modifiedAt !== '' ? $modifiedAt : (new DateTimeImmutable('now', new DateTimeZone(STATS_TIMEZONE)))->format(DATE_ATOM);
+    return $order;
+}
