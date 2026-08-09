@@ -13,9 +13,7 @@ try {
         throw new RuntimeException('Zamówienie można złożyć tylko formularzem sklepu testowego.');
     }
     require_csrf();
-    if (empty($_POST['terms'])) {
-        throw new RuntimeException('Aby złożyć zamówienie, zaakceptuj Regulamin sklepu.');
-    }
+    shop_test_require_terms();
 
     $products = shop_test_product_map();
     $cart = shop_test_decode_cart((string)($_POST['cart_payload'] ?? ''), $products);
@@ -25,74 +23,71 @@ try {
         throw new RuntimeException('Wybrana metoda dostawy nie pasuje do produktów w koszyku.');
     }
 
-    $productTotal = 0.0;
+    $productTotalCents = 0;
     $items = [];
     foreach ($cart['items'] as $row) {
         $product = $row['product'];
-        $productTotal += $row['lineTotal'];
+        $productTotalCents += (int)$row['lineTotalCents'];
         $items[] = [
-            'slug' => $row['slug'],
+            'productId' => $row['slug'],
             'name' => (string)($product['name'] ?? $row['slug']),
             'sku' => (string)($product['sku'] ?? ''),
             'quantity' => $row['quantity'],
-            'price' => $row['price'],
-            'lineTotal' => $row['lineTotal'],
+            'unitPrice' => shop_test_cents_to_price((int)$row['priceCents']),
+            'unitPriceCents' => (int)$row['priceCents'],
+            'lineTotal' => shop_test_cents_to_price((int)$row['lineTotalCents']),
+            'lineTotalCents' => (int)$row['lineTotalCents'],
+            'currency' => 'PLN',
         ];
     }
 
     $delivery = $deliveryMethods[$deliveryKey];
     $deliveryCost = $delivery['costNumber'];
-    $total = $deliveryCost === null ? $productTotal : $productTotal + $deliveryCost;
-    $orderId = shop_next_order_id();
+    $deliveryCostCents = $deliveryCost === null ? null : shop_test_price_cents((float)$deliveryCost);
+    $totalCents = $productTotalCents + ($deliveryCostCents ?? 0);
+    $quoteRequired = ($delivery['pricingType'] ?? '') === 'quote_required' || $deliveryCostCents === null;
     $now = (new DateTimeImmutable('now', new DateTimeZone(STATS_TIMEZONE)))->format(DATE_ATOM);
+    $customerData = shop_test_customer_from_post();
 
     $order = [
-        'orderId' => $orderId,
+        'orderId' => '',
         'createdAt' => $now,
         'updatedAt' => $now,
-        'testMode' => true,
-        'customer' => [
-            'name' => shop_test_text_field('customer_name', 120),
-            'email' => shop_test_text_field('customer_email', 160),
-            'phone' => shop_test_text_field('customer_phone', 60),
-            'address' => shop_test_text_field('customer_address', 180),
-            'postalCode' => shop_test_text_field('customer_postal', 20),
-            'city' => shop_test_text_field('customer_city', 120),
-            'notes' => shop_test_text_field('customer_notes', 800),
-        ],
+        'status' => $quoteRequired ? 'awaiting_shipping_quote' : 'new',
+        'orderStatus' => $quoteRequired ? 'awaiting_shipping_quote' : 'new',
+        'customer' => $customerData['customer'],
+        'deliveryAddress' => $customerData['deliveryAddress'],
+        'invoice' => $customerData['invoice'],
+        'customerNote' => $customerData['customerNote'],
         'items' => $items,
-        'productsTotal' => round($productTotal, 2),
+        'productsTotal' => shop_test_cents_to_price($productTotalCents),
+        'productsTotalCents' => $productTotalCents,
         'delivery' => [
             'method' => $delivery['method'],
             'profileId' => $delivery['profileId'] ?? $delivery['method'],
             'label' => $delivery['label'],
             'cost' => $deliveryCost,
+            'costCents' => $deliveryCostCents,
             'costLabel' => (string)($delivery['cost'] ?? ($deliveryCost === null ? 'do ustalenia' : shop_test_price_label($deliveryCost))),
             'requiresConfirmation' => !empty($delivery['requiresConfirmation']),
             'priceFrom' => !empty($delivery['priceFrom']),
             'doUstalenia' => $deliveryCost === null || !empty($delivery['requiresConfirmation']),
+            'pricingType' => $quoteRequired ? 'quote_required' : 'fixed_price',
         ],
         'deliveryCost' => $deliveryCost,
-        'total' => round($total, 2),
-        'paymentMethod' => 'Brak płatności online — test',
+        'deliveryCostCents' => $deliveryCostCents,
+        'total' => shop_test_cents_to_price($totalCents),
+        'totalCents' => $totalCents,
+        'currency' => 'PLN',
+        'paymentMethod' => '',
         'paymentProvider' => '',
         'paymentId' => '',
-        'paymentStatus' => 'Testowe bez płatności',
-        'orderStatus' => 'Testowe',
+        'paymentStatus' => 'not_started',
         'internalNote' => '',
     ];
 
-    foreach (['name', 'email', 'phone', 'address', 'postalCode', 'city'] as $required) {
-        if (trim((string)$order['customer'][$required]) === '') {
-            throw new RuntimeException('Uzupełnij wszystkie wymagane dane klienta.');
-        }
-    }
-    if (!filter_var($order['customer']['email'], FILTER_VALIDATE_EMAIL)) {
-        throw new RuntimeException('Podaj poprawny adres e-mail.');
-    }
-
-    shop_save_order($order);
-    header('Location: /sklep-test/figury-ogrodowe/potwierdzenie?id=' . rawurlencode($orderId), true, 303);
+    $order = shop_create_order($order);
+    header('Location: ' . shop_catalog_url() . '/potwierdzenie?id=' . rawurlencode((string)$order['orderId']), true, 303);
     exit;
 } catch (Throwable $exception) {
     $error = $exception->getMessage();
@@ -115,8 +110,7 @@ try {
       <h1>Sprawdź koszyk</h1>
       <p><?= e($error !== '' ? $error : 'Wystąpił nieznany błąd.') ?></p>
       <div class="shop-actions">
-        <a class="btn" href="/sklep-test/figury-ogrodowe/koszyk">Wróć do koszyka</a>
-        <a class="btn btn-light" href="/sklep-test/figury-ogrodowe">Wróć do figur ogrodowych</a>
+        <a class="btn" href="<?= e(shop_catalog_url()) ?>">Wróć do figur ogrodowych</a>
       </div>
     </section>
   </main>

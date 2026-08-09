@@ -26,7 +26,6 @@ if (!$order) {
   <main class="order-result-page">
     <?php if ($order): ?>
       <section class="success-box confirmation-box">
-        <div class="admin-ribbon admin-ribbon-inline">Tryb testowy — sklep niepubliczny</div>
         <p class="eyebrow">Zamówienie zapisane</p>
         <h1>Dziękujemy za zamówienie</h1>
         <p>Zamówienie zostało zapisane. Obsługa Home &amp; Garden Outlet może je ręcznie potwierdzić przed uruchomieniem płatności online.</p>
@@ -38,7 +37,7 @@ if (!$order) {
           </section>
           <section>
             <h2>Płatność</h2>
-            <p><?= e($order['paymentStatus'] ?? 'Testowe bez płatności') ?></p>
+            <p><?= e($order['paymentStatus'] ?? 'not_started') ?></p>
           </section>
         </div>
 
@@ -48,7 +47,7 @@ if (!$order) {
             <?php foreach (($order['items'] ?? []) as $item): ?>
               <div class="confirmation-item">
                 <strong><?= e($item['name'] ?? '') ?></strong>
-                <span><?= e((string)($item['quantity'] ?? 1)) ?> szt. × <?= e(shop_test_price_label((float)($item['price'] ?? 0))) ?></span>
+                <span><?= e((string)($item['quantity'] ?? 1)) ?> szt. × <?= e(shop_test_price_label((float)($item['unitPrice'] ?? $item['price'] ?? 0))) ?></span>
                 <span><?= e(shop_test_price_label((float)($item['lineTotal'] ?? 0))) ?></span>
               </div>
             <?php endforeach; ?>
@@ -59,8 +58,9 @@ if (!$order) {
           <section>
             <h2>Dane klienta</h2>
             <?php $customer = is_array($order['customer'] ?? null) ? $order['customer'] : []; ?>
-            <p><?= e($customer['name'] ?? '') ?><br><?= e($customer['email'] ?? '') ?><br><?= e($customer['phone'] ?? '') ?></p>
-            <p><?= e($customer['address'] ?? '') ?><br><?= e(trim((string)($customer['postalCode'] ?? '') . ' ' . (string)($customer['city'] ?? ''))) ?></p>
+            <?php $address = is_array($order['deliveryAddress'] ?? null) ? $order['deliveryAddress'] : []; ?>
+            <p><?= e(trim((string)($customer['firstName'] ?? '') . ' ' . (string)($customer['lastName'] ?? ''))) ?><br><?= e($customer['email'] ?? '') ?><br><?= e($customer['phone'] ?? '') ?></p>
+            <p><?= e($address['street'] ?? '') ?><br><?= e(trim((string)($address['postalCode'] ?? '') . ' ' . (string)($address['city'] ?? ''))) ?><br><?= e($address['country'] ?? '') ?></p>
           </section>
           <section>
             <h2>Dostawa</h2>
@@ -71,8 +71,7 @@ if (!$order) {
         </div>
 
         <div class="shop-actions">
-          <a class="btn" href="/sklep-test/figury-ogrodowe">Wróć do sklepu</a>
-          <a class="btn btn-light" href="/sklep-test/figury-ogrodowe/koszyk">Koszyk</a>
+          <a class="btn" href="<?= e(shop_catalog_url()) ?>">Wróć do sklepu</a>
         </div>
       </section>
       <script>try { localStorage.removeItem("hgo-shop-test-cart"); } catch (error) {}</script>
@@ -82,7 +81,7 @@ if (!$order) {
         <h1>Nie udało się odczytać zamówienia</h1>
         <p>Nie udało się odczytać wskazanego zamówienia testowego.</p>
         <div class="shop-actions">
-          <a class="btn" href="/sklep-test/figury-ogrodowe">Wróć do sklepu</a>
+          <a class="btn" href="<?= e(shop_catalog_url()) ?>">Wróć do sklepu</a>
         </div>
       </section>
     <?php endif; ?>

@@ -127,6 +127,16 @@ function shop_test_price_label(?float $price): string
     return $price === null ? 'Zapytaj o cenę' : number_format($price, 2, ',', ' ') . ' zł';
 }
 
+function shop_test_price_cents(?float $price): ?int
+{
+    return $price === null ? null : (int)round($price * 100);
+}
+
+function shop_test_cents_to_price(int $cents): float
+{
+    return $cents / 100;
+}
+
 function shop_test_is_figure(array $product): bool
 {
     $merged = array_merge(product_defaults(), $product);
@@ -188,7 +198,11 @@ function shop_test_delivery_methods(array $product): array
         if (!isset($profiles[$profileId])) {
             continue;
         }
-        $methods[$profileId] = shipping_profile_public($profiles[$profileId]);
+        $method = shipping_profile_public($profiles[$profileId]);
+        $method['pricingType'] = $method['costNumber'] === null || !empty($method['requiresConfirmation'])
+            ? 'quote_required'
+            : 'fixed_price';
+        $methods[$profileId] = $method;
     }
 
     if (!$methods) {
@@ -204,6 +218,7 @@ function shop_test_delivery_methods(array $product): array
         if (empty($methods['dostawa-indywidualna']['cost'])) {
             $methods['dostawa-indywidualna']['cost'] = 'do ustalenia';
         }
+        $methods['dostawa-indywidualna']['pricingType'] = 'quote_required';
     }
 
     return $methods;
@@ -213,7 +228,9 @@ function shop_test_individual_delivery(): array
 {
     $profiles = shipping_profiles_by_id(false);
     if (isset($profiles['dostawa-indywidualna'])) {
-        return shipping_profile_public($profiles['dostawa-indywidualna']);
+        $method = shipping_profile_public($profiles['dostawa-indywidualna']);
+        $method['pricingType'] = 'quote_required';
+        return $method;
     }
     return [
         'method' => 'dostawa-indywidualna',
@@ -224,6 +241,7 @@ function shop_test_individual_delivery(): array
         'costNumber' => null,
         'priceFrom' => false,
         'requiresConfirmation' => true,
+        'pricingType' => 'quote_required',
         'description' => 'Skontaktujemy się po złożeniu zamówienia w celu potwierdzenia kosztu i sposobu transportu.',
     ];
 }
@@ -359,30 +377,43 @@ function shop_test_decode_cart(string $payload, array $products): array
         throw new RuntimeException('Nie udało się odczytać koszyka.');
     }
 
-    $items = [];
+    $itemsBySlug = [];
     foreach ($data['items'] as $row) {
         if (!is_array($row)) {
-            continue;
+            throw new RuntimeException('Koszyk zawiera nieprawidłową pozycję.');
         }
         $slug = clean_filename((string)($row['slug'] ?? ''));
-        $quantity = max(1, min(20, (int)($row['quantity'] ?? 1)));
+        $quantityRaw = $row['quantity'] ?? null;
+        if (!is_int($quantityRaw) && (!is_string($quantityRaw) || !preg_match('/^[1-9][0-9]*$/', $quantityRaw))) {
+            throw new RuntimeException('Ilość produktu musi być dodatnią liczbą całkowitą.');
+        }
+        $quantity = (int)$quantityRaw;
+        if ($quantity < 1 || $quantity > 20) {
+            throw new RuntimeException('Jednorazowo można zamówić od 1 do 20 sztuk produktu.');
+        }
         if ($slug === '' || !isset($products[$slug])) {
-            continue;
+            throw new RuntimeException('Wybrany produkt nie jest już dostępny w sprzedaży online.');
         }
         $product = $products[$slug];
         $price = shop_test_price_number($product['grossPrice'] ?? '');
         if ($price === null) {
-            continue;
+            throw new RuntimeException('Wybrany produkt nie ma aktualnej ceny i nie może zostać zamówiony.');
         }
-        $items[] = [
+        if (isset($itemsBySlug[$slug])) {
+            throw new RuntimeException('Ten sam produkt może wystąpić w koszyku tylko raz.');
+        }
+        $itemsBySlug[$slug] = [
             'product' => $product,
             'slug' => $slug,
             'quantity' => $quantity,
             'price' => $price,
-            'lineTotal' => round($price * $quantity, 2),
+            'priceCents' => shop_test_price_cents($price),
+            'lineTotalCents' => (int)shop_test_price_cents($price) * $quantity,
+            'lineTotal' => shop_test_cents_to_price((int)shop_test_price_cents($price) * $quantity),
         ];
     }
 
+    $items = array_values($itemsBySlug);
     if (!$items) {
         throw new RuntimeException('Koszyk jest pusty albo zawiera produkty bez ceny.');
     }
@@ -391,6 +422,72 @@ function shop_test_decode_cart(string $payload, array $products): array
         'items' => $items,
         'delivery' => shop_test_delivery_key((string)($data['delivery'] ?? '')),
     ];
+}
+
+function shop_test_required_post(string $key, string $label, int $maxLength = 300): string
+{
+    $value = shop_test_text_field($key, $maxLength);
+    if ($value === '') {
+        throw new RuntimeException('Uzupełnij pole: ' . $label . '.');
+    }
+    return $value;
+}
+
+function shop_test_customer_from_post(): array
+{
+    $firstName = shop_test_required_post('customer_first_name', 'imię', 80);
+    $lastName = shop_test_required_post('customer_last_name', 'nazwisko', 120);
+    $email = shop_test_required_post('customer_email', 'e-mail', 160);
+    $phone = shop_test_required_post('customer_phone', 'telefon', 60);
+    $street = shop_test_required_post('delivery_street', 'ulica i numer', 180);
+    $postalCode = shop_test_required_post('delivery_postal_code', 'kod pocztowy', 20);
+    $city = shop_test_required_post('delivery_city', 'miejscowość', 120);
+    $country = strtoupper(shop_test_required_post('delivery_country', 'kraj', 2));
+
+    if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
+        throw new RuntimeException('Podaj poprawny adres e-mail.');
+    }
+    if (!preg_match('/^[A-Z]{2}$/', $country)) {
+        throw new RuntimeException('Podaj kraj w formacie dwuliterowego kodu, np. PL.');
+    }
+
+    $invoiceRequested = !empty($_POST['invoice_requested']);
+    $invoice = ['requested' => $invoiceRequested];
+    if ($invoiceRequested) {
+        $nip = preg_replace('/\D+/', '', shop_test_required_post('invoice_nip', 'NIP', 24)) ?: '';
+        if (strlen($nip) !== 10) {
+            throw new RuntimeException('Podaj poprawny 10-cyfrowy NIP.');
+        }
+        $invoice += [
+            'companyName' => shop_test_required_post('invoice_company_name', 'nazwa firmy', 180),
+            'nip' => $nip,
+            'address' => shop_test_text_field('invoice_address', 240),
+        ];
+    }
+
+    return [
+        'customer' => [
+            'firstName' => $firstName,
+            'lastName' => $lastName,
+            'email' => $email,
+            'phone' => $phone,
+        ],
+        'deliveryAddress' => [
+            'street' => $street,
+            'postalCode' => $postalCode,
+            'city' => $city,
+            'country' => $country,
+        ],
+        'invoice' => $invoice,
+        'customerNote' => shop_test_text_field('customer_notes', 800),
+    ];
+}
+
+function shop_test_require_terms(): void
+{
+    if (empty($_POST['terms'])) {
+        throw new RuntimeException('Aby złożyć zamówienie, zaakceptuj Regulamin sklepu.');
+    }
 }
 
 function shop_test_text_field(string $key, int $maxLength = 300): string

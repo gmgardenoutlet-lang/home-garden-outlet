@@ -93,8 +93,8 @@ shop_test_boot();
       </section>
 
       <div class="shop-actions legal-actions">
-        <a class="btn" href="/sklep-test/figury-ogrodowe/koszyk">Wróć do koszyka</a>
-        <a class="btn btn-light" href="/sklep-test/figury-ogrodowe">Wróć do sklepu</a>
+        <a class="btn" href="<?= e(shop_catalog_url()) ?>/koszyk">Wróć do koszyka</a>
+        <a class="btn btn-light" href="<?= e(shop_catalog_url()) ?>">Wróć do sklepu</a>
       </div>
     </article>
   </main>

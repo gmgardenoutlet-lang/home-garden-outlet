@@ -36,19 +36,19 @@ $publicProducts = shop_test_public_products();
         <div data-cart-items class="cart-items"></div>
         <div class="cart-empty-actions" data-cart-empty-actions hidden>
           <p>Twój koszyk jest pusty.</p>
-          <a class="btn" href="/sklep-test/figury-ogrodowe">Wróć do sklepu</a>
+          <a class="btn" href="<?= e(shop_catalog_url()) ?>">Wróć do sklepu</a>
         </div>
         <div class="cart-total"><span>Razem</span><strong data-cart-total>0,00 zł</strong></div>
         <div class="shop-actions cart-next-actions">
-          <a class="btn btn-light" href="/sklep-test/figury-ogrodowe">Wróć do zakupów</a>
-          <a class="btn" href="/sklep-test/figury-ogrodowe/zamowienie" data-checkout-link>Przejdź do dostawy i danych</a>
+          <a class="btn btn-light" href="<?= e(shop_catalog_url()) ?>">Wróć do zakupów</a>
+          <a class="btn" href="<?= e(shop_catalog_url()) ?>/zamowienie" data-checkout-link>Przejdź do dostawy i danych</a>
         </div>
       </div>
     </section>
   </main>
 
   <?php shop_test_footer(); ?>
-  <script>window.HGO_SHOP_PRODUCTS = <?= json_encode($publicProducts, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_HEX_TAG) ?>;</script>
-  <script src="/sklep-test/shop.js"></script>
+  <script>window.HGO_SHOP_SALES_ENABLED = <?= shop_sales_enabled() ? 'true' : 'false' ?>; window.HGO_SHOP_PRODUCTS = <?= json_encode($publicProducts, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_HEX_TAG) ?>;</script>
+  <script src="/sklep/shop.js"></script>
 </body>
 </html>

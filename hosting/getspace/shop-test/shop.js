@@ -9,6 +9,8 @@
   const deliveryBox = document.querySelector("[data-delivery-options]");
   const cartPayload = document.querySelector("[data-cart-payload]");
   const form = document.querySelector("[data-checkout-form]");
+  const invoiceToggle = document.querySelector("[data-invoice-toggle]");
+  const invoiceFields = document.querySelector("[data-invoice-fields]");
   const productGrid = document.querySelector("[data-shop-grid]");
   const sortSelect = document.querySelector("[data-shop-sort]");
   const cartToast = document.querySelector("[data-cart-toast]");
@@ -196,8 +198,8 @@
       <strong>Dodano do koszyka</strong>
       <span>${escapeHtml(product.name)}</span>
       <div class="shop-actions">
-        <a class="btn btn-light" href="/sklep-test/figury-ogrodowe/koszyk">Zobacz koszyk</a>
-        <a class="btn" href="/sklep-test/figury-ogrodowe/zamowienie">Przejdź do zamówienia</a>
+        <a class="btn btn-light" href="/sklep/figury-ogrodowe/koszyk">Zobacz koszyk</a>
+        <a class="btn" href="/sklep/figury-ogrodowe/zamowienie">Przejdź do zamówienia</a>
       </div>
     `;
     clearTimeout(showToast.timer);
@@ -268,7 +270,7 @@
       if (deliveryMethods.some((method) => method.costNumber == null)) {
         const note = document.createElement("p");
         note.className = "delivery-note";
-        note.textContent = "Dla wybranej dostawy koszt może zostać potwierdzony indywidualnie przed realizacją zamówienia.";
+        note.textContent = "Koszt dostawy wymaga indywidualnego potwierdzenia. Po otrzymaniu zamówienia skontaktujemy się w celu ustalenia dostawy. Płatność online nie będzie dostępna do czasu potwierdzenia kosztu.";
         deliveryBox.appendChild(note);
       }
     }
@@ -459,6 +461,19 @@
       if (terms instanceof HTMLInputElement) terms.setCustomValidity("");
       if (cartPayload) cartPayload.value = JSON.stringify(cart);
     });
+  }
+
+  const updateInvoiceFields = () => {
+    if (!(invoiceToggle instanceof HTMLInputElement) || !invoiceFields) return;
+    const requested = invoiceToggle.checked;
+    invoiceFields.hidden = !requested;
+    invoiceFields.querySelectorAll("input").forEach((field) => {
+      field.required = requested && (field.name === "invoice_company_name" || field.name === "invoice_nip");
+    });
+  };
+  if (invoiceToggle) {
+    invoiceToggle.addEventListener("change", updateInvoiceFields);
+    updateInvoiceFields();
   }
 
   if (!salesEnabled) {

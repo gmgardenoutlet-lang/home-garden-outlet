@@ -31,12 +31,12 @@ $publicProducts = shop_test_public_products();
       <div class="cart-panel">
         <div class="cart-head">
           <div><p class="eyebrow">Krok 1</p><h2>Podsumowanie koszyka</h2></div>
-          <a class="cart-clear" href="/sklep-test/figury-ogrodowe/koszyk">Edytuj koszyk</a>
+          <a class="cart-clear" href="<?= e(shop_catalog_url()) ?>/koszyk">Edytuj koszyk</a>
         </div>
         <div data-cart-items class="cart-items"></div>
         <div class="cart-empty-actions" data-cart-empty-actions hidden>
           <p>Twój koszyk jest pusty.</p>
-          <a class="btn" href="/sklep-test/figury-ogrodowe">Wróć do sklepu</a>
+          <a class="btn" href="<?= e(shop_catalog_url()) ?>">Wróć do sklepu</a>
         </div>
         <div class="checkout-step">
           <p class="eyebrow">Krok 2</p>
@@ -47,32 +47,49 @@ $publicProducts = shop_test_public_products();
         <div class="cart-total"><span>Razem</span><strong data-cart-total>0,00 zł</strong></div>
       </div>
 
-      <form method="post" action="/sklep-test/order" class="checkout-form" data-checkout-form>
+      <form method="post" action="/sklep/order" class="checkout-form" data-checkout-form>
         <input type="hidden" name="csrf" value="<?= e(csrf_token()) ?>">
         <input type="hidden" name="cart_payload" data-cart-payload>
         <section class="checkout-step">
           <p class="eyebrow">Krok 3</p>
-          <h3>Dane klienta</h3>
-          <label>Imię i nazwisko<input name="customer_name" required autocomplete="name"></label>
+          <h3>Dane kontaktowe</h3>
+          <div class="form-row"><label>Imię<input name="customer_first_name" required autocomplete="given-name"></label><label>Nazwisko<input name="customer_last_name" required autocomplete="family-name"></label></div>
           <label>E-mail<input name="customer_email" type="email" required autocomplete="email"></label>
           <label>Telefon<input name="customer_phone" required autocomplete="tel"></label>
-          <label>Adres<input name="customer_address" required autocomplete="street-address"></label>
-          <div class="form-row"><label>Kod pocztowy<input name="customer_postal" required autocomplete="postal-code"></label><label>Miasto<input name="customer_city" required autocomplete="address-level2"></label></div>
+        </section>
+        <section class="checkout-step">
+          <p class="eyebrow">Krok 4</p>
+          <h3>Adres dostawy</h3>
+          <label>Ulica i numer<input name="delivery_street" required autocomplete="street-address"></label>
+          <div class="form-row"><label>Kod pocztowy<input name="delivery_postal_code" required autocomplete="postal-code"></label><label>Miejscowość<input name="delivery_city" required autocomplete="address-level2"></label></div>
+          <label>Kraj<input name="delivery_country" value="PL" maxlength="2" required autocomplete="country"></label>
+        </section>
+        <section class="checkout-step">
+          <p class="eyebrow">Faktura</p>
+          <label class="check"><input type="checkbox" name="invoice_requested" value="1" data-invoice-toggle><span>Chcę otrzymać fakturę</span></label>
+          <div data-invoice-fields hidden>
+            <label>Nazwa firmy<input name="invoice_company_name" autocomplete="organization"></label>
+            <label>NIP<input name="invoice_nip" inputmode="numeric"></label>
+            <label>Adres firmy <small>(jeżeli różni się od adresu dostawy)</small><textarea name="invoice_address" rows="2" autocomplete="street-address"></textarea></label>
+          </div>
+        </section>
+        <section class="checkout-step">
+          <p class="eyebrow">Uwagi</p>
           <label>Uwagi<textarea name="customer_notes" rows="3" placeholder="Np. dogodna godzina kontaktu albo informacja o dostawie"></textarea></label>
           <p class="privacy-note">Administratorem Twoich danych osobowych jest EMAALL GARDEN OUTLET sp. z o.o. Dane podane w formularzu wykorzystamy do przyjęcia i realizacji zamówienia, płatności, dostawy, wystawienia dokumentów sprzedaży oraz obsługi posprzedażowej. Dane mogą być przekazywane podmiotom uczestniczącym w realizacji zamówienia, w szczególności operatorowi płatności, firmom kurierskim, operatorom logistycznym oraz producentowi lub dostawcy realizującemu wysyłkę bezpośrednio do klienta. Więcej informacji o przetwarzaniu danych i Twoich prawach znajdziesz w <a href="/polityka-prywatnosci">Polityce prywatności</a>.</p>
         </section>
         <section class="checkout-step payment-step">
-          <p class="eyebrow">Krok 4</p>
+          <p class="eyebrow">Krok 5</p>
           <h3>Płatność</h3>
           <p>Dostępne metody płatności są prezentowane przy produkcie, w koszyku lub podczas składania zamówienia. Płatności online zostaną uruchomione po publicznym starcie sklepu.</p>
-          <strong>Płatność testowa / ręczne potwierdzenie</strong>
+          <strong>Metoda płatności zostanie udostępniona wraz ze startem sprzedaży online.</strong>
         </section>
         <section class="checkout-step">
-          <p class="eyebrow">Krok 5</p>
+          <p class="eyebrow">Krok 6</p>
           <h3>Podsumowanie</h3>
           <label class="check">
             <input type="checkbox" name="terms" data-terms-checkbox required>
-            <span>Akceptuję <a href="/sklep-test/figury-ogrodowe/regulamin" target="_blank" rel="noopener noreferrer">Regulamin</a> sklepu internetowego Home &amp; Garden Outlet.</span>
+            <span>Akceptuję <a href="<?= e(shop_catalog_url()) ?>/regulamin" target="_blank" rel="noopener noreferrer">Regulamin</a> sklepu internetowego Home &amp; Garden Outlet.</span>
           </label>
           <button class="btn btn-wide" type="submit">Złóż zamówienie</button>
         </section>
@@ -81,7 +98,7 @@ $publicProducts = shop_test_public_products();
   </main>
 
   <?php shop_test_footer(); ?>
-  <script>window.HGO_SHOP_PRODUCTS = <?= json_encode($publicProducts, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_HEX_TAG) ?>;</script>
-  <script src="/sklep-test/shop.js"></script>
+  <script>window.HGO_SHOP_SALES_ENABLED = <?= shop_sales_enabled() ? 'true' : 'false' ?>; window.HGO_SHOP_PRODUCTS = <?= json_encode($publicProducts, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_HEX_TAG) ?>;</script>
+  <script src="/sklep/shop.js"></script>
 </body>
 </html>

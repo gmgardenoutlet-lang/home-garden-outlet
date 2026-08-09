@@ -5,10 +5,10 @@ const SITE_ROOT = __DIR__ . '/..';
 const PRODUCTS_FILE = SITE_ROOT . '/data/products.json';
 const SHIPPING_PROFILES_FILE = SITE_ROOT . '/data/shipping-profiles.json';
 const UPLOAD_DIR = SITE_ROOT . '/uploads';
-const STORAGE_DIR = __DIR__ . '/storage';
-const BACKUP_DIR = STORAGE_DIR . '/backups';
-const STATS_DIR = STORAGE_DIR . '/stats';
-const ORDERS_DIR = STORAGE_DIR . '/orders';
+define('STORAGE_DIR', getenv('HGO_STORAGE_DIR') ?: __DIR__ . '/storage');
+define('BACKUP_DIR', STORAGE_DIR . '/backups');
+define('STATS_DIR', STORAGE_DIR . '/stats');
+define('ORDERS_DIR', STORAGE_DIR . '/orders');
 const STATS_TIMEZONE = 'Europe/Warsaw';
 const CREDENTIALS_FILE = __DIR__ . '/.credentials.php';
 const GOOGLE_BUSINESS_CONFIG_FILE = STORAGE_DIR . '/google-business.php';
@@ -864,6 +864,15 @@ function load_stats_summary(string $range, array $catalog): array
 function shop_order_statuses(): array
 {
     return [
+        'new',
+        'awaiting_payment',
+        'awaiting_shipping_quote',
+        'paid',
+        'processing',
+        'shipped',
+        'completed',
+        'cancelled',
+        'payment_failed',
         'Testowe',
         'Nowe',
         'Oczekuje na płatność',
@@ -879,6 +888,11 @@ function shop_order_statuses(): array
 function shop_payment_statuses(): array
 {
     return [
+        'not_started',
+        'awaiting_payment',
+        'paid',
+        'failed',
+        'cancelled',
         'Testowe bez płatności',
         'Oczekuje na płatność',
         'Opłacone',
@@ -917,12 +931,15 @@ function shop_next_order_id(): string
 {
     $date = (new DateTimeImmutable('now', new DateTimeZone(STATS_TIMEZONE)))->format('Ymd');
     for ($attempt = 1; $attempt <= 9999; $attempt++) {
-        $id = 'TEST-' . $date . '-' . str_pad((string)$attempt, 4, '0', STR_PAD_LEFT);
+        $id = 'HGO-' . $date . '-' . str_pad((string)$attempt, 4, '0', STR_PAD_LEFT);
         if (!is_file(ORDERS_DIR . '/' . $id . '.json')) {
             return $id;
         }
     }
-    return 'TEST-' . $date . '-' . bin2hex(random_bytes(3));
+    do {
+        $id = 'HGO-' . $date . '-' . bin2hex(random_bytes(6));
+    } while (is_file(ORDERS_DIR . '/' . $id . '.json'));
+    return $id;
 }
 
 function shop_load_order(string $orderId): ?array
@@ -938,7 +955,7 @@ function shop_load_order(string $orderId): ?array
 function shop_load_orders(): array
 {
     $orders = [];
-    foreach (glob(ORDERS_DIR . '/TEST-*.json') ?: [] as $file) {
+    foreach (glob(ORDERS_DIR . '/{TEST,HGO}-*.json', GLOB_BRACE) ?: [] as $file) {
         $data = json_decode((string)file_get_contents($file), true);
         if (is_array($data) && isset($data['orderId'])) {
             $orders[] = $data;
@@ -976,6 +993,31 @@ function shop_save_order(array $order): void
     @chmod($target, 0640);
 }
 
+function shop_create_order(array $order): array
+{
+    if (!is_dir(ORDERS_DIR) && !@mkdir(ORDERS_DIR, 0750, true) && !is_dir(ORDERS_DIR)) {
+        throw new RuntimeException('Nie udało się przygotować katalogu zamówień.');
+    }
+
+    $lock = @fopen(ORDERS_DIR . '/.order-create.lock', 'c');
+    if ($lock === false) {
+        throw new RuntimeException('Nie udało się zablokować tworzenia zamówienia.');
+    }
+
+    try {
+        if (!flock($lock, LOCK_EX)) {
+            throw new RuntimeException('Nie udało się bezpiecznie utworzyć zamówienia.');
+        }
+        $order['orderId'] = shop_next_order_id();
+        $order['order_id'] = $order['orderId'];
+        shop_save_order($order);
+        return $order;
+    } finally {
+        flock($lock, LOCK_UN);
+        fclose($lock);
+    }
+}
+
 function shop_update_order(string $orderId, string $orderStatus, string $paymentStatus, string $internalNote): void
 {
     $order = shop_load_order($orderId);
@@ -989,6 +1031,7 @@ function shop_update_order(string $orderId, string $orderStatus, string $payment
         throw new RuntimeException('Nieprawidłowy status płatności.');
     }
     $order['orderStatus'] = $orderStatus;
+    $order['status'] = $orderStatus;
     $order['paymentStatus'] = $paymentStatus;
     $order['internalNote'] = trim($internalNote);
     $order['updatedAt'] = (new DateTimeImmutable('now', new DateTimeZone(STATS_TIMEZONE)))->format(DATE_ATOM);
