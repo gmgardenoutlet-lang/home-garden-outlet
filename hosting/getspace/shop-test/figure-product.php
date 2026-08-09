@@ -82,7 +82,6 @@ $details = $product ? array_filter([
           <p class="eyebrow">Figura ogrodowa</p>
           <h1><?= e($view['name']) ?></h1>
           <div class="product-status-grid">
-            <span><?= e($view['availability']) ?></span>
             <span>Wysyłka <?= e($view['leadTime']) ?></span>
           </div>
           <strong class="product-price"><?= e($view['priceLabel']) ?></strong>

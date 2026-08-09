@@ -68,11 +68,9 @@ $publicProducts = shop_test_public_products();
               <img src="<?= e($view['image']) ?>" width="520" height="390" loading="lazy" alt="<?= e($view['alt']) ?>">
             </a>
             <div>
-              <p class="shop-meta"><?= e($view['availability']) ?></p>
               <h2><a href="<?= e(shop_test_product_url($view['slug'])) ?>"><?= e($view['name']) ?></a></h2>
               <?php if ($view['shortDescription'] !== ''): ?><p class="card-description"><?= e($view['shortDescription']) ?></p><?php endif; ?>
               <ul class="card-facts">
-                <li>Dostępny u producenta</li>
                 <li>Wysyłka <?= e($view['leadTime']) ?></li>
               </ul>
               <strong class="card-price"><?= e($view['priceLabel']) ?></strong>
