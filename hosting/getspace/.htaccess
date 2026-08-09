@@ -33,6 +33,9 @@ AddType application/manifest+json .webmanifest
   RewriteRule ^sklep/figury-ogrodowe/potwierdzenie/?$ shop-test/confirmation.php [L,QSA]
   RewriteRule ^sklep/figury-ogrodowe/regulamin/?$ shop-test/terms.php [L,QSA]
   RewriteRule ^sklep/figury-ogrodowe/polityka-prywatnosci/?$ shop-test/privacy.php [L,QSA]
+  RewriteRule ^sklep/figury-ogrodowe/platnosc/powrot/?$ shop-test/paynow-return.php [L,QSA]
+  RewriteRule ^sklep/paynow/notification/?$ shop-test/paynow-notification.php [L,QSA]
+  RewriteRule ^sklep/paynow/create-payment/?$ shop-test/paynow-create-payment.php [L,QSA]
 
   # Stary adres testowy nie tworzy drugiej wersji katalogu.
   RewriteRule ^sklep-test/figury-ogrodowe/?$ /sklep/figury-ogrodowe [R=301,L,NE]

@@ -12,6 +12,7 @@ $signatureKey = 'b305b996-bca5-4404-a0b7-2ccea3d2b64b';
 paynow_test(paynow_request_signature($apiKey, $signatureKey, 'd243fdb3-c287-484a-bb9c-58536f2794c1', '') === 'fXwLZRwo0WiGll90PPl5oULX9VKA0gpFA/3+E+NRp5E=', 'Oficjalny wektor podpisu żądania V3 nie pasuje.');
 $notification = '{"paymentId":"NOLV-8F9-08K-WGD","externalId":"12345","status":"CONFIRMED","modifiedAt":"2018-12-12T13:24:52"}';
 paynow_test(paynow_notification_signature($notification, $signatureKey) === 'F69sbjUxBX4eFjfUal/Y9XGREbfaRjh/zdq9j4MWeHM=', 'Oficjalny wektor podpisu powiadomienia V3 nie pasuje.');
+paynow_test(!hash_equals(paynow_notification_signature($notification, $signatureKey), paynow_notification_signature($notification . ' ', $signatureKey)), 'Zmodyfikowane RAW BODY zachowało podpis.');
 
 $order = ['orderId' => 'HGO-20260809-0001', 'status' => 'new', 'paymentStatus' => 'not_started', 'totalCents' => 12345,
     'delivery' => ['pricingType' => 'fixed_price'], 'customer' => ['email' => 'test@example.test'], 'items' => [['productId' => 'a', 'name' => 'A', 'quantity' => 1, 'unitPriceCents' => 12345]]];
