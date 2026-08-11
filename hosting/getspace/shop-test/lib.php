@@ -266,7 +266,7 @@ function shop_test_product_url(string $slug): string
 function shop_test_stylesheets(): void
 {
     echo '<link rel="stylesheet" href="/styles.css?v=20260811-global-nav1">' . PHP_EOL;
-    echo '  <link rel="stylesheet" href="/sklep/shop.css">' . PHP_EOL;
+    echo '  <link rel="stylesheet" href="/sklep/shop.css?v=20260811-nav2">' . PHP_EOL;
 }
 
 function shop_test_header(string $active = ''): void
