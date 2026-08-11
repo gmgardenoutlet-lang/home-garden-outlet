@@ -44,7 +44,7 @@ shop_test_boot();
 
       <section>
         <h2>4. Dostawa, płatności i obsługa techniczna</h2>
-        <p>Dane mogą być przekazywane podmiotom pomagającym w realizacji zamówienia: firmom kurierskim, operatorom płatności po uruchomieniu płatności online, dostawcom hostingu, poczty e-mail, obsługi technicznej strony, biuru rachunkowemu oraz innym podmiotom, którym dane muszą zostać przekazane zgodnie z prawem.</p>
+        <p>Dane mogą być przekazywane podmiotom pomagającym w realizacji zamówienia: firmom kurierskim, operatorowi płatności Paynow / mElements S.A. oraz podmiotom uczestniczącym w procesie płatniczym, dostawcom hostingu, poczty e-mail, obsługi technicznej strony, biuru rachunkowemu oraz innym podmiotom, którym dane muszą zostać przekazane zgodnie z prawem.</p>
         <p>Zakres przekazywanych danych jest ograniczony do tego, co jest potrzebne do wykonania danej usługi.</p>
       </section>
 
@@ -73,7 +73,7 @@ shop_test_boot();
 
       <section>
         <h2>9. Zmiany polityki prywatności</h2>
-        <p>Polityka prywatności może być aktualizowana wraz z rozwojem sklepu internetowego, wdrożeniem płatności online lub nowych funkcji strony. Aktualna wersja dokumentu będzie dostępna na tej stronie.</p>
+        <p>Polityka prywatności może być aktualizowana wraz z rozwojem sklepu internetowego lub nowych funkcji strony. Aktualna wersja dokumentu będzie dostępna na tej stronie.</p>
       </section>
 
       <div class="shop-actions legal-actions">

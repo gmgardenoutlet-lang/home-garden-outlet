@@ -47,11 +47,12 @@ AddType application/manifest+json .webmanifest
   RewriteRule ^sklep/paynow/create-payment/?$ shop-test/paynow-create-payment.php [L,QSA]
 
   # Stary adres testowy nie tworzy drugiej wersji katalogu.
+  RewriteRule ^sklep-test/?$ /sklep/figury-ogrodowe [R=301,L,NE]
   RewriteRule ^sklep-test/figury-ogrodowe/?$ /sklep/figury-ogrodowe [R=301,L,NE]
   RewriteRule ^sklep-test/figury-ogrodowe/produkt/([a-z0-9-]+)/?$ /sklep/figury-ogrodowe/produkt/$1 [R=301,L,NE]
-  RewriteRule ^sklep-test/figury-ogrodowe/koszyk/?$ shop-test/cart.php [L,QSA]
-  RewriteRule ^sklep-test/figury-ogrodowe/zamowienie/?$ shop-test/checkout.php [L,QSA]
-  RewriteRule ^sklep-test/figury-ogrodowe/potwierdzenie/?$ shop-test/confirmation.php [L,QSA]
+  RewriteRule ^sklep-test/figury-ogrodowe/koszyk/?$ /sklep/figury-ogrodowe/koszyk [R=301,L,NE]
+  RewriteRule ^sklep-test/figury-ogrodowe/zamowienie/?$ /sklep/figury-ogrodowe/zamowienie [R=301,L,NE]
+  RewriteRule ^sklep-test/figury-ogrodowe/potwierdzenie/?$ /sklep/figury-ogrodowe/potwierdzenie [R=301,L,NE]
   RewriteRule ^sklep-test/figury-ogrodowe/(?:regulamin|polityka-prywatnosci)/?$ /sklep/figury-ogrodowe [R=301,L,NE]
   RewriteRule ^sklep-test/figury-ogrodowe/([a-z0-9-]+)/?$ /sklep/figury-ogrodowe/produkt/$1 [R=301,L,NE]
   RewriteRule ^sklep-test/order/?$ shop-test/order.php [L,QSA]

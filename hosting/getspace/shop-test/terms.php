@@ -62,8 +62,8 @@ shop_test_boot();
 
       <section>
         <h2>7. Płatność</h2>
-        <p>Dostępna metodą płatności jest przelew tradycyjny. Realizacja zamówienia rozpoczyna się po zaksięgowaniu płatności.</p>
-        <p>Płatności online przez Paynow są w trakcie uruchamiania i nie są obecnie dostępne. Po ich uruchomieniu płatności elektroniczne w Sklepie będą realizowane przy wykorzystaniu Paynow. Podmiotem świadczącym obsługę płatności online jest mElements S.A.</p>
+        <p>Dostępne są przelew tradycyjny oraz płatność online Paynow: BLIK i szybkie przelewy online. Realizacja zamówienia rozpoczyna się po zaksięgowaniu płatności lub po potwierdzeniu płatności online przez Paynow.</p>
+        <p>Płatności elektroniczne w Sklepie są realizowane przy wykorzystaniu Paynow. Podmiotem świadczącym obsługę płatności online jest mElements S.A.</p>
       </section>
 
       <section>

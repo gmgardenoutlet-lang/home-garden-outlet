@@ -40,7 +40,7 @@ $profiles = load_shipping_profiles_for_shop();
       <?php endforeach; ?>
       <section>
         <h2>Płatności</h2>
-        <p>Dostępny jest przelew tradycyjny. Płatności online przez Paynow są obecnie w trakcie uruchamiania.</p>
+        <p>Dostępne są płatność online Paynow — BLIK i szybkie przelewy online — oraz przelew tradycyjny.</p>
         <p>W przypadku metod wymagających potwierdzenia pełna wartość dostawy zostanie ustalona przed płatnością.</p>
       </section>
     </article>

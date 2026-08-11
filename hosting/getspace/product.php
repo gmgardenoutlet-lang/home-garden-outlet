@@ -244,7 +244,7 @@ $breadcrumbs = [
 
   <footer class="site-footer">
     <div><strong>Home &amp; Garden Outlet</strong><p>Outlet mebli domowych i ogrodowych pod Wrocławiem.</p></div>
-    <div><span>Kontakt</span><a href="tel:+48577210777">577 210 777</a><a href="mailto:gmgardenoutlet@gmail.com">gmgardenoutlet@gmail.com</a><a href="/#kontakt">ul. Przelotowa 16, 55-080 Kębłowice</a></div>
+    <div><span>Kontakt</span><a href="tel:+48577210777">577 210 777</a><a href="mailto:biuro@mgoutlet.pl">biuro@mgoutlet.pl</a><a href="/#kontakt">ul. Przelotowa 16, 55-080 Kębłowice</a></div>
     <div><span>Godziny otwarcia</span><p>Poniedziałek: nieczynne</p><p>Wtorek: 10:00-16:00</p><p>Środa-piątek: 10:00-18:00</p><p>Sobota-niedziela: 10:00-14:00</p></div>
     <div><span>Social media</span><a href="https://www.facebook.com/mgoutletpl/?locale=pl_PL" target="_blank" rel="noopener">Facebook</a><a href="https://www.instagram.com/_mygardenoutlet_/" target="_blank" rel="noopener">Instagram</a><a href="https://www.tiktok.com/@my_garden_outlet" target="_blank" rel="noopener">TikTok</a></div>
     <div><span>Informacje</span><a href="/outlet-meblowy-wroclaw/">Outlet meblowy Wrocław</a><a href="/meble-ogrodowe-wroclaw/">Meble ogrodowe Wrocław</a><a href="/dom">Meble do domu outlet</a><a href="/ogrod">Meble ogrodowe</a><a href="/poradnik/">Poradnik</a><a href="/sklep/figury-ogrodowe/regulamin">Regulamin</a><a href="/polityka-prywatnosci">Polityka prywatności</a><a href="/sklep/figury-ogrodowe/dostawa-i-platnosci">Dostawa i płatności</a><a href="/sklep/figury-ogrodowe/zwroty-i-reklamacje">Zwroty i reklamacje</a><a href="/sklep/figury-ogrodowe/formularz-odstapienia">Formularz odstąpienia</a></div>
