@@ -1111,6 +1111,7 @@ main {
   }
 
   .shop-main-nav {
+    box-sizing: border-box;
     width: calc(100vw - 22px);
     top: 82px;
     left: 11px;
