@@ -27,17 +27,24 @@ function paynow_sorted_parameters(array $parameters): array
     return $parameters;
 }
 
-function paynow_request_signature(string $apiKey, string $signatureKey, string $idempotencyKey, string $body, array $parameters = []): string
+function paynow_canonical_payload(string $apiKey, string $idempotencyKey, string $body, array $parameters = []): string
 {
+    $parsedParameters = [];
+    foreach (paynow_sorted_parameters($parameters) as $key => $value) {
+        $parsedParameters[$key] = is_array($value) ? $value : [$value];
+    }
     $payload = json_encode([
         'headers' => ['Api-Key' => $apiKey, 'Idempotency-Key' => $idempotencyKey],
-        'parameters' => (object)paynow_sorted_parameters($parameters),
+        'parameters' => $parsedParameters ?: new stdClass(),
         'body' => $body,
     ], JSON_UNESCAPED_SLASHES);
-    if ($payload === false) {
-        throw new RuntimeException('Nie udało się przygotować podpisu Paynow.');
-    }
-    return base64_encode(hash_hmac('sha256', $payload, $signatureKey, true));
+    if ($payload === false) throw new RuntimeException('Nie udało się przygotować podpisu Paynow.');
+    return $payload;
+}
+
+function paynow_request_signature(string $apiKey, string $signatureKey, string $idempotencyKey, string $body, array $parameters = []): string
+{
+    return base64_encode(hash_hmac('sha256', paynow_canonical_payload($apiKey, $idempotencyKey, $body, $parameters), $signatureKey, true));
 }
 
 function paynow_notification_signature(string $rawBody, string $signatureKey): string
@@ -181,7 +188,9 @@ function paynow_post_payment(array $order): array
 {
     $idempotencyKey = paynow_idempotency_key($order);
     $payload = paynow_payment_payload($order);
-    $body = json_encode($payload, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+    // This exact byte string is both signed and sent. Match Paynow's PHP SDK:
+    // do not enable JSON_UNESCAPED_UNICODE.
+    $body = json_encode($payload, JSON_UNESCAPED_SLASHES);
     if ($body === false) throw new RuntimeException('Nie udało się przygotować płatności Paynow.');
     if (!function_exists('curl_init')) throw new RuntimeException('Serwer nie obsługuje wymaganego połączenia z Paynow.');
 

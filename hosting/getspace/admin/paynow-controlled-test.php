@@ -81,6 +81,8 @@ $orderId = shop_safe_order_id((string)($_GET['order_id'] ?? ''));
 $order = $orderId !== '' ? shop_load_order($orderId) : null;
 $payload = $order && !empty($order['paynowAdminTest']) ? paynow_payment_payload($order) : null;
 $itemsTotal = is_array($payload) ? array_sum(array_map(static fn(array $item): int => (int)$item['quantity'] * (int)$item['price'], $payload['orderItems'])) : null;
+$payloadBody = is_array($payload) ? json_encode($payload, JSON_UNESCAPED_SLASHES) : '';
+$canonicalPayload = is_string($payloadBody) ? paynow_canonical_payload(PAYNOW_API_KEY, paynow_idempotency_key($order ?? []), $payloadBody) : '';
 ?>
 <!doctype html>
 <html lang="pl"><head><meta charset="utf-8"><meta name="robots" content="noindex,nofollow,noarchive"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Kontrolowany test Paynow</title><link rel="stylesheet" href="/admin/style.css"></head>
@@ -90,7 +92,7 @@ $itemsTotal = is_array($payload) ? array_sum(array_map(static fn(array $item): i
   <form method="post"><input type="hidden" name="csrf" value="<?= e(csrf_token()) ?>"><input type="hidden" name="action" value="prepare"><button class="btn" type="submit">Przygotuj zamówienie testowe</button></form>
 <?php elseif (!empty($order['paynowAdminTest'])): ?>
   <p><strong>Zamówienie:</strong> <?= e($order['orderId']) ?><br><strong>Kwota:</strong> <?= e(shop_test_price_label((float)$order['total'])) ?></p>
-  <?php if ($payload): ?><p><strong>Payload sanity:</strong><br>amount: <?= e((string)$payload['amount']) ?><br>currency: <?= e($payload['currency']) ?><br>externalId: <?= e($payload['externalId']) ?><br>description: <?= e($payload['description']) ?><br>buyer: e-mail, imię i nazwisko<br>orderItems suma: <?= e((string)$itemsTotal) ?><br>continueUrl: konfiguracja Paynow<br>notificationUrl: konfiguracja Paynow</p><?php endif; ?>
+  <?php if ($payload): ?><p><strong>Payload sanity:</strong><br>amount: <?= e((string)$payload['amount']) ?><br>currency: <?= e($payload['currency']) ?><br>externalId: <?= e($payload['externalId']) ?><br>description: <?= e($payload['description']) ?><br>buyer: e-mail, imię i nazwisko<br>orderItems suma: <?= e((string)$itemsTotal) ?><br>continueUrl: konfiguracja Paynow<br>notificationUrl: konfiguracja Paynow<br>body byte length: <?= e((string)strlen($payloadBody)) ?><br>canonical payload byte length: <?= e((string)strlen($canonicalPayload)) ?><br>SAME_BODY_USED_FOR_SIGNATURE_AND_REQUEST: TAK</p><?php endif; ?>
   <p>Płatność nie została jeszcze utworzona. Przejście dalej utworzy jedną płatność produkcyjną i otworzy stronę Paynow.</p>
   <form method="post"><input type="hidden" name="csrf" value="<?= e(csrf_token()) ?>"><input type="hidden" name="action" value="start"><input type="hidden" name="order_id" value="<?= e($order['orderId']) ?>"><button class="btn" type="submit">Utwórz płatność i przejdź do Paynow</button></form>
 <?php else: ?><p>Nie znaleziono kontrolowanego zamówienia testowego.</p><?php endif; ?>
