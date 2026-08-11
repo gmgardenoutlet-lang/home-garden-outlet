@@ -611,6 +611,11 @@
     if (target === countrySelect) {
       const callingCode = countrySelect.selectedOptions[0]?.dataset.callingCode;
       if (callingCode && phonePrefixSelect instanceof HTMLSelectElement) phonePrefixSelect.value = `+${callingCode}`;
+      if (countrySelect.value !== 'PL') {
+        const cart = cartWithValidItems();
+        cart.items.forEach((item) => { item.shippingProfileId = ''; });
+        localStorage.setItem(storageKey, JSON.stringify(cart));
+      }
       renderPerItemCart();
       return;
     }

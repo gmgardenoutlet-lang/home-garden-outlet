@@ -57,6 +57,9 @@ test_assert(FOREIGN_SHIPPING_ENABLED === false, 'Dostawy zagraniczne muszą pozo
 test_assert(array_keys(SHOP_ALLOWED_COUNTRIES) === ['PL', 'DE', 'CZ', 'SK', 'LT'], 'Centralna lista krajów nie jest kompletna.');
 test_assert(shop_test_order_country_code(['deliveryAddress' => ['country' => 'DE']]) === 'DE', 'Nie odczytano kraju z adresu dostawy.');
 test_assert(shop_test_order_country_code([]) === 'PL', 'Historyczne zamówienie bez countryCode nie ma fallbacku PL.');
+test_assert(shop_test_effective_country_code('DE', false) === 'PL', 'Przy wyłączonej fladze POST DE nie jest wymuszany jako PL.');
+test_assert(shop_test_effective_country_code('DE', true) === 'DE' && shop_test_effective_country_code('US', true) === '', 'Lista krajów nie jest egzekwowana przez backend.');
+test_assert(test_checkout_customer_errors(['delivery_country' => 'DE']) === [] && ($_POST['delivery_country'] ?? '') === 'PL', 'Ręczny POST DE przy wyłączonej fladze nie został przetworzony jako PL.');
 test_assert(shop_test_normalize_phone_for_country('123 456 789', 'PL') === '+48123456789', 'Polska normalizacja telefonu uległa regresji.');
 test_assert(shop_test_normalize_phone_for_country('+49 30 123456', 'DE') === '+4930123456', 'Telefon DE nie spełnia E.164.');
 test_assert(shop_test_normalize_phone_for_country('030 123456', 'DE') === null, 'Telefon zagraniczny bez kodu kraju został zaakceptowany.');

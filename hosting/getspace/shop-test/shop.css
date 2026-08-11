@@ -878,6 +878,7 @@ main {
 .checkout-form .phone-field select { flex: 0 0 auto; width: 86px; border-radius: 10px 0 0 10px; }
 .checkout-form .phone-field input { min-width: 0; flex: 1; border-left: 0; border-radius: 0 10px 10px 0; }
 .phone-prefix-static { display: flex; align-items: center; flex: 0 0 auto; width: 86px; padding: 0 13px; color: var(--ink); background: #f5f1e6; border: 1px solid var(--line); border-radius: 10px 0 0 10px; }
+.checkout-static-field { display: block; width: 100%; padding: 12px 13px; color: var(--ink); background: #f5f1e6; border: 1px solid var(--line); border-radius: 10px; }
 .phone-field.has-error select, .phone-field.has-error input { border-color: #b84b4b; }
 
 .product-status-grid {

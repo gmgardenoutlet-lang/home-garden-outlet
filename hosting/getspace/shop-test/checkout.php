@@ -84,7 +84,7 @@ function checkout_field_attrs(array $errors, string $key): string { return isset
           <?php if (FOREIGN_SHIPPING_ENABLED): ?>
             <label>Kraj<select name="delivery_country" data-checkout-country required autocomplete="country"<?= checkout_field_attrs($checkoutErrors, 'delivery_country') ?>><?php foreach (SHOP_ALLOWED_COUNTRIES as $code => $country): ?><option value="<?= e($code) ?>" data-calling-code="<?= e($country['callingCode']) ?>"<?= $checkoutCountry === $code ? ' selected' : '' ?>><?= e($code . ' — ' . $country['name']) ?></option><?php endforeach; ?></select><?= checkout_error($checkoutErrors, 'delivery_country') ?></label>
           <?php else: ?>
-            <label>Kraj<input name="delivery_country" value="<?= checkout_value($checkoutOld, 'delivery_country', 'PL') ?>" maxlength="2" required autocomplete="country"<?= checkout_field_attrs($checkoutErrors, 'delivery_country') ?>><?= checkout_error($checkoutErrors, 'delivery_country') ?></label>
+            <label>Kraj<span class="checkout-static-field">Polska</span><input type="hidden" name="delivery_country" value="PL"><?= checkout_error($checkoutErrors, 'delivery_country') ?></label>
           <?php endif; ?>
         </section>
         <section class="checkout-step">

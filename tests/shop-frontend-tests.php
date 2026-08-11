@@ -51,6 +51,7 @@ frontend_assert(str_contains($order, 'shop_test_resolve_item_delivery'), 'Backen
 frontend_assert(str_contains($checkout, 'FOREIGN_SHIPPING_ENABLED') && str_contains($checkout, 'data-checkout-country'), 'Checkout nie ma przełączanego wybierania kraju.');
 frontend_assert(str_contains($javascript, 'Złóż zamówienie do wyceny') && str_contains($javascript, 'Do indywidualnej wyceny'), 'Frontend nie obsługuje wyceny zagranicznej.');
 frontend_assert(str_contains($checkout, 'phone-prefix-static') && str_contains($checkout, 'if (FOREIGN_SHIPPING_ENABLED)'), 'Telefon nie ogranicza prefiksu w trybie PL-only.');
+frontend_assert(str_contains($checkout, 'checkout-static-field') && str_contains($checkout, 'name="delivery_country" value="PL"'), 'Kraj nie jest statyczny w trybie PL-only.');
 frontend_assert(str_contains($order, "'paymentMethod' => \$paymentMethod") && str_contains($order, "'shippingTotalCents' => \$shippingTotalCents"), 'Backend nie wymusza modelu płatności i dostawy dla kraju.');
 
 echo 'PASS: shop frontend ' . ($expectedSales ? 'enabled' : 'disabled') . " tests\n";

@@ -517,6 +517,16 @@ function shop_test_order_country_code(array $order): string
     return array_key_exists($country, SHOP_ALLOWED_COUNTRIES) ? $country : 'PL';
 }
 
+function shop_test_effective_country_code(string $submittedCountryCode, ?bool $foreignShippingEnabled = null): string
+{
+    $foreignShippingEnabled ??= FOREIGN_SHIPPING_ENABLED;
+    if (!$foreignShippingEnabled) {
+        return 'PL';
+    }
+    $countryCode = strtoupper(trim($submittedCountryCode));
+    return isset(SHOP_ALLOWED_COUNTRIES[$countryCode]) ? $countryCode : '';
+}
+
 function shop_test_normalize_phone_for_country(string $phone, string $countryCode): ?string
 {
     $countryCode = strtoupper($countryCode);
@@ -555,13 +565,12 @@ function shop_test_validate_checkout_customer_input(): void
     $phonePrefix = trim((string) ($_POST['phone_prefix'] ?? ''));
     $phoneNumber = trim((string) ($_POST['phone_number'] ?? $_POST['customer_phone'] ?? ''));
     $postalCode = shop_test_text_field('delivery_postal_code', 20);
-    $countryCode = strtoupper(shop_test_text_field('delivery_country', 2));
+    $countryCode = shop_test_effective_country_code(shop_test_text_field('delivery_country', 2));
 
-    if (!isset(SHOP_ALLOWED_COUNTRIES[$countryCode])) {
+    if ($countryCode === '') {
         $errors['delivery_country'] = 'Wybierz prawidłowy kraj dostawy.';
-    } elseif ($countryCode !== 'PL' && !FOREIGN_SHIPPING_ENABLED) {
-        $errors['delivery_country'] = 'Dostawy poza Polskę nie są jeszcze dostępne.';
     }
+    $_POST['delivery_country'] = $countryCode === '' ? 'PL' : $countryCode;
 
     if ($email === '') {
         $errors['customer_email'] = 'Podaj adres e-mail.';
