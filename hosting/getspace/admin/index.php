@@ -553,7 +553,6 @@ if ($showStats) {
       <a class="btn btn-secondary btn-small" href="/sklep/figury-ogrodowe" target="_blank" rel="noopener">Podgląd sklepu figur</a>
       <a class="btn btn-secondary btn-small" href="/admin/?stats=1">Statystyki</a>
       <a class="btn btn-secondary btn-small" href="/admin/?orders=1">Zamówienia sklepu</a>
-      <a class="btn btn-secondary btn-small" href="/admin/paynow-controlled-test.php?order_id=HGO-20260811-0003">Test Paynow 20 zł</a>
       <a class="btn btn-secondary btn-small" href="/admin/?shipping=1">Cennik dostaw</a>
       <a class="btn btn-secondary btn-small" href="/admin/?google_config=1">Google API</a>
       <a class="btn btn-secondary btn-small" href="/admin/?download=products">Kopia produktów</a>
@@ -828,6 +827,7 @@ if ($showStats) {
                   <?php if (trim((string)($delivery['profileId'] ?? '')) !== ''): ?><p class="muted">Profil dostawy: <code><?= e((string)$delivery['profileId']) ?></code><?= !empty($delivery['requiresConfirmation']) ? ' · wymaga potwierdzenia' : '' ?></p><?php endif; ?>
                   <p>Metoda płatności: <?= e((string)($order['paymentMethod'] ?? 'Test')) ?></p>
                   <p>Status płatności: <?= e((string)($order['paymentStatus'] ?? 'Testowe bez płatności')) ?></p>
+                  <?php if (($order['paymentProvider'] ?? '') === 'paynow' && !empty($order['paymentId'])): ?><p>Paynow paymentId: <?= e((string)$order['paymentId']) ?></p><?php endif; ?>
                   <p>Status zamówienia: <?= e((string)($order['orderStatus'] ?? 'Testowe')) ?></p>
                 </div>
               </div>
