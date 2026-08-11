@@ -102,11 +102,6 @@ main {
   color: var(--green-800);
 }
 
-.shop-site-footer {
-  grid-template-columns: 1.25fr 1fr 1fr 1fr;
-  margin-top: 42px;
-}
-
 .admin-ribbon {
   display: inline-flex;
   width: fit-content;
@@ -1117,8 +1112,7 @@ main {
   .checkout-shell,
   .product-test,
   .confirmation-grid,
-  .shop-hero-split,
-  .shop-site-footer { grid-template-columns: 1fr; }
+  .shop-hero-split { grid-template-columns: 1fr; }
   .shop-hero-split {
     grid-template-areas:
       "copy"

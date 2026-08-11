@@ -109,7 +109,7 @@ $breadcrumbs = [
   <link rel="apple-touch-icon" href="/apple-touch-icon.png">
   <link rel="manifest" href="/site.webmanifest">
   <meta name="theme-color" content="#539730">
-  <link rel="stylesheet" href="/styles.css?v=20260811-global-nav1">
+  <link rel="stylesheet" href="/styles.css?v=20260811-footer1">
   <?php if ($productSchema !== null): ?><script type="application/ld+json"><?= json_encode($productSchema, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?></script><?php endif; ?>
   <script type="application/ld+json"><?= json_encode($breadcrumbs, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?></script>
 </head>
@@ -242,12 +242,15 @@ $breadcrumbs = [
     <?php endif; ?>
   </main>
 
-  <footer class="site-footer">
-    <div><strong>Home &amp; Garden Outlet</strong><p>Outlet mebli domowych i ogrodowych pod Wrocławiem.</p></div>
-    <div><span>Kontakt</span><a href="tel:+48577210777">577 210 777</a><a href="mailto:biuro@mgoutlet.pl">biuro@mgoutlet.pl</a><a href="/#kontakt">ul. Przelotowa 16, 55-080 Kębłowice</a></div>
-    <div><span>Godziny otwarcia</span><p>Poniedziałek: nieczynne</p><p>Wtorek: 10:00-16:00</p><p>Środa-piątek: 10:00-18:00</p><p>Sobota-niedziela: 10:00-14:00</p></div>
-    <div><span>Social media</span><a href="https://www.facebook.com/mgoutletpl/?locale=pl_PL" target="_blank" rel="noopener">Facebook</a><a href="https://www.instagram.com/_mygardenoutlet_/" target="_blank" rel="noopener">Instagram</a><a href="https://www.tiktok.com/@my_garden_outlet" target="_blank" rel="noopener">TikTok</a></div>
-    <div><span>Informacje</span><a href="/outlet-meblowy-wroclaw/">Outlet meblowy Wrocław</a><a href="/meble-ogrodowe-wroclaw/">Meble ogrodowe Wrocław</a><a href="/dom">Meble do domu outlet</a><a href="/ogrod">Meble ogrodowe</a><a href="/poradnik/">Poradnik</a><a href="/sklep/figury-ogrodowe/regulamin">Regulamin</a><a href="/polityka-prywatnosci">Polityka prywatności</a><a href="/sklep/figury-ogrodowe/dostawa-i-platnosci">Dostawa i płatności</a><a href="/sklep/figury-ogrodowe/zwroty-i-reklamacje">Zwroty i reklamacje</a><a href="/sklep/figury-ogrodowe/formularz-odstapienia">Formularz odstąpienia</a></div>
+<footer class="site-footer">
+    <div class="footer-main">
+      <div><strong>Home &amp; Garden Outlet</strong><p>Outlet mebli domowych i ogrodowych pod Wrocławiem.</p></div>
+      <div><span>Kontakt</span><a href="tel:+48577210777">577 210 777</a><a href="mailto:biuro@mgoutlet.pl">biuro@mgoutlet.pl</a><a href="/#kontakt">ul. Przelotowa 16, 55-080 Kębłowice</a></div>
+      <div><span>Godziny otwarcia</span><p>Poniedziałek: nieczynne</p><p>Wtorek: 10:00-16:00</p><p>Środa-piątek: 10:00-18:00</p><p>Sobota-niedziela: 10:00-14:00</p></div>
+      <div><span>Social media</span><a href="https://www.facebook.com/mgoutletpl/?locale=pl_PL" target="_blank" rel="noopener">Facebook</a><a href="https://www.instagram.com/_mygardenoutlet_/" target="_blank" rel="noopener">Instagram</a><a href="https://www.tiktok.com/@my_garden_outlet" target="_blank" rel="noopener">TikTok</a></div>
+      <div class="footer-shortcuts"><span>Na skróty</span><div class="footer-shortcuts-columns"><div><a href="/outlet-meblowy-wroclaw/">Outlet meblowy Wrocław</a><a href="/meble-ogrodowe-wroclaw/">Meble ogrodowe Wrocław</a><a href="/dom">Meble do domu outlet</a><a href="/ogrod">Meble ogrodowe</a><a href="/poradnik/">Poradnik</a><a href="/sklep/figury-ogrodowe">Katalog figur</a><a href="/#faq-home-title">FAQ</a></div><div><a href="/polityka-prywatnosci">Polityka prywatności</a><a href="/sklep/figury-ogrodowe/regulamin">Regulamin</a><a href="/sklep/figury-ogrodowe/dostawa-i-platnosci">Dostawa i płatności</a><a href="/sklep/figury-ogrodowe/zwroty-i-reklamacje">Zwroty i reklamacje</a><a href="/sklep/figury-ogrodowe/formularz-odstapienia">Formularz odstąpienia</a></div></div></div>
+    </div>
+    <div class="footer-bottom"><p>© 2026 Home &amp; Garden Outlet. Wszystkie prawa zastrzeżone.</p><div class="footer-payments" aria-label="Dostępne metody płatności"><span class="footer-payments-label">Płatności:</span><span class="footer-payment-badge">Paynow</span><span class="footer-payment-badge">BLIK</span><span class="footer-payment-badge">Przelew tradycyjny</span><span class="footer-security"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="10" width="14" height="10" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg>Bezpieczne zakupy</span></div></div>
   </footer>
 
   <nav class="mobile-sticky-cta" aria-label="Szybki kontakt"><a href="tel:+48577210777">Zadzwoń</a><a href="https://maps.app.goo.gl/SJ9LvQcub6rzQKAs5" target="_blank" rel="noopener" data-stat-event="navigation_click">Jak dojechać</a><a href="https://www.facebook.com/mgoutletpl/?locale=pl_PL" target="_blank" rel="noopener">Facebook</a></nav>
