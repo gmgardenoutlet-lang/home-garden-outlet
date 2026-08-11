@@ -1112,7 +1112,7 @@ main {
 
   .shop-main-nav {
     box-sizing: border-box;
-    width: calc(100vw - 22px);
+    width: auto;
     top: 82px;
     left: 11px;
     right: 11px;
