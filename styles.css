@@ -2216,6 +2216,80 @@ body.gallery-open {
   font-size: clamp(18px, 2vw, 21px);
 }
 
+.knowledge-base {
+  max-width: 620px;
+  margin-top: 30px;
+  padding: 21px 24px 16px;
+  border: 1px solid rgba(63, 111, 69, 0.22);
+  border-radius: 20px;
+  background: rgba(246, 250, 243, 0.82);
+}
+
+.knowledge-base-heading {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 9px;
+}
+
+.knowledge-base-icon {
+  width: 25px;
+  height: 25px;
+  flex: 0 0 auto;
+  fill: none;
+  stroke: var(--green-800);
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 1.6;
+}
+
+.knowledge-base h2 {
+  margin: 0;
+  color: var(--heading-deep);
+  font-size: clamp(25px, 2.4vw, 31px);
+}
+
+.knowledge-base-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.knowledge-base-list li {
+  border-top: 1px solid rgba(63, 111, 69, 0.14);
+}
+
+.knowledge-base-list a,
+.knowledge-base-list span {
+  display: block;
+  position: relative;
+  padding: 11px 4px 11px 19px;
+  color: var(--green-800);
+  font-weight: 800;
+  text-decoration: none;
+}
+
+.knowledge-base-list a::before,
+.knowledge-base-list span::before {
+  position: absolute;
+  left: 0;
+  content: "—";
+}
+
+.knowledge-base-list a {
+  transition: color 180ms ease, padding-left 180ms ease;
+}
+
+.knowledge-base-list a:hover,
+.knowledge-base-list a:focus-visible {
+  padding-left: 24px;
+  color: var(--green-900);
+}
+
+.knowledge-base-list span {
+  color: var(--muted);
+}
+
 .guide-hero-card {
   overflow: hidden;
   border-radius: 28px;
