@@ -275,8 +275,10 @@ function shop_test_header(string $active = ''): void
         ['href' => '/', 'label' => 'Strona główna', 'key' => 'home'],
         ['href' => '/dom', 'label' => 'Dom', 'key' => 'dom'],
         ['href' => '/ogrod', 'label' => 'Ogród', 'key' => 'ogrod'],
-        ['href' => '/#faq-home-title', 'label' => 'FAQ', 'key' => 'faq'],
         ['href' => shop_catalog_url(), 'label' => 'Figury i dekoracje', 'key' => 'figures'],
+        ['href' => '/#nowosci', 'label' => 'Produkty', 'key' => 'products'],
+        ['href' => '/poradnik/', 'label' => 'Poradnik', 'key' => 'guide'],
+        ['href' => '/#kontakt', 'label' => 'Kontakt', 'key' => 'contact'],
     ];
     ?>
   <header class="site-header shop-site-header">
