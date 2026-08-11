@@ -270,7 +270,7 @@ function paynow_start_admin_test_payment(string $orderId): array
             throw new RuntimeException('Produkcyjna konfiguracja Paynow nie jest gotowa.');
         }
         if (!empty($order['paymentId']) && !empty($order['paymentRedirectUrl'])) {
-            return ['paymentId' => (string)$order['paymentId'], 'redirectUrl' => (string)$order['paymentRedirectUrl']];
+            return ['paymentId' => (string)$order['paymentId'], 'redirectUrl' => (string)$order['paymentRedirectUrl'], 'existing' => true];
         }
         if (($order['delivery']['pricingType'] ?? '') !== 'fixed_price' || (int)($order['totalCents'] ?? 0) <= 0) {
             throw new RuntimeException('Kontrolowane zamówienie nie ma ostatecznej kwoty.');
@@ -292,6 +292,6 @@ function paynow_start_admin_test_payment(string $orderId): array
         $order['paymentStartedAt'] = $now;
         $order['updatedAt'] = $now;
         shop_save_order($order);
-        return ['paymentId' => $created['paymentId'], 'redirectUrl' => $created['redirectUrl']];
+        return ['paymentId' => $created['paymentId'], 'redirectUrl' => $created['redirectUrl'], 'existing' => false];
     });
 }
