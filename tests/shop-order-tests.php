@@ -43,6 +43,11 @@ function test_customer_post(array $overrides = []): array
 
 test_assert(shop_sales_enabled(), 'Test musi działać z HGO_SHOP_SALES_ENABLED=true.');
 boot_admin();
+$checkoutSubmissionToken = shop_test_checkout_submission_token();
+test_assert($checkoutSubmissionToken !== '', 'Brakuje tokenu idempotencji checkoutu.');
+shop_test_remember_checkout_order($checkoutSubmissionToken, 'HGO-20260809-0001');
+test_assert(shop_test_checkout_existing_order($checkoutSubmissionToken) === 'HGO-20260809-0001', 'Ponowny submit checkoutu nie wskazuje istniejącego zamówienia.');
+test_assert(shop_test_checkout_submission_token() !== $checkoutSubmissionToken, 'Nowy checkout używa starego tokenu idempotencji.');
 
 // Customer-facing delivery code deliberately does not fall back to defaults.
 // Give this isolated test an explicit admin-cennik fixture instead.

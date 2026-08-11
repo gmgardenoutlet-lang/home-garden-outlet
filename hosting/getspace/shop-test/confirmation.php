@@ -2,11 +2,13 @@
 declare(strict_types=1);
 
 require __DIR__ . '/lib.php';
+require __DIR__ . '/paynow.php';
 shop_test_boot();
 shop_test_require_sales();
 
 $orderId = shop_safe_order_id((string)($_GET['id'] ?? ''));
 $order = $orderId !== '' ? shop_load_order($orderId) : null;
+$paynowRedirectUrl = is_array($order) ? paynow_redirect_url((string)($order['paymentRedirectUrl'] ?? '')) : null;
 if (!$order) {
     http_response_code(404);
 }
@@ -28,7 +30,7 @@ if (!$order) {
       <section class="success-box confirmation-box">
         <p class="eyebrow">Zamówienie zapisane</p>
         <h1>Dziękujemy za zamówienie</h1>
-        <p>Zamówienie zostało zapisane. Obsługa Home &amp; Garden Outlet może je ręcznie potwierdzić przed uruchomieniem płatności online.</p>
+        <p>Zamówienie zostało zapisane. Status płatności jest potwierdzany wyłącznie przez Paynow.</p>
 
         <div class="confirmation-grid">
           <section>
@@ -54,7 +56,11 @@ if (!$order) {
           <section class="confirmation-section">
             <h2>Płatność online Paynow</h2>
             <p>Możesz opłacić zamówienie BLIK-iem lub przelewem online. Płatność zostanie uznana dopiero po potwierdzeniu Paynow.</p>
-            <form method="post" action="/sklep/paynow-create-payment"><input type="hidden" name="csrf" value="<?= e(csrf_token()) ?>"><input type="hidden" name="order_id" value="<?= e($order['orderId'] ?? '') ?>"><button class="btn" type="submit">Przejdź do Paynow</button></form>
+            <?php if ($paynowRedirectUrl !== null): ?>
+              <a class="btn" href="<?= e($paynowRedirectUrl) ?>" rel="noreferrer">Przejdź do Paynow</a>
+            <?php else: ?>
+              <form method="post" action="/sklep/paynow-create-payment"><input type="hidden" name="csrf" value="<?= e(csrf_token()) ?>"><input type="hidden" name="order_id" value="<?= e($order['orderId'] ?? '') ?>"><button class="btn" type="submit">Przygotuj płatność Paynow</button></form>
+            <?php endif; ?>
           </section>
         <?php endif; ?>
 

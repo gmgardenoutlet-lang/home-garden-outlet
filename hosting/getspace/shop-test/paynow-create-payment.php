@@ -11,9 +11,10 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') !== 'POST') { http_response_code(405); he
 if (!paynow_is_enabled()) { http_response_code(503); echo '{"error":"service_unavailable"}'; exit; }
 try {
     require_csrf();
-    $result = paynow_start_payment(shop_safe_order_id((string)($_POST['order_id'] ?? '')));
+    $orderId = shop_safe_order_id((string)($_POST['order_id'] ?? ''));
+    $result = paynow_start_payment($orderId);
     if (!str_contains((string)($_SERVER['HTTP_ACCEPT'] ?? ''), 'application/json')) {
-        header('Location: ' . $result['redirectUrl'], true, 303);
+        header('Location: ' . shop_catalog_url() . '/potwierdzenie?id=' . rawurlencode($orderId), true, 303);
         exit;
     }
     echo json_encode($result, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);

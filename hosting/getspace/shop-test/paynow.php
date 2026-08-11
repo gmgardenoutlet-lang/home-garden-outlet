@@ -21,6 +21,19 @@ function paynow_is_enabled(): bool
     return PAYNOW_ENABLED && PAYNOW_API_KEY !== '' && PAYNOW_SIGNATURE_KEY !== '';
 }
 
+function paynow_redirect_url(string $url): ?string
+{
+    if (!filter_var($url, FILTER_VALIDATE_URL)) {
+        return null;
+    }
+    $parts = parse_url($url);
+    $host = strtolower((string)($parts['host'] ?? ''));
+    if (strtolower((string)($parts['scheme'] ?? '')) !== 'https' || !preg_match('/(?:^|\\.)paynow\\.pl$/', $host)) {
+        return null;
+    }
+    return $url;
+}
+
 function paynow_sorted_parameters(array $parameters): array
 {
     ksort($parameters, SORT_STRING);
@@ -226,11 +239,13 @@ function paynow_post_payment(array $order): array
         throw new RuntimeException('Paynow HTTP ' . $httpCode . ' [' . $errorType . ']' . ($message !== '' ? ': ' . $message : '.'));
     }
     $response = json_decode($responseBody, true);
-    if (!is_array($response) || !is_string($response['paymentId'] ?? null) || !is_string($response['redirectUrl'] ?? null)
-        || !filter_var($response['redirectUrl'], FILTER_VALIDATE_URL)) {
+    $redirectUrl = is_array($response) && is_string($response['redirectUrl'] ?? null)
+        ? paynow_redirect_url($response['redirectUrl'])
+        : null;
+    if (!is_array($response) || !is_string($response['paymentId'] ?? null) || $redirectUrl === null) {
         throw new RuntimeException('Paynow zwrócił nieprawidłową odpowiedź.');
     }
-    return ['paymentId' => $response['paymentId'], 'redirectUrl' => $response['redirectUrl'], 'idempotencyKey' => $idempotencyKey];
+    return ['paymentId' => $response['paymentId'], 'redirectUrl' => $redirectUrl, 'idempotencyKey' => $idempotencyKey];
 }
 
 function paynow_start_payment(string $orderId): array

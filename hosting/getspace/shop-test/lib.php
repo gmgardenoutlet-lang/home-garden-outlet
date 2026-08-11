@@ -523,3 +523,26 @@ function shop_test_text_field(string $key, int $maxLength = 300): string
     }
     return substr($value, 0, $maxLength);
 }
+
+function shop_test_checkout_submission_token(): string
+{
+    if (empty($_SESSION['checkout_submission_token'])) {
+        $_SESSION['checkout_submission_token'] = bin2hex(random_bytes(24));
+    }
+    return (string)$_SESSION['checkout_submission_token'];
+}
+
+function shop_test_checkout_existing_order(string $token): string
+{
+    $last = $_SESSION['checkout_last_submission'] ?? [];
+    if (!is_array($last) || !is_string($last['token'] ?? null) || !is_string($last['orderId'] ?? null)) {
+        return '';
+    }
+    return $token !== '' && hash_equals($last['token'], $token) ? shop_safe_order_id($last['orderId']) : '';
+}
+
+function shop_test_remember_checkout_order(string $token, string $orderId): void
+{
+    $_SESSION['checkout_last_submission'] = ['token' => $token, 'orderId' => shop_safe_order_id($orderId)];
+    unset($_SESSION['checkout_submission_token']);
+}

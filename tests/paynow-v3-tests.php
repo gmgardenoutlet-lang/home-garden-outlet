@@ -16,6 +16,8 @@ paynow_test(paynow_request_signature($apiKey, $signatureKey, $idempotencyKey . '
 $notification = '{"paymentId":"TEST-000-000-000","externalId":"HGO-20260809-0001","status":"CONFIRMED","modifiedAt":"2026-08-11T12:00:00Z"}';
 paynow_test(paynow_notification_signature($notification, $signatureKey) !== '', 'Podpis powiadomienia V3 nie został utworzony.');
 paynow_test(!hash_equals(paynow_notification_signature($notification, $signatureKey), paynow_notification_signature($notification . ' ', $signatureKey)), 'Zmodyfikowane RAW BODY zachowało podpis.');
+paynow_test(paynow_redirect_url('https://paywall.paynow.pl/TEST-000-000-000') !== null, 'Poprawny redirectUrl Paynow został odrzucony.');
+paynow_test(paynow_redirect_url('https://example.test/payment') === null, 'Nie-Paynow redirectUrl został dopuszczony.');
 
 $order = ['orderId' => 'HGO-20260809-0001', 'status' => 'new', 'paymentStatus' => 'not_started', 'totalCents' => 12345,
     'delivery' => ['pricingType' => 'fixed_price'], 'customer' => ['email' => 'test@example.test'], 'items' => [['productId' => 'a', 'name' => 'A', 'quantity' => 1, 'unitPriceCents' => 12345]]];

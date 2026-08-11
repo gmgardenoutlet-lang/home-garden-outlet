@@ -589,6 +589,10 @@
       }
       if (terms instanceof HTMLInputElement) terms.setCustomValidity("");
       if (cartPayload) cartPayload.value = JSON.stringify(cart);
+      if (checkoutSubmit instanceof HTMLButtonElement) {
+        checkoutSubmit.disabled = true;
+        checkoutSubmit.textContent = "Przetwarzanie zamówienia…";
+      }
     });
   }
 

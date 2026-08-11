@@ -15,6 +15,15 @@ try {
     }
     require_csrf();
     shop_test_require_terms();
+    $submissionToken = (string)($_POST['checkout_submission_token'] ?? '');
+    $existingOrderId = shop_test_checkout_existing_order($submissionToken);
+    if ($existingOrderId !== '') {
+        header('Location: ' . shop_catalog_url() . '/potwierdzenie?id=' . rawurlencode($existingOrderId), true, 303);
+        exit;
+    }
+    if ($submissionToken === '' || !hash_equals(shop_test_checkout_submission_token(), $submissionToken)) {
+        throw new RuntimeException('Formularz zamówienia wygasł. Odśwież stronę i spróbuj ponownie.');
+    }
     $paymentMethod = (string)($_POST['payment_method'] ?? '');
     if (!in_array($paymentMethod, ['bank_transfer', 'paynow'], true) || empty(shop_payment_methods()[$paymentMethod])) {
         throw new RuntimeException('Wybrana metoda płatności nie jest dostępna.');
@@ -86,6 +95,7 @@ try {
     }
 
     $order = shop_create_order($order);
+    shop_test_remember_checkout_order($submissionToken, (string)$order['orderId']);
     if (!$quoteRequired && $paymentMethod === 'bank_transfer') {
         $order['bankTransfer'] = shop_bank_transfer_details((string)$order['orderId']);
         shop_save_order($order);
@@ -99,9 +109,7 @@ try {
     ];
     shop_save_order($order);
     if ($paymentMethod === 'paynow' && !$quoteRequired) {
-        $payment = paynow_start_payment((string)$order['orderId']);
-        header('Location: ' . $payment['redirectUrl'], true, 303);
-        exit;
+        paynow_start_payment((string)$order['orderId']);
     }
     header('Location: ' . shop_catalog_url() . '/potwierdzenie?id=' . rawurlencode((string)$order['orderId']), true, 303);
     exit;

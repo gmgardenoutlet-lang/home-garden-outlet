@@ -57,6 +57,7 @@ $publicProducts = shop_test_public_products();
 
       <form method="post" action="/sklep/order" class="checkout-form" data-checkout-form>
         <input type="hidden" name="csrf" value="<?= e(csrf_token()) ?>">
+        <input type="hidden" name="checkout_submission_token" value="<?= e(shop_test_checkout_submission_token()) ?>">
         <input type="hidden" name="cart_payload" data-cart-payload>
         <section class="checkout-step">
           <p class="eyebrow">Krok 3</p>
