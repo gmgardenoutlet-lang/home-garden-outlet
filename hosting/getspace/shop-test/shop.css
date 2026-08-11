@@ -789,8 +789,10 @@ main {
 }
 
 .product-test-main {
-  overflow: hidden;
-  display: block;
+  overflow: visible;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   width: 100%;
   aspect-ratio: 5 / 4;
   padding: 0;
@@ -798,6 +800,13 @@ main {
   border-radius: 20px;
   background: var(--green-100);
   cursor: zoom-in;
+}
+
+.product-test-main .product-main-image {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+  object-position: center;
 }
 
 .product-test-main:focus-visible,
