@@ -248,6 +248,16 @@ $paidBankOrder = shop_load_order((string)$bankOrder['orderId']);
 test_assert(($paidBankOrder['orderStatus'] ?? '') === 'paid' && ($paidBankOrder['paymentStatus'] ?? '') === 'paid' && !empty($paidBankOrder['paymentConfirmedAt']), 'Potwierdzenie przelewu nie zapisało statusów.');
 test_assert(shop_mark_bank_transfer_paid((string)$bankOrder['orderId'], 'test-admin') === false, 'Powtórne potwierdzenie przelewu nie jest idempotentne.');
 
+$paynowConfirmedOrder = shop_create_order([
+    'orderId' => '', 'createdAt' => $now, 'updatedAt' => $now,
+    'status' => 'paid', 'orderStatus' => 'paid', 'paymentProvider' => 'paynow', 'paymentMethod' => 'paynow',
+    'paymentStatus' => 'confirmed', 'totalCents' => 2000,
+]);
+shop_update_order((string)$paynowConfirmedOrder['orderId'], 'W przygotowaniu', 'not_started', 'test realizacji');
+$paynowAfterManualUpdate = shop_load_order((string)$paynowConfirmedOrder['orderId']);
+test_assert(($paynowAfterManualUpdate['paymentStatus'] ?? '') === 'confirmed', 'Ręczny zapis cofnął potwierdzoną płatność Paynow.');
+test_assert(($paynowAfterManualUpdate['orderStatus'] ?? '') === 'W przygotowaniu', 'Nie można zaktualizować realizacji zamówienia Paynow.');
+
 $quoteOrder = shop_create_order(['orderId' => '', 'createdAt' => $now, 'updatedAt' => $now, 'status' => 'awaiting_shipping_quote', 'orderStatus' => 'awaiting_shipping_quote', 'paymentProvider' => 'bank_transfer', 'paymentStatus' => 'not_started', 'productsTotalCents' => 19999, 'totalCents' => 19999, 'customer' => ['email' => 'client@example.test'], 'items' => [['name' => 'Figura', 'quantity' => 1, 'unitPriceCents' => 19999, 'shippingName' => 'Paleta', 'shippingRequiresConfirmation' => true, 'shippingUnitCents' => null, 'shippingLineCents' => null]], 'delivery' => ['label' => 'Paleta']]);
 $quoteMessages = [];
 test_assert(shop_set_item_shipping_quote((string)$quoteOrder['orderId'], 0, '150,00', 'test-admin', static function ($to, $subject, $body, $headers) use (&$quoteMessages): bool { $quoteMessages[] = $body; return true; }), 'Nie ustalono kosztu dostawy.');

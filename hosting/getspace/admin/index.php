@@ -860,10 +860,15 @@ if ($showStats) {
                   </select>
                 </div>
                 <div class="field">
-                  <label>Status płatności</label>
-                  <select name="payment_status">
-                    <?php foreach ($shopPaymentStatuses as $option): ?><option<?= (($order['paymentStatus'] ?? 'Testowe bez płatności') === $option) ? ' selected' : '' ?>><?= e($option) ?></option><?php endforeach; ?>
-                  </select>
+                  <?php if (($order['paymentProvider'] ?? '') === 'paynow'): ?>
+                    <label>Status płatności Paynow</label>
+                    <input type="text" value="<?= e((string)($order['paymentStatus'] ?? 'not_started')) ?>" readonly aria-readonly="true">
+                  <?php else: ?>
+                    <label>Status płatności</label>
+                    <select name="payment_status">
+                      <?php foreach ($shopPaymentStatuses as $option): ?><option<?= (($order['paymentStatus'] ?? 'Testowe bez płatności') === $option) ? ' selected' : '' ?>><?= e($option) ?></option><?php endforeach; ?>
+                    </select>
+                  <?php endif; ?>
                 </div>
                 <div class="field field-full">
                   <label>Notatka wewnętrzna</label>

@@ -963,6 +963,7 @@ function shop_payment_statuses(): array
         'not_started',
         'awaiting',
         'awaiting_payment',
+        'confirmed',
         'paid',
         'failed',
         'cancelled',
@@ -1171,12 +1172,15 @@ function shop_update_order(string $orderId, string $orderStatus, string $payment
     if (!in_array($orderStatus, shop_order_statuses(), true)) {
         throw new RuntimeException('Nieprawidłowy status zamówienia.');
     }
-    if (!in_array($paymentStatus, shop_payment_statuses(), true)) {
+    $isPaynow = ($order['paymentProvider'] ?? '') === 'paynow';
+    if (!$isPaynow && !in_array($paymentStatus, shop_payment_statuses(), true)) {
         throw new RuntimeException('Nieprawidłowy status płatności.');
     }
     $order['orderStatus'] = $orderStatus;
     $order['status'] = $orderStatus;
-    $order['paymentStatus'] = $paymentStatus;
+    if (!$isPaynow) {
+        $order['paymentStatus'] = $paymentStatus;
+    }
     $order['internalNote'] = trim($internalNote);
     $order['updatedAt'] = (new DateTimeImmutable('now', new DateTimeZone(STATS_TIMEZONE)))->format(DATE_ATOM);
     shop_save_order($order);
