@@ -13,19 +13,8 @@ try {
         http_response_code(405);
         throw new RuntimeException('Zamówienie można złożyć tylko formularzem sklepu testowego.');
     }
-    if (!empty($_POST['finalize_checkout'])) {
-        $summaryDraft = $_SESSION['checkout_summary_draft'] ?? null;
-        if (!is_array($summaryDraft)) {
-            throw new RuntimeException('Sesja podsumowania wygasła. Wróć do checkoutu i sprawdź dane ponownie.');
-        }
-        $_POST = array_merge($summaryDraft, $_POST);
-    }
     require_csrf();
     shop_test_validate_checkout_customer_input();
-    if (!empty($_POST['finalize_checkout']) && empty($_POST['terms'])) {
-        header('Location: ' . shop_catalog_url() . '/zamowienie/podsumowanie', true, 303);
-        exit;
-    }
     shop_test_require_terms();
     $submissionToken = (string)($_POST['checkout_submission_token'] ?? '');
     $existingOrderId = shop_test_checkout_existing_order($submissionToken);
@@ -135,7 +124,6 @@ try {
     if ($paymentMethod === 'paynow' && !$quoteRequired) {
         paynow_start_payment((string)$order['orderId']);
     }
-    unset($_SESSION['checkout_summary_draft']);
     header('Location: ' . shop_catalog_url() . '/potwierdzenie?id=' . rawurlencode((string)$order['orderId']), true, 303);
     exit;
 } catch (ShopCheckoutValidationException $exception) {
