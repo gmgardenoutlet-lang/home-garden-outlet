@@ -569,10 +569,20 @@ function shop_test_validate_checkout_customer_input(): void
         $errors['customer_email'] = 'Podaj prawidłowy adres e-mail, np. jan@example.pl.';
     }
 
-    if ($phonePrefix === '' && !isset($_POST['phone_number'])) {
+    $usesPhoneParts = array_key_exists('phone_prefix', $_POST) || array_key_exists('phone_number', $_POST);
+    if ($phonePrefix === '' && !$usesPhoneParts) {
         $phonePrefix = '+' . (SHOP_ALLOWED_COUNTRIES[$countryCode]['callingCode'] ?? '48');
     }
-    if ($phonePrefix === '') {
+    if (!$usesPhoneParts) {
+        $normalizedPhone = shop_test_normalize_phone_for_country($phoneNumber, $countryCode);
+        if ($phoneNumber === '') {
+            $errors['customer_phone'] = 'Podaj numer telefonu.';
+        } elseif ($normalizedPhone === null) {
+            $errors['customer_phone'] = 'Podaj prawidłowy numer telefonu.';
+        } else {
+            $_POST['customer_phone'] = $normalizedPhone;
+        }
+    } elseif ($phonePrefix === '') {
         $errors['customer_phone'] = 'Wybierz kod kierunkowy.';
     } elseif (!isset(SHOP_ALLOWED_COUNTRIES[$countryCode]) || $phonePrefix !== '+' . SHOP_ALLOWED_COUNTRIES[$countryCode]['callingCode']) {
         $errors['customer_phone'] = 'Kod kierunkowy telefonu nie odpowiada wybranemu krajowi.';
