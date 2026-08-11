@@ -542,7 +542,21 @@ function shop_test_checkout_errors(): array
 function shop_test_checkout_remember_validation_error(array $errors, array $input): void
 {
     $_SESSION['checkout_errors'] = $errors;
-    $_SESSION['checkout_old_input'] = array_intersect_key($input, array_flip(['customer_first_name', 'customer_last_name', 'customer_email', 'customer_phone', 'delivery_street', 'delivery_postal_code', 'delivery_city', 'delivery_country', 'invoice_requested', 'invoice_company_name', 'invoice_nip', 'invoice_address', 'customer_notes', 'payment_method', 'terms', 'cart_payload']));
+    $oldInput = array_intersect_key($input, array_flip(['customer_first_name', 'customer_last_name', 'customer_email', 'customer_phone', 'delivery_street', 'delivery_postal_code', 'delivery_city', 'delivery_country', 'invoice_requested', 'invoice_company_name', 'invoice_nip', 'invoice_address', 'customer_notes', 'payment_method', 'terms']));
+    $cart = json_decode((string) ($input['cart_payload'] ?? ''), true);
+    if (is_array($cart) && is_array($cart['items'] ?? null)) {
+        foreach ($cart['items'] as $item) {
+            if (!is_array($item)) {
+                continue;
+            }
+            $slug = trim((string) ($item['slug'] ?? ''));
+            $shippingProfileId = trim((string) ($item['shippingProfileId'] ?? ''));
+            if ($slug !== '' && $shippingProfileId !== '') {
+                $oldInput['shipping_selections'][$slug] = $shippingProfileId;
+            }
+        }
+    }
+    $_SESSION['checkout_old_input'] = $oldInput;
 }
 
 function shop_test_checkout_payment_method(array $oldInput): string

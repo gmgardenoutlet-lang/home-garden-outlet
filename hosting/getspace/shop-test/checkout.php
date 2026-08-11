@@ -97,18 +97,20 @@ function checkout_field_attrs(array $errors, string $key): string { return isset
           <p class="eyebrow">Krok 5</p>
           <h3>Płatność</h3>
           <?php if (!empty(shop_payment_methods()['paynow'])): ?>
-            <label class="check"><input type="radio" name="payment_method" value="paynow" required<?= $checkoutPaymentMethod === 'paynow' ? ' checked' : '' ?>><span><strong>Płatność online Paynow</strong><br>Wybierzesz bezpieczny BLIK lub przelew online na stronie Paynow.</span></label>
+            <label class="check"><input type="radio" name="payment_method" value="paynow" required<?= $checkoutPaymentMethod === 'paynow' ? ' checked' : '' ?><?= checkout_field_attrs($checkoutErrors, 'payment_method') ?>><span><strong>Płatność online Paynow</strong><br>Wybierzesz bezpieczny BLIK lub przelew online na stronie Paynow.</span></label>
           <?php endif; ?>
-          <label class="check"><input type="radio" name="payment_method" value="bank_transfer"<?= $checkoutPaymentMethod === 'bank_transfer' ? ' checked' : '' ?> required><span><strong>Przelew tradycyjny</strong><br>Po złożeniu zamówienia otrzymasz dane do przelewu. Realizację zamówienia rozpoczniemy po zaksięgowaniu płatności.</span></label>
+          <label class="check"><input type="radio" name="payment_method" value="bank_transfer"<?= $checkoutPaymentMethod === 'bank_transfer' ? ' checked' : '' ?> required<?= checkout_field_attrs($checkoutErrors, 'payment_method') ?>><span><strong>Przelew tradycyjny</strong><br>Po złożeniu zamówienia otrzymasz dane do przelewu. Realizację zamówienia rozpoczniemy po zaksięgowaniu płatności.</span></label>
           <?php if (empty(shop_payment_methods()['paynow'])): ?><p>Płatność online Paynow jest obecnie niedostępna.</p><?php endif; ?>
+          <?= checkout_error($checkoutErrors, 'payment_method') ?>
         </section>
         <section class="checkout-step">
           <p class="eyebrow">Krok 6</p>
           <h3>Podsumowanie</h3>
           <label class="check">
-            <input type="checkbox" name="terms" data-terms-checkbox required>
+            <input type="checkbox" name="terms" data-terms-checkbox required<?= checkout_field_attrs($checkoutErrors, 'terms') ?>>
             <span>Akceptuję <a href="<?= e(shop_catalog_url()) ?>/regulamin" target="_blank" rel="noopener noreferrer">Regulamin</a> sklepu internetowego Home &amp; Garden Outlet.</span>
           </label>
+          <?= checkout_error($checkoutErrors, 'terms') ?>
           <button class="btn btn-wide" type="submit">Kupuję i płacę</button>
         </section>
       </form>

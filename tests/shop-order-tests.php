@@ -54,8 +54,8 @@ shop_test_checkout_remember_validation_error(['customer_email' => 'Testowy błą
 $rememberedErrors = shop_test_checkout_errors();
 $rememberedInput = shop_test_checkout_old_input();
 test_assert(($rememberedErrors['customer_email'] ?? '') === 'Testowy błąd pola e-mail' && ($rememberedInput['customer_first_name'] ?? '') === 'Jan' && ($rememberedInput['customer_phone'] ?? '') === '123456789', 'Error bag nie zachowuje danych kontaktowych.');
-test_assert(shop_test_checkout_payment_method($rememberedInput) === 'paynow', 'Error bag nie zachowuje dozwolonej metody Paynow.');
-test_assert(str_contains((string)($rememberedInput['cart_payload'] ?? ''), 'kurier-standardowy') && str_contains((string)($rememberedInput['cart_payload'] ?? ''), 'kurier-sredni'), 'Error bag nie zachowuje identyfikatorów dostawy per pozycja.');
+test_assert(($rememberedInput['payment_method'] ?? '') === 'paynow' && shop_test_checkout_payment_method($rememberedInput) === 'bank_transfer', 'Error bag nie zachowuje wyboru płatności lub nie odrzuca nieaktywnej metody.');
+test_assert(($rememberedInput['shipping_selections']['figura-testowa'] ?? '') === 'kurier-standardowy' && ($rememberedInput['shipping_selections']['figura-testowa-druga'] ?? '') === 'kurier-sredni', 'Error bag nie zachowuje identyfikatorów dostawy per pozycja.');
 test_assert(shop_load_orders() === [], 'Sam test error bag utworzył zamówienie.');
 
 // Customer-facing delivery code deliberately does not fall back to defaults.
