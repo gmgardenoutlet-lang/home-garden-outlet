@@ -70,6 +70,7 @@ $publicProducts = shop_test_public_products();
               <?php if ($view['shortDescription'] !== ''): ?><p class="card-description"><?= e($view['shortDescription']) ?></p><?php endif; ?>
               <ul class="card-facts">
                 <li>Wysyłka <?= e($view['leadTime']) ?></li>
+                <?php if (!empty($product['handPainted'])): ?><li>Ręcznie malowane</li><?php endif; ?>
               </ul>
               <strong class="card-price"><?= e($view['priceLabel']) ?></strong>
               <div class="shop-actions">

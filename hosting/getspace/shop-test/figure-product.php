@@ -82,6 +82,7 @@ $details = $product ? array_filter([
           <h1><?= e($view['name']) ?></h1>
           <div class="product-status-grid">
             <span>Wysyłka <?= e($view['leadTime']) ?></span>
+            <?php if (!empty($product['handPainted'])): ?><span>Ręcznie malowane</span><?php endif; ?>
           </div>
           <strong class="product-price"><?= e($view['priceLabel']) ?></strong>
           <?php if ($view['shortDescription'] !== ''): ?><p><?= nl2br(e($view['shortDescription'])) ?></p><?php endif; ?>
@@ -94,7 +95,6 @@ $details = $product ? array_filter([
           <p><a href="/sklep/figury-ogrodowe/dostawa-i-platnosci">Dostawa i płatności</a> · <a href="/sklep/figury-ogrodowe/zwroty-i-reklamacje">Zwroty i reklamacje</a> · <a href="/sklep/figury-ogrodowe/formularz-odstapienia">Formularz odstąpienia</a></p>
 
           <div class="shop-actions">
-            <span class="shop-sales-notice">Płatność: przelew tradycyjny</span>
             <?php if (shop_sales_enabled() && $view['canBuy']): ?>
               <button class="btn" type="button" data-add-to-cart="<?= e($view['slug']) ?>">Dodaj do koszyka</button>
             <?php endif; ?>
