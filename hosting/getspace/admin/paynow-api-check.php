@@ -19,9 +19,10 @@ if (PAYNOW_API_KEY === '' || PAYNOW_SIGNATURE_KEY === '') {
     $message = 'Serwer nie obsługuje wymaganego połączenia HTTPS.';
 } else {
     $idempotencyKey = bin2hex(random_bytes(18));
-    $parameters = ['amount' => 100, 'currency' => 'PLN', 'applePayEnabled' => 'false'];
-    $query = http_build_query($parameters, '', '&', PHP_QUERY_RFC3986);
-    $curl = curl_init(paynow_base_url() . '/v3/payments/paymentmethods?' . $query);
+    // Paynow's documented signature example for this endpoint uses no query
+    // parameters, so the signed parameter map is deliberately empty.
+    $parameters = [];
+    $curl = curl_init(paynow_base_url() . '/v3/payments/paymentmethods');
     curl_setopt_array($curl, [
         CURLOPT_HTTPGET => true,
         CURLOPT_HTTPHEADER => [
@@ -43,11 +44,14 @@ if (PAYNOW_API_KEY === '' || PAYNOW_SIGNATURE_KEY === '') {
     curl_close($curl);
     $response = is_string($responseBody) ? json_decode($responseBody, true) : null;
     if ($httpStatus >= 200 && $httpStatus < 300 && is_array($response)) {
-        foreach ((array)($response['paymentMethods'] ?? $response) as $method) {
-            if (!is_array($method)) continue;
-            $name = trim((string)($method['name'] ?? ''));
-            $type = trim((string)($method['type'] ?? $method['id'] ?? ''));
-            if ($name !== '' || $type !== '') $methods[] = ['name' => $name, 'type' => $type];
+        foreach ($response as $group) {
+            if (!is_array($group)) continue;
+            $type = trim((string)($group['type'] ?? ''));
+            foreach ((array)($group['paymentMethods'] ?? []) as $method) {
+                if (!is_array($method)) continue;
+                $name = trim((string)($method['name'] ?? ''));
+                if ($name !== '' || $type !== '') $methods[] = ['name' => $name, 'type' => $type];
+            }
         }
         $message = 'Połączenie i odpowiedź Paynow zostały odebrane.';
     } elseif ($curlError !== '') {
