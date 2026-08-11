@@ -212,7 +212,7 @@
     const foreign = isForeignCheckout();
     if (paymentStep) paymentStep.hidden = foreign;
     if (foreignShippingNotice) foreignShippingNotice.hidden = !foreign;
-    if (checkoutSubmit instanceof HTMLButtonElement) checkoutSubmit.textContent = foreign ? 'Złóż zamówienie do wyceny' : 'Kupuję i płacę';
+    if (checkoutSubmit instanceof HTMLButtonElement) checkoutSubmit.textContent = 'Przejdź do podsumowania';
     if (postalCodeInput instanceof HTMLInputElement) {
       postalCodeInput.maxLength = foreign ? 20 : 6;
       postalCodeInput.inputMode = foreign ? 'text' : 'numeric';

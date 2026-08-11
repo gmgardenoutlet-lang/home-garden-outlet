@@ -8,6 +8,9 @@ shop_test_require_sales();
 $publicProducts = shop_test_public_products();
 $checkoutErrors = shop_test_checkout_errors();
 $checkoutOld = shop_test_checkout_old_input();
+if (!empty($_GET['summary_edit']) && is_array($_SESSION['checkout_summary_draft'] ?? null)) {
+    $checkoutOld = $_SESSION['checkout_summary_draft'];
+}
 $checkoutPaymentMethod = shop_test_checkout_payment_method($checkoutOld);
 $checkoutCountry = shop_test_order_country_code(['countryCode' => $checkoutOld['delivery_country'] ?? 'PL']);
 $checkoutPhonePrefix = (string) ($checkoutOld['phone_prefix'] ?? ('+' . SHOP_ALLOWED_COUNTRIES[$checkoutCountry]['callingCode']));
@@ -65,7 +68,7 @@ function checkout_field_attrs(array $errors, string $key): string { return isset
         <aside class="shipment-check-note" data-foreign-shipping-notice hidden><strong>Dostawa zagraniczna</strong><p>Koszt dostawy zostanie ustalony indywidualnie po złożeniu zamówienia. Skontaktujemy się z Tobą przed płatnością.</p><p>Na tym etapie nie pobieramy płatności.</p></aside>
       </div>
 
-      <form method="post" action="/sklep/order" class="checkout-form" data-checkout-form>
+      <form method="post" action="/sklep/checkout/podsumowanie" class="checkout-form" data-checkout-form>
         <input type="hidden" name="csrf" value="<?= e(csrf_token()) ?>">
         <input type="hidden" name="checkout_submission_token" value="<?= e(shop_test_checkout_submission_token()) ?>">
         <input type="hidden" name="cart_payload" data-cart-payload>
@@ -114,12 +117,8 @@ function checkout_field_attrs(array $errors, string $key): string { return isset
         <section class="checkout-step">
           <p class="eyebrow">Krok 6</p>
           <h3>Podsumowanie</h3>
-          <label class="check">
-            <input type="checkbox" name="terms" data-terms-checkbox required<?= checkout_field_attrs($checkoutErrors, 'terms') ?>>
-            <span>Akceptuję <a href="<?= e(shop_catalog_url()) ?>/regulamin" target="_blank" rel="noopener noreferrer">Regulamin</a> sklepu internetowego Home &amp; Garden Outlet.</span>
-          </label>
-          <?= checkout_error($checkoutErrors, 'terms') ?>
-          <button class="btn btn-wide" type="submit" data-checkout-submit>Kupuję i płacę</button>
+          <p>Sprawdź wszystkie dane przed ostatecznym złożeniem zamówienia.</p>
+          <button class="btn btn-wide" type="submit" data-checkout-submit>Przejdź do podsumowania</button>
         </section>
       </form>
     </section>
