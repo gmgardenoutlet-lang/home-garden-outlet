@@ -6,9 +6,13 @@ require __DIR__ . '/paynow.php';
 shop_test_boot();
 shop_test_require_sales();
 
-$orderId = shop_safe_order_id((string)($_GET['id'] ?? ''));
-$order = $orderId !== '' ? shop_load_order($orderId) : null;
+$orderId = shop_safe_order_id((string)($_GET['order'] ?? ''));
+$confirmationToken = (string)($_GET['token'] ?? '');
+$order = shop_public_confirmation_order($orderId, $confirmationToken);
 $paynowRedirectUrl = is_array($order) ? paynow_redirect_url((string)($order['paymentRedirectUrl'] ?? '')) : null;
+header('Cache-Control: private, no-store, max-age=0');
+header('Referrer-Policy: no-referrer');
+header('X-Robots-Tag: noindex, nofollow, noarchive');
 if (!$order) {
     http_response_code(404);
 }
@@ -59,7 +63,7 @@ if (!$order) {
             <?php if ($paynowRedirectUrl !== null): ?>
               <a class="btn" href="<?= e($paynowRedirectUrl) ?>" rel="noreferrer">Opłać zamówienie</a>
             <?php else: ?>
-              <form method="post" action="/sklep/paynow-create-payment"><input type="hidden" name="csrf" value="<?= e(csrf_token()) ?>"><input type="hidden" name="order_id" value="<?= e($order['orderId'] ?? '') ?>"><button class="btn" type="submit">Przygotuj płatność Paynow</button></form>
+              <form method="post" action="/sklep/paynow-create-payment"><input type="hidden" name="csrf" value="<?= e(csrf_token()) ?>"><input type="hidden" name="order_id" value="<?= e($order['orderId'] ?? '') ?>"><input type="hidden" name="confirmation_token" value="<?= e($confirmationToken) ?>"><button class="btn" type="submit">Przygotuj płatność Paynow</button></form>
             <?php endif; ?>
           </section>
         <?php endif; ?>
@@ -102,7 +106,7 @@ if (!$order) {
       <section class="success-box error-box">
         <p class="eyebrow">Nie znaleziono zamówienia</p>
         <h1>Nie udało się odczytać zamówienia</h1>
-        <p>Nie udało się odczytać wskazanego zamówienia testowego.</p>
+        <p>Nie można otworzyć tego potwierdzenia zamówienia.</p>
         <div class="shop-actions">
           <a class="btn" href="<?= e(shop_catalog_url()) ?>">Wróć do sklepu</a>
         </div>

@@ -4,6 +4,39 @@ declare(strict_types=1);
 require_once __DIR__ . '/config.php';
 require_once __DIR__ . '/../admin/lib.php';
 
+function shop_new_confirmation_token(): string
+{
+    // 32 random bytes = 256 bits. Base64url keeps the value safe in a query string.
+    return rtrim(strtr(base64_encode(random_bytes(32)), '+/', '-_'), '=');
+}
+
+function shop_confirmation_token_hash(string $token): string
+{
+    return hash('sha256', $token);
+}
+
+function shop_confirmation_url(string $orderId, string $token): string
+{
+    return '/sklep/figury-ogrodowe/potwierdzenie?order=' . rawurlencode(shop_safe_order_id($orderId))
+        . '&token=' . rawurlencode($token);
+}
+
+function shop_public_confirmation_order(string $orderId, string $token): ?array
+{
+    $orderId = shop_safe_order_id($orderId);
+    if ($orderId === '' || $token === '') {
+        return null;
+    }
+
+    $order = shop_load_order($orderId);
+    $storedHash = is_array($order) ? (string)($order['confirmationTokenHash'] ?? '') : '';
+    if (!preg_match('/^[a-f0-9]{64}$/', $storedHash)) {
+        return null;
+    }
+
+    return hash_equals($storedHash, shop_confirmation_token_hash($token)) ? $order : null;
+}
+
 function shop_test_boot(): void
 {
     boot_admin();
@@ -686,8 +719,21 @@ function shop_test_checkout_existing_order(string $token): string
     return $token !== '' && hash_equals($last['token'], $token) ? shop_safe_order_id($last['orderId']) : '';
 }
 
-function shop_test_remember_checkout_order(string $token, string $orderId): void
+function shop_test_checkout_existing_confirmation_token(string $token): string
 {
-    $_SESSION['checkout_last_submission'] = ['token' => $token, 'orderId' => shop_safe_order_id($orderId)];
+    $last = $_SESSION['checkout_last_submission'] ?? [];
+    if (!is_array($last) || !is_string($last['token'] ?? null) || !is_string($last['confirmationToken'] ?? null)) {
+        return '';
+    }
+    return $token !== '' && hash_equals($last['token'], $token) ? $last['confirmationToken'] : '';
+}
+
+function shop_test_remember_checkout_order(string $token, string $orderId, string $confirmationToken = ''): void
+{
+    $_SESSION['checkout_last_submission'] = [
+        'token' => $token,
+        'orderId' => shop_safe_order_id($orderId),
+        'confirmationToken' => $confirmationToken,
+    ];
     unset($_SESSION['checkout_submission_token']);
 }

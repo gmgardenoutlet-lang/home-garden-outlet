@@ -18,8 +18,9 @@ try {
     shop_test_require_terms();
     $submissionToken = (string)($_POST['checkout_submission_token'] ?? '');
     $existingOrderId = shop_test_checkout_existing_order($submissionToken);
-    if ($existingOrderId !== '') {
-        header('Location: ' . shop_catalog_url() . '/potwierdzenie?id=' . rawurlencode($existingOrderId), true, 303);
+    $existingConfirmationToken = shop_test_checkout_existing_confirmation_token($submissionToken);
+    if ($existingOrderId !== '' && $existingConfirmationToken !== '') {
+        header('Location: ' . shop_confirmation_url($existingOrderId, $existingConfirmationToken), true, 303);
         exit;
     }
     if ($submissionToken === '' || !hash_equals(shop_test_checkout_submission_token(), $submissionToken)) {
@@ -73,6 +74,7 @@ try {
     $shippingTotalCents = $foreignShipping ? null : $shippingTotalCents;
     $totalCents = $shippingTotalCents === null ? null : $productTotalCents + $shippingTotalCents;
     $now = (new DateTimeImmutable('now', new DateTimeZone(STATS_TIMEZONE)))->format(DATE_ATOM);
+    $confirmationToken = shop_new_confirmation_token();
 
     $order = [
         'orderId' => '',
@@ -101,6 +103,7 @@ try {
         'paymentId' => '',
         'paymentStatus' => $quoteRequired ? 'not_started' : ($paymentMethod === 'paynow' ? 'not_started' : 'awaiting'),
         'internalNote' => '',
+        'confirmationTokenHash' => shop_confirmation_token_hash($confirmationToken),
     ];
 
     if (!$quoteRequired && $paymentMethod === 'bank_transfer') {
@@ -108,7 +111,7 @@ try {
     }
 
     $order = shop_create_order($order);
-    shop_test_remember_checkout_order($submissionToken, (string)$order['orderId']);
+    shop_test_remember_checkout_order($submissionToken, (string)$order['orderId'], $confirmationToken);
     if (!$quoteRequired && $paymentMethod === 'bank_transfer') {
         $order['bankTransfer'] = shop_bank_transfer_details((string)$order['orderId']);
         shop_save_order($order);
@@ -124,7 +127,7 @@ try {
     if ($paymentMethod === 'paynow' && !$quoteRequired) {
         paynow_start_payment((string)$order['orderId']);
     }
-    header('Location: ' . shop_catalog_url() . '/potwierdzenie?id=' . rawurlencode((string)$order['orderId']), true, 303);
+    header('Location: ' . shop_confirmation_url((string)$order['orderId'], $confirmationToken), true, 303);
     exit;
 } catch (ShopCheckoutValidationException $exception) {
     shop_test_checkout_remember_validation_error($exception->errors, $exception->oldInput);

@@ -300,6 +300,41 @@ test_assert((string)$order['orderId'] !== '' && $order['orderId'] === $order['or
 test_assert(is_file(shop_order_file((string)$order['orderId'])), 'Nie zapisano testowego JSON zamówienia.');
 test_assert($order['totalCents'] === $order['productsTotalCents'] + $order['deliveryCostCents'], 'Suma zamówienia w groszach jest błędna.');
 
+// SECURITY S1: public confirmation must require an unguessable, order-bound token.
+$confirmationTokenA = shop_new_confirmation_token();
+$confirmationTokenB = shop_new_confirmation_token();
+test_assert($confirmationTokenA !== $confirmationTokenB && strlen($confirmationTokenA) >= 43, 'Token potwierdzenia nie ma wymaganej entropii 256 bitów.');
+$confirmationOrderA = shop_create_order([
+    'orderId' => '', 'createdAt' => $now, 'updatedAt' => $now,
+    'customer' => ['firstName' => 'Test', 'lastName' => 'A', 'email' => 'a@example.test', 'phone' => '+48111111111'],
+    'deliveryAddress' => ['street' => 'Testowa 1', 'postalCode' => '00-001', 'city' => 'Warszawa', 'country' => 'PL'],
+    'totalCents' => 1000,
+    'confirmationTokenHash' => shop_confirmation_token_hash($confirmationTokenA),
+]);
+$confirmationOrderB = shop_create_order([
+    'orderId' => '', 'createdAt' => $now, 'updatedAt' => $now,
+    'customer' => ['firstName' => 'Test', 'lastName' => 'B', 'email' => 'b@example.test', 'phone' => '+48222222222'],
+    'deliveryAddress' => ['street' => 'Testowa 2', 'postalCode' => '00-002', 'city' => 'Warszawa', 'country' => 'PL'],
+    'totalCents' => 2000,
+    'confirmationTokenHash' => shop_confirmation_token_hash($confirmationTokenB),
+]);
+$confirmationJsonA = (string)file_get_contents(shop_order_file((string)$confirmationOrderA['orderId']));
+test_assert(!str_contains($confirmationJsonA, $confirmationTokenA) && str_contains($confirmationJsonA, shop_confirmation_token_hash($confirmationTokenA)), 'Storage zamówienia przechowuje raw token zamiast samego hasha.');
+// A: valid order id without token reveals nothing.
+test_assert(shop_public_confirmation_order((string)$confirmationOrderA['orderId'], '') === null, 'TEST A: brak tokenu ujawnił zamówienie.');
+// B: a random wrong token reveals nothing.
+test_assert(shop_public_confirmation_order((string)$confirmationOrderA['orderId'], shop_new_confirmation_token()) === null, 'TEST B: błędny token ujawnił zamówienie.');
+// C: token A cannot authorize access to order B.
+test_assert(shop_public_confirmation_order((string)$confirmationOrderB['orderId'], $confirmationTokenA) === null, 'TEST C: token innego zamówienia ujawnił dane.');
+// D: token A grants access only to order A.
+$authorizedConfirmationA = shop_public_confirmation_order((string)$confirmationOrderA['orderId'], $confirmationTokenA);
+test_assert(is_array($authorizedConfirmationA) && ($authorizedConfirmationA['orderId'] ?? '') === $confirmationOrderA['orderId'] && ($authorizedConfirmationA['customer']['email'] ?? '') === 'a@example.test', 'TEST D: poprawny token nie otworzył właściwego zamówienia.');
+// E: predictable sequential IDs without a token never authorize access.
+foreach (['HGO-20260811-0001', 'HGO-20260811-0002', 'HGO-20260811-0003'] as $sequentialId) {
+    test_assert(shop_public_confirmation_order($sequentialId, '') === null, 'TEST E: sam orderId ujawnił zamówienie.');
+}
+test_assert(str_contains(shop_confirmation_url((string)$confirmationOrderA['orderId'], $confirmationTokenA), 'token='), 'Link potwierdzenia nie zawiera tokenu.');
+
 $transfer = shop_bank_transfer_details((string)$order['orderId']);
 test_assert(($transfer['recipient'] ?? '') !== '' && preg_match('/^PL\d{26}$/', (string)($transfer['accountNumber'] ?? '')) === 1, 'Brakuje poprawnej konfiguracji rachunku przelewu.');
 test_assert(($transfer['transferTitle'] ?? '') === 'Zamówienie ' . $order['orderId'], 'Tytuł przelewu nie bazuje na order_id.');

@@ -12,9 +12,13 @@ if (!paynow_is_enabled()) { http_response_code(503); echo '{"error":"service_una
 try {
     require_csrf();
     $orderId = shop_safe_order_id((string)($_POST['order_id'] ?? ''));
+    $confirmationToken = (string)($_POST['confirmation_token'] ?? '');
+    if (shop_public_confirmation_order($orderId, $confirmationToken) === null) {
+        throw new RuntimeException('Nie można otworzyć potwierdzenia zamówienia.');
+    }
     $result = paynow_start_payment($orderId);
     if (!str_contains((string)($_SERVER['HTTP_ACCEPT'] ?? ''), 'application/json')) {
-        header('Location: ' . shop_catalog_url() . '/potwierdzenie?id=' . rawurlencode($orderId), true, 303);
+        header('Location: ' . shop_confirmation_url($orderId, $confirmationToken), true, 303);
         exit;
     }
     echo json_encode($result, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
