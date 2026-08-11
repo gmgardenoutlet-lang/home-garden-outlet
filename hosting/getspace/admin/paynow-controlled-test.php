@@ -29,6 +29,23 @@ function admin_paynow_safe_message(Throwable $exception): string
     return function_exists('mb_substr') ? mb_substr($message, 0, 300, 'UTF-8') : substr($message, 0, 300);
 }
 
+function admin_paynow_saved_redirect_url(array $order): ?string
+{
+    if (trim((string)($order['paymentId'] ?? '')) === '') {
+        return null;
+    }
+    $url = trim((string)($order['paymentRedirectUrl'] ?? ''));
+    if ($url === '' || !filter_var($url, FILTER_VALIDATE_URL)) {
+        return null;
+    }
+    $parts = parse_url($url);
+    $host = strtolower((string)($parts['host'] ?? ''));
+    if (($parts['scheme'] ?? '') !== 'https' || !preg_match('/(?:^|\\.)paynow\\.pl$/', $host)) {
+        return null;
+    }
+    return $url;
+}
+
 function admin_paynow_test_candidate(): ?array
 {
     $candidate = null;
@@ -120,6 +137,7 @@ $itemsTotal = is_array($payload) ? array_sum(array_map(static fn(array $item): i
 $payloadBody = is_array($payload) ? json_encode($payload, JSON_UNESCAPED_SLASHES) : '';
 $canonicalPayload = is_string($payloadBody) ? paynow_canonical_payload(PAYNOW_API_KEY, paynow_idempotency_key($order ?? []), $payloadBody) : '';
 $diagnostic = $_SESSION['paynow_controlled_test_diagnostic'] ?? admin_paynow_test_diagnostic();
+$savedRedirectUrl = is_array($order) ? admin_paynow_saved_redirect_url($order) : null;
 ?>
 <!doctype html>
 <html lang="pl"><head><meta charset="utf-8"><meta name="robots" content="noindex,nofollow,noarchive"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Kontrolowany test Paynow</title><link rel="stylesheet" href="/admin/style.css"></head>
@@ -131,12 +149,18 @@ $diagnostic = $_SESSION['paynow_controlled_test_diagnostic'] ?? admin_paynow_tes
   <p><strong>Zamówienie:</strong> <?= e($order['orderId']) ?><br><strong>Kwota:</strong> <?= e(shop_test_price_label((float)$order['total'])) ?></p>
   <p><strong>paymentId zapisany:</strong> <?= !empty($order['paymentId']) ? 'TAK' : 'NIE' ?><br><strong>redirectUrl zapisany:</strong> <?= !empty($order['paymentRedirectUrl']) ? 'TAK' : 'NIE' ?></p>
   <?php if ($payload): ?><p><strong>Payload sanity:</strong><br>amount: <?= e((string)$payload['amount']) ?><br>currency: <?= e($payload['currency']) ?><br>externalId: <?= e($payload['externalId']) ?><br>description: <?= e($payload['description']) ?><br>buyer: e-mail, imię i nazwisko<br>orderItems suma: <?= e((string)$itemsTotal) ?><br>continueUrl: konfiguracja Paynow<br>notificationUrl: konfiguracja Paynow<br>body byte length: <?= e((string)strlen($payloadBody)) ?><br>canonical payload byte length: <?= e((string)strlen($canonicalPayload)) ?><br>SAME_BODY_USED_FOR_SIGNATURE_AND_REQUEST: TAK</p><?php endif; ?>
-  <?php if (!empty($order['paymentId']) && !empty($order['paymentRedirectUrl'])): ?>
+  <?php if ($savedRedirectUrl !== null): ?>
     <p>Istnieje już jedna kontrolowana płatność. Przejście dalej otworzy jej stronę Paynow bez tworzenia nowej.</p>
+  <?php elseif (!empty($order['paymentId'])): ?>
+    <p>Istniejąca płatność nie ma poprawnego, bezpiecznego adresu przekierowania Paynow. Link nie jest dostępny.</p>
   <?php else: ?>
     <p>Płatność nie została jeszcze utworzona. Przejście dalej utworzy jedną płatność produkcyjną i otworzy stronę Paynow.</p>
   <?php endif; ?>
   <p><strong>Ostatnia diagnostyka POST:</strong><br><?php foreach ($diagnostic as $label => $value): ?><?= e($label) ?>: <?= is_bool($value) ? ($value ? 'TAK' : 'NIE') : e((string)$value) ?><br><?php endforeach; ?></p>
-  <form method="post"><input type="hidden" name="csrf" value="<?= e(csrf_token()) ?>"><input type="hidden" name="action" value="start"><input type="hidden" name="order_id" value="<?= e($order['orderId']) ?>"><button class="btn" type="submit"><?= !empty($order['paymentId']) && !empty($order['paymentRedirectUrl']) ? 'Przejdź do utworzonej płatności Paynow' : 'Utwórz płatność i przejdź do Paynow' ?></button></form>
+  <?php if ($savedRedirectUrl !== null): ?>
+    <a class="btn" href="<?= e($savedRedirectUrl) ?>" rel="noreferrer">Przejdź do utworzonej płatności Paynow</a>
+  <?php elseif (empty($order['paymentId'])): ?>
+    <form method="post"><input type="hidden" name="csrf" value="<?= e(csrf_token()) ?>"><input type="hidden" name="action" value="start"><input type="hidden" name="order_id" value="<?= e($order['orderId']) ?>"><button class="btn" type="submit">Utwórz płatność i przejdź do Paynow</button></form>
+  <?php endif; ?>
 <?php else: ?><p>Nie znaleziono kontrolowanego zamówienia testowego.</p><?php endif; ?>
 </section></main></body></html>
