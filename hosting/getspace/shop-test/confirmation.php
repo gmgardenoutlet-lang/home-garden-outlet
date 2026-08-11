@@ -50,6 +50,12 @@ if (!$order) {
           </section>
         <?php elseif (($order['status'] ?? '') === 'awaiting_shipping_quote'): ?>
           <section class="confirmation-section"><h2>Koszt dostawy do potwierdzenia</h2><p>Koszt dostawy wymaga indywidualnego potwierdzenia. Skontaktujemy się z Tobą przed płatnością.</p></section>
+        <?php elseif (($order['paymentMethod'] ?? '') === 'paynow' && ($order['delivery']['pricingType'] ?? '') === 'fixed_price'): ?>
+          <section class="confirmation-section">
+            <h2>Płatność online Paynow</h2>
+            <p>Możesz opłacić zamówienie BLIK-iem lub przelewem online. Płatność zostanie uznana dopiero po potwierdzeniu Paynow.</p>
+            <form method="post" action="/sklep/paynow-create-payment"><input type="hidden" name="csrf" value="<?= e(csrf_token()) ?>"><input type="hidden" name="order_id" value="<?= e($order['orderId'] ?? '') ?>"><button class="btn" type="submit">Przejdź do Paynow</button></form>
+          </section>
         <?php endif; ?>
 
         <section class="confirmation-section">

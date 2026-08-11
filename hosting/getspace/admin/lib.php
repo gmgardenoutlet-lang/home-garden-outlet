@@ -966,7 +966,9 @@ function shop_payment_statuses(): array
 
 function shop_payment_methods(): array
 {
-    return ['bank_transfer' => true, 'paynow' => false];
+    // Paynow is only exposed when explicitly enabled from private server
+    // configuration. There is deliberately no separate card option.
+    return ['bank_transfer' => true, 'paynow' => defined('PAYNOW_ENABLED') && PAYNOW_ENABLED];
 }
 
 function shop_bank_transfer_details(string $orderId = ''): array
@@ -1002,12 +1004,17 @@ function shop_order_email_lines(array $order, bool $includeTransfer): array
     }
     $lines[] = 'Koszt dostawy: ' . number_format(((int)($order['deliveryCostCents'] ?? 0)) / 100, 2, ',', ' ') . ' PLN';
     $lines[] = 'Razem: ' . number_format(((int)($order['totalCents'] ?? 0)) / 100, 2, ',', ' ') . ' PLN';
-    $transfer = shop_bank_transfer_details((string)($order['orderId'] ?? ''));
-    $lines[] = 'Płatność: Przelew tradycyjny';
-    $lines[] = 'Odbiorca: ' . $transfer['recipient'];
-    $lines[] = 'Rachunek: ' . $transfer['accountNumber'];
-    $lines[] = 'Tytuł: ' . $transfer['transferTitle'];
-    $lines[] = 'Realizację zamówienia rozpoczniemy po zaksięgowaniu płatności.';
+    if (($order['paymentMethod'] ?? '') === 'paynow') {
+        $lines[] = 'Płatność: Paynow (BLIK lub przelew online).';
+        $lines[] = 'Po ustaleniu wszystkich kosztów dostawy prześlemy możliwość opłacenia zamówienia online.';
+    } else {
+        $transfer = shop_bank_transfer_details((string)($order['orderId'] ?? ''));
+        $lines[] = 'Płatność: Przelew tradycyjny';
+        $lines[] = 'Odbiorca: ' . $transfer['recipient'];
+        $lines[] = 'Rachunek: ' . $transfer['accountNumber'];
+        $lines[] = 'Tytuł: ' . $transfer['transferTitle'];
+        $lines[] = 'Realizację zamówienia rozpoczniemy po zaksięgowaniu płatności.';
+    }
     return $lines;
 }
 
@@ -1232,8 +1239,13 @@ function shop_set_item_shipping_quote(string $orderId, int $itemIndex, string $u
     $allKnown = shop_recalculate_item_shipping($order);
     if ($allKnown) {
         $order['status'] = $order['orderStatus'] = 'awaiting_payment';
-        $order['paymentProvider'] = $order['paymentMethod'] = 'bank_transfer';
-        $order['paymentStatus'] = 'awaiting';
+        if (($order['paymentMethod'] ?? '') === 'paynow') {
+            $order['paymentProvider'] = 'paynow';
+            $order['paymentStatus'] = 'not_started';
+        } else {
+            $order['paymentProvider'] = $order['paymentMethod'] = 'bank_transfer';
+            $order['paymentStatus'] = 'awaiting';
+        }
         $order['shippingQuoteConfirmedAt'] = $now;
         $order['shippingQuoteConfirmedBy'] = $administrator;
     }
@@ -1275,8 +1287,13 @@ function shop_set_shipping_quote(string $orderId, string $cost, string $administ
     $order['totalCents'] = (int)($order['productsTotalCents'] ?? 0) + $order['shippingTotalCents'];
     $order['total'] = $order['totalCents'] / 100;
     $order['status'] = $order['orderStatus'] = 'awaiting_payment';
-    $order['paymentProvider'] = $order['paymentMethod'] = 'bank_transfer';
-    $order['paymentStatus'] = 'awaiting';
+    if (($order['paymentMethod'] ?? '') === 'paynow') {
+        $order['paymentProvider'] = 'paynow';
+        $order['paymentStatus'] = 'not_started';
+    } else {
+        $order['paymentProvider'] = $order['paymentMethod'] = 'bank_transfer';
+        $order['paymentStatus'] = 'awaiting';
+    }
     $order['shippingQuoteConfirmedAt'] = $now;
     $order['shippingQuoteConfirmedBy'] = $administrator;
     shop_save_order($order);

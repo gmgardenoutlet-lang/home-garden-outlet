@@ -40,6 +40,8 @@ frontend_assert(str_contains($layout, 'data-cart-toast'), 'Wspólny layout nie m
 frontend_assert(str_contains($javascript, 'localStorage.setItem(storageKey'), 'Istniejący mechanizm localStorage koszyka nie jest używany.');
 frontend_assert(str_contains($javascript, 'showToast(product)'), 'Dodawanie do koszyka nie wywołuje toastu.');
 frontend_assert(str_contains($checkout, 'value="bank_transfer"'), 'Checkout nie zawiera przelewu tradycyjnego.');
+frontend_assert(str_contains($checkout, 'value="paynow"'), 'Checkout nie zawiera opcji Paynow.');
+frontend_assert(!str_contains(strtolower($checkout), 'visa') && !str_contains(strtolower($checkout), 'mastercard') && !str_contains(strtolower($checkout), 'google pay') && !str_contains(strtolower($checkout), 'apple pay'), 'Checkout eksponuje niedozwolone metody kartowe.');
 frontend_assert(str_contains($checkout, 'Kupuję i płacę'), 'Checkout nie ma jednoznacznego przycisku finalizacji.');
 frontend_assert(str_contains($checkout, 'data-delivery-options'), 'Checkout nie zawiera wyboru dostawy.');
 frontend_assert(str_contains($javascript, 'deliverySelected'), 'Frontend nie wymaga świadomego wyboru dostawy.');

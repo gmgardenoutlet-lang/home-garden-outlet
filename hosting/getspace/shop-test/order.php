@@ -2,6 +2,7 @@
 declare(strict_types=1);
 
 require __DIR__ . '/lib.php';
+require __DIR__ . '/paynow.php';
 shop_test_boot();
 shop_test_require_sales();
 
@@ -15,7 +16,7 @@ try {
     require_csrf();
     shop_test_require_terms();
     $paymentMethod = (string)($_POST['payment_method'] ?? '');
-    if ($paymentMethod !== 'bank_transfer' || empty(shop_payment_methods()['bank_transfer'])) {
+    if (!in_array($paymentMethod, ['bank_transfer', 'paynow'], true) || empty(shop_payment_methods()[$paymentMethod])) {
         throw new RuntimeException('Wybrana metoda płatności nie jest dostępna.');
     }
 
@@ -73,19 +74,19 @@ try {
         'total' => shop_test_cents_to_price($totalCents),
         'totalCents' => $totalCents,
         'currency' => 'PLN',
-        'paymentMethod' => 'bank_transfer',
-        'paymentProvider' => 'bank_transfer',
+        'paymentMethod' => $paymentMethod,
+        'paymentProvider' => $paymentMethod,
         'paymentId' => '',
-        'paymentStatus' => $quoteRequired ? 'not_started' : 'awaiting',
+        'paymentStatus' => $quoteRequired ? 'not_started' : ($paymentMethod === 'paynow' ? 'not_started' : 'awaiting'),
         'internalNote' => '',
     ];
 
-    if (!$quoteRequired) {
+    if (!$quoteRequired && $paymentMethod === 'bank_transfer') {
         $order['bankTransfer'] = shop_bank_transfer_details();
     }
 
     $order = shop_create_order($order);
-    if (!$quoteRequired) {
+    if (!$quoteRequired && $paymentMethod === 'bank_transfer') {
         $order['bankTransfer'] = shop_bank_transfer_details((string)$order['orderId']);
         shop_save_order($order);
     }
@@ -97,6 +98,11 @@ try {
         'adminFailed' => !$sent['admin'],
     ];
     shop_save_order($order);
+    if ($paymentMethod === 'paynow' && !$quoteRequired) {
+        $payment = paynow_start_payment((string)$order['orderId']);
+        header('Location: ' . $payment['redirectUrl'], true, 303);
+        exit;
+    }
     header('Location: ' . shop_catalog_url() . '/potwierdzenie?id=' . rawurlencode((string)$order['orderId']), true, 303);
     exit;
 } catch (Throwable $exception) {

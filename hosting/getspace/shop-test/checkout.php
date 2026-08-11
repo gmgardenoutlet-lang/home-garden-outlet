@@ -89,8 +89,11 @@ $publicProducts = shop_test_public_products();
         <section class="checkout-step payment-step">
           <p class="eyebrow">Krok 5</p>
           <h3>Płatność</h3>
+          <?php if (!empty(shop_payment_methods()['paynow'])): ?>
+            <label class="check"><input type="radio" name="payment_method" value="paynow" required><span><strong>Płatność online Paynow</strong><br>Wybierzesz bezpieczny BLIK lub przelew online na stronie Paynow.</span></label>
+          <?php endif; ?>
           <label class="check"><input type="radio" name="payment_method" value="bank_transfer" checked required><span><strong>Przelew tradycyjny</strong><br>Po złożeniu zamówienia otrzymasz dane do przelewu. Realizację zamówienia rozpoczniemy po zaksięgowaniu płatności.</span></label>
-          <p>Płatności online przez Paynow są obecnie w trakcie uruchamiania i nie są dostępne.</p>
+          <?php if (empty(shop_payment_methods()['paynow'])): ?><p>Płatność online Paynow jest obecnie niedostępna.</p><?php endif; ?>
         </section>
         <section class="checkout-step">
           <p class="eyebrow">Krok 6</p>

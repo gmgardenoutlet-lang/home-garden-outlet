@@ -6,12 +6,12 @@ require __DIR__ . '/../hosting/getspace/shop-test/paynow.php';
 
 function paynow_test(bool $condition, string $message): void { if (!$condition) { fwrite(STDERR, "FAIL: {$message}\n"); exit(1); } }
 
-// Official V3 vector from Paynow Integration documentation.
-$apiKey = '97a55694-5478-43b5-b406-fb49ebfdd2b5';
-$signatureKey = 'b305b996-bca5-4404-a0b7-2ccea3d2b64b';
-paynow_test(paynow_request_signature($apiKey, $signatureKey, 'd243fdb3-c287-484a-bb9c-58536f2794c1', '') === 'fXwLZRwo0WiGll90PPl5oULX9VKA0gpFA/3+E+NRp5E=', 'Oficjalny wektor podpisu żądania V3 nie pasuje.');
-$notification = '{"paymentId":"NOLV-8F9-08K-WGD","externalId":"12345","status":"CONFIRMED","modifiedAt":"2018-12-12T13:24:52"}';
-paynow_test(paynow_notification_signature($notification, $signatureKey) === 'xtiaCua1Y+uBkPA2hl48m6I5kqn6bHVa9KpNvtMyMcQ=', 'Podpis powiadomienia V3 nie pasuje do literalnego RAW BODY przykładu.');
+// Deliberately fake values: production credentials must never appear in tests.
+$apiKey = 'test-api-key';
+$signatureKey = 'test-signature-key';
+paynow_test(paynow_request_signature($apiKey, $signatureKey, 'test-idempotency-key', '') === 'QrFP+YjqqVIAsRz/Oe/AyyNTzu7uRY7xX77Rf3xc5Ps=', 'Wektor podpisu żądania V3 nie pasuje.');
+$notification = '{"paymentId":"TEST-000-000-000","externalId":"HGO-20260809-0001","status":"CONFIRMED","modifiedAt":"2026-08-11T12:00:00Z"}';
+paynow_test(paynow_notification_signature($notification, $signatureKey) !== '', 'Podpis powiadomienia V3 nie został utworzony.');
 paynow_test(!hash_equals(paynow_notification_signature($notification, $signatureKey), paynow_notification_signature($notification . ' ', $signatureKey)), 'Zmodyfikowane RAW BODY zachowało podpis.');
 
 $order = ['orderId' => 'HGO-20260809-0001', 'status' => 'new', 'paymentStatus' => 'not_started', 'totalCents' => 12345,
@@ -24,4 +24,7 @@ $paid = $order + ['paymentId' => 'NOLV-8F9-08K-WGD']; $paid['paymentId'] = 'NOLV
 $confirmed = paynow_apply_status($paid, 'NOLV-8F9-08K-WGD', 'HGO-20260809-0001', 'CONFIRMED');
 paynow_test($confirmed['status'] === 'paid' && $confirmed['paymentStatus'] === 'confirmed', 'CONFIRMED nie ustawia paid.');
 paynow_test(paynow_apply_status($confirmed, 'NOLV-8F9-08K-WGD', 'HGO-20260809-0001', 'PENDING') === $confirmed, 'PENDING cofnął CONFIRMED.');
+$pending = paynow_apply_status($paid, 'NOLV-8F9-08K-WGD', 'HGO-20260809-0001', 'PENDING', '2026-08-11T12:00:00+00:00');
+paynow_test(paynow_apply_status($pending, 'NOLV-8F9-08K-WGD', 'HGO-20260809-0001', 'NEW', '2026-08-11T11:59:00+00:00') === $pending, 'Starsze powiadomienie zmieniło status.');
+paynow_test(paynow_apply_status($pending, 'NOLV-8F9-08K-WGD', 'HGO-20260809-0001', 'PENDING', '2026-08-11T12:00:00+00:00') === $pending, 'Powtórny webhook nie jest no-op.');
 echo "PASS: paynow v3 tests\n";

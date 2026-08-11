@@ -9,5 +9,14 @@ header('Cache-Control: no-store, max-age=0');
 if (!shop_sales_enabled()) { http_response_code(403); echo '{"error":"shop_sales_disabled"}'; exit; }
 if (($_SERVER['REQUEST_METHOD'] ?? '') !== 'POST') { http_response_code(405); header('Allow: POST'); echo '{"error":"method_not_allowed"}'; exit; }
 if (!paynow_is_enabled()) { http_response_code(503); echo '{"error":"service_unavailable"}'; exit; }
-// Payment initiation is deliberately unavailable until checkout ownership and live Sandbox credentials are configured.
-http_response_code(503); echo '{"error":"payment_integration_not_activated"}';
+try {
+    require_csrf();
+    $result = paynow_start_payment(shop_safe_order_id((string)($_POST['order_id'] ?? '')));
+    if (!str_contains((string)($_SERVER['HTTP_ACCEPT'] ?? ''), 'application/json')) {
+        header('Location: ' . $result['redirectUrl'], true, 303);
+        exit;
+    }
+    echo json_encode($result, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+} catch (Throwable $e) {
+    http_response_code(400); echo '{"error":"payment_not_started"}';
+}
