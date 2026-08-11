@@ -46,25 +46,6 @@ function admin_paynow_saved_redirect_url(array $order): ?string
     return $url;
 }
 
-function admin_paynow_test_candidate(): ?array
-{
-    $candidate = null;
-    foreach (shop_test_products() as $product) {
-        $price = shop_test_price_number($product['grossPrice'] ?? '');
-        if ($price === null) continue;
-        foreach (shop_test_delivery_methods($product) as $profileId => $method) {
-            if (($method['pricingType'] ?? '') !== 'fixed_price') continue;
-            $shipping = shop_test_resolve_item_delivery(['product' => $product, 'shippingProfileId' => $profileId, 'quantity' => 1]);
-            if ($shipping['shippingLineCents'] === null) continue;
-            $totalCents = (int)shop_test_price_cents($price) + (int)$shipping['shippingLineCents'];
-            if ($candidate === null || $totalCents < $candidate['totalCents']) {
-                $candidate = compact('product', 'shipping', 'totalCents');
-            }
-        }
-    }
-    return $candidate;
-}
-
 try {
     if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
         $diagnostic = admin_paynow_test_diagnostic(['POST_RECEIVED' => true]);
@@ -73,12 +54,8 @@ try {
         if ($action === 'prepare') {
             $_SESSION['paynow_controlled_test_diagnostic'] = admin_paynow_test_diagnostic(['POST_RECEIVED' => true, 'ACTION_MATCHED' => true, 'ERROR_STAGE' => 'prepare_order']);
             $stage = 'prepare_order';
-            $candidate = admin_paynow_test_candidate();
-            if (!$candidate) throw new RuntimeException('Brak produktu z ustalonym kosztem dostawy do testu.');
-            $product = $candidate['product'];
-            $shipping = $candidate['shipping'];
             $now = (new DateTimeImmutable('now', new DateTimeZone(STATS_TIMEZONE)))->format(DATE_ATOM);
-            $productCents = (int)shop_test_price_cents(shop_test_price_number($product['grossPrice'] ?? ''));
+            $testAmountCents = 2000;
             $order = shop_create_order([
                 'orderId' => '', 'createdAt' => $now, 'updatedAt' => $now,
                 'status' => 'awaiting_payment', 'orderStatus' => 'awaiting_payment',
@@ -86,17 +63,17 @@ try {
                 'deliveryAddress' => ['street' => 'Test administracyjny', 'postalCode' => '00-000', 'city' => 'Wrocław', 'country' => 'PL'],
                 'invoice' => ['requested' => false], 'customerNote' => '',
                 'items' => [[
-                    'productId' => (string)($product['_shopSlug'] ?? ''), 'name' => (string)($product['name'] ?? ''), 'quantity' => 1,
-                    'unitPriceCents' => $productCents, 'unitPrice' => shop_test_cents_to_price($productCents),
-                    'lineTotalCents' => $productCents, 'lineTotal' => shop_test_cents_to_price($productCents), 'currency' => 'PLN',
-                ] + $shipping],
-                'productsTotalCents' => $productCents, 'productsTotal' => shop_test_cents_to_price($productCents),
-                'shippingTotalCents' => (int)$shipping['shippingLineCents'], 'shippingTotal' => shop_test_cents_to_price((int)$shipping['shippingLineCents']),
-                'delivery' => ['label' => (string)$shipping['shippingName'], 'pricingType' => 'fixed_price', 'requiresConfirmation' => false],
-                'deliveryCostCents' => (int)$shipping['shippingLineCents'], 'deliveryCost' => shop_test_cents_to_price((int)$shipping['shippingLineCents']),
-                'totalCents' => $candidate['totalCents'], 'total' => shop_test_cents_to_price($candidate['totalCents']), 'currency' => 'PLN',
+                    'productId' => 'admin-paynow-test-20-pln', 'name' => 'Test Paynow 20 zł (administracyjne)', 'quantity' => 1,
+                    'unitPriceCents' => $testAmountCents, 'unitPrice' => shop_test_cents_to_price($testAmountCents),
+                    'lineTotalCents' => $testAmountCents, 'lineTotal' => shop_test_cents_to_price($testAmountCents), 'currency' => 'PLN',
+                ]],
+                'productsTotalCents' => $testAmountCents, 'productsTotal' => shop_test_cents_to_price($testAmountCents),
+                'shippingTotalCents' => 0, 'shippingTotal' => shop_test_cents_to_price(0),
+                'delivery' => ['label' => 'Test administracyjny', 'pricingType' => 'fixed_price', 'requiresConfirmation' => false],
+                'deliveryCostCents' => 0, 'deliveryCost' => shop_test_cents_to_price(0),
+                'totalCents' => $testAmountCents, 'total' => shop_test_cents_to_price($testAmountCents), 'currency' => 'PLN',
                 'paymentMethod' => 'paynow', 'paymentProvider' => 'paynow', 'paymentId' => '', 'paymentStatus' => 'not_started',
-                'paynowAdminTest' => true, 'internalNote' => 'Kontrolowany test produkcyjny Paynow.',
+                'paynowAdminTest' => true, 'paynowAdminTestAmountCents' => $testAmountCents, 'internalNote' => 'Kontrolowany test produkcyjny Paynow 20,00 zł.',
             ]);
             header('Location: /admin/paynow-controlled-test.php?order_id=' . rawurlencode((string)$order['orderId']), true, 303);
             exit;
@@ -143,8 +120,8 @@ $savedRedirectUrl = is_array($order) ? admin_paynow_saved_redirect_url($order) :
 <html lang="pl"><head><meta charset="utf-8"><meta name="robots" content="noindex,nofollow,noarchive"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Kontrolowany test Paynow</title><link rel="stylesheet" href="/admin/style.css"></head>
 <body><main class="narrow"><section class="card"><h1>Kontrolowany test Paynow</h1>
 <?php if (!empty($error)): ?><p><strong>Stage:</strong> <?= e($error['stage']) ?><br><strong>Message:</strong> <?= e($error['message']) ?></p><?php elseif (!$order): ?>
-  <p>Utworzy jedno normalne zamówienie testowe z najniższą aktualną ceną produktu i znanym kosztem dostawy. Nie tworzy płatności.</p>
-  <form method="post"><input type="hidden" name="csrf" value="<?= e(csrf_token()) ?>"><input type="hidden" name="action" value="prepare"><button class="btn" type="submit">Przygotuj zamówienie testowe</button></form>
+  <p>Utworzy jedno chronione zamówienie techniczne administratora na 20,00 zł z ustaloną dostawą 0,00 zł. Nie tworzy płatności.</p>
+  <form method="post"><input type="hidden" name="csrf" value="<?= e(csrf_token()) ?>"><input type="hidden" name="action" value="prepare"><button class="btn" type="submit">Przygotuj test Paynow 20 zł</button></form>
 <?php elseif (!empty($order['paynowAdminTest'])): ?>
   <p><strong>Zamówienie:</strong> <?= e($order['orderId']) ?><br><strong>Kwota:</strong> <?= e(shop_test_price_label((float)$order['total'])) ?></p>
   <p><strong>paymentId zapisany:</strong> <?= !empty($order['paymentId']) ? 'TAK' : 'NIE' ?><br><strong>redirectUrl zapisany:</strong> <?= !empty($order['paymentRedirectUrl']) ? 'TAK' : 'NIE' ?></p>
