@@ -493,6 +493,7 @@ function shop_test_customer_from_post(): array
     }
 
     return [
+        'countryCode' => $country,
         'customer' => [
             'firstName' => $firstName,
             'lastName' => $lastName,
@@ -510,12 +511,56 @@ function shop_test_customer_from_post(): array
     ];
 }
 
+function shop_test_order_country_code(array $order): string
+{
+    $country = strtoupper(trim((string) ($order['countryCode'] ?? (($order['deliveryAddress'] ?? [])['country'] ?? 'PL'))));
+    return array_key_exists($country, SHOP_ALLOWED_COUNTRIES) ? $country : 'PL';
+}
+
+function shop_test_normalize_phone_for_country(string $phone, string $countryCode): ?string
+{
+    $countryCode = strtoupper($countryCode);
+    if (!isset(SHOP_ALLOWED_COUNTRIES[$countryCode])) {
+        return null;
+    }
+    $phone = trim($phone);
+    if ($countryCode === 'PL') {
+        $compact = preg_replace('/[\s\-()]+/', '', $phone) ?? '';
+        if (str_starts_with($compact, '+48')) {
+            $compact = substr($compact, 3);
+        } elseif (str_starts_with($compact, '0048')) {
+            $compact = substr($compact, 4);
+        }
+        return ctype_digit($compact) && strlen($compact) === 9 ? '+48' . $compact : null;
+    }
+    $compact = preg_replace('/[\s\-()]+/', '', $phone) ?? '';
+    $callingCode = SHOP_ALLOWED_COUNTRIES[$countryCode]['callingCode'];
+    return preg_match('/^\+' . preg_quote($callingCode, '/') . '[0-9]{4,12}$/', $compact) === 1 && strlen(substr($compact, 1)) <= 15
+        ? $compact : null;
+}
+
+function shop_test_normalize_postal_code_for_country(string $postalCode, string $countryCode): ?string
+{
+    $postalCode = trim($postalCode);
+    if ($countryCode === 'PL') {
+        return preg_match('/^(\d{2})-?(\d{3})$/', $postalCode, $matches) === 1 ? $matches[1] . '-' . $matches[2] : null;
+    }
+    return preg_match('/^[A-Za-z0-9][A-Za-z0-9 -]{0,18}[A-Za-z0-9]$/', $postalCode) === 1 ? $postalCode : null;
+}
+
 function shop_test_validate_checkout_customer_input(): void
 {
     $errors = [];
     $email = shop_test_text_field('customer_email', 160);
     $phone = shop_test_text_field('customer_phone', 60);
     $postalCode = shop_test_text_field('delivery_postal_code', 20);
+    $countryCode = strtoupper(shop_test_text_field('delivery_country', 2));
+
+    if (!isset(SHOP_ALLOWED_COUNTRIES[$countryCode])) {
+        $errors['delivery_country'] = 'Wybierz prawidłowy kraj dostawy.';
+    } elseif ($countryCode !== 'PL' && !FOREIGN_SHIPPING_ENABLED) {
+        $errors['delivery_country'] = 'Dostawy poza Polskę nie są jeszcze dostępne.';
+    }
 
     if ($email === '') {
         $errors['customer_email'] = 'Podaj adres e-mail.';
@@ -526,31 +571,27 @@ function shop_test_validate_checkout_customer_input(): void
     if ($phone === '') {
         $errors['customer_phone'] = 'Podaj numer telefonu.';
     } else {
-        $compactPhone = preg_replace('/[\s\-()]+/', '', $phone) ?? '';
-        if (str_starts_with($compactPhone, '+48')) {
-            $compactPhone = substr($compactPhone, 3);
-        } elseif (str_starts_with($compactPhone, '0048')) {
-            $compactPhone = substr($compactPhone, 4);
-        }
-        if (!ctype_digit($compactPhone) || strlen($compactPhone) !== 9) {
+        $normalizedPhone = shop_test_normalize_phone_for_country($phone, $countryCode);
+        if ($normalizedPhone === null) {
             $errors['customer_phone'] = 'Podaj prawidłowy numer telefonu. Polski numer powinien mieć 9 cyfr.';
         } else {
-            $_POST['customer_phone'] = '+48' . $compactPhone;
+            $_POST['customer_phone'] = $normalizedPhone;
         }
     }
 
     if ($postalCode === '') {
         $errors['delivery_postal_code'] = 'Podaj kod pocztowy.';
-    } elseif (preg_match('/^(\d{2})-?(\d{3})$/', $postalCode, $matches) !== 1) {
+    } elseif (($normalizedPostalCode = shop_test_normalize_postal_code_for_country($postalCode, $countryCode)) === null) {
         $errors['delivery_postal_code'] = 'Podaj kod pocztowy w formacie 00-000.';
     } else {
-        $_POST['delivery_postal_code'] = $matches[1] . '-' . $matches[2];
+        $_POST['delivery_postal_code'] = $normalizedPostalCode;
     }
 
     if ($errors !== []) {
         throw new ShopCheckoutValidationException($errors, $_POST);
     }
     $_POST['customer_email'] = $email;
+    $_POST['delivery_country'] = $countryCode;
 }
 
 function shop_test_require_terms(): void

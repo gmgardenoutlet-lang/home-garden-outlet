@@ -1008,7 +1008,11 @@ function shop_order_email_lines(array $order, bool $includeTransfer): array
             $lines[] = 'Dostawa ' . (string)($item['name'] ?? '') . ': ' . (string)($item['shippingName'] ?? 'Dostawa') . ' — ' . number_format(((int)($item['shippingLineCents'] ?? 0)) / 100, 2, ',', ' ') . ' PLN';
         }
     }
-    $lines[] = 'Dostawa razem: ' . number_format(((int)($order['shippingTotalCents'] ?? $order['deliveryCostCents'] ?? 0)) / 100, 2, ',', ' ') . ' PLN';
+    if (($order['shippingTotalCents'] ?? $order['deliveryCostCents'] ?? null) === null) {
+        $lines[] = 'Dostawa razem: koszt do potwierdzenia.';
+    } else {
+        $lines[] = 'Dostawa razem: ' . number_format(((int)($order['shippingTotalCents'] ?? $order['deliveryCostCents'] ?? 0)) / 100, 2, ',', ' ') . ' PLN';
+    }
     if (!$includeTransfer) {
         $lines[] = 'Koszt dostawy wymaga indywidualnego potwierdzenia. Skontaktujemy się z Tobą przed płatnością.';
         return $lines;

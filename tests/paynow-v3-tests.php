@@ -29,6 +29,8 @@ paynow_test(array_sum(array_map(static fn(array $item): int => $item['quantity']
 paynow_test(!array_key_exists('phone', $shippingPayload['buyer']), 'Telefon ma nieprawidłowy format dla Paynow V3.');
 $quote = $order; $quote['delivery']['pricingType'] = 'quote_required';
 try { paynow_payment_payload($quote); paynow_test(false, 'quote_required dopuszczono do płatności.'); } catch (RuntimeException $e) {}
+$foreignQuote = $order; $foreignQuote['countryCode'] = 'DE'; $foreignQuote['shippingTotalCents'] = null; $foreignQuote['totalCents'] = null; $foreignQuote['delivery']['pricingType'] = 'quote_required';
+try { paynow_payment_payload($foreignQuote); paynow_test(false, 'Zagraniczną dostawę bez wyceny dopuszczono do płatności.'); } catch (RuntimeException $e) {}
 $paid = $order + ['paymentId' => 'NOLV-8F9-08K-WGD']; $paid['paymentId'] = 'NOLV-8F9-08K-WGD';
 $confirmed = paynow_apply_status($paid, 'NOLV-8F9-08K-WGD', 'HGO-20260809-0001', 'CONFIRMED');
 paynow_test($confirmed['status'] === 'paid' && $confirmed['paymentStatus'] === 'confirmed', 'CONFIRMED nie ustawia paid.');

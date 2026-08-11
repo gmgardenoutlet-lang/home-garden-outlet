@@ -109,6 +109,9 @@ function paynow_external_id(array $order): string
 function paynow_payment_allowed(array $order): void
 {
     shop_test_require_sales();
+    if (shop_test_order_country_code($order) !== 'PL' && ($order['shippingTotalCents'] ?? null) === null) {
+        throw new RuntimeException('Płatność online jest dostępna dopiero po ustaleniu kosztu dostawy.');
+    }
     if (!paynow_is_enabled()) {
         throw new RuntimeException('Płatności Paynow nie są skonfigurowane.');
     }
@@ -128,6 +131,9 @@ function paynow_payment_allowed(array $order): void
 
 function paynow_payment_payload(array $order): array
 {
+    if (shop_test_order_country_code($order) !== 'PL' && ($order['shippingTotalCents'] ?? null) === null) {
+        throw new RuntimeException('Płatność online jest dostępna dopiero po ustaleniu kosztu dostawy.');
+    }
     if (($order['delivery']['pricingType'] ?? '') !== 'fixed_price' || (int)($order['totalCents'] ?? 0) <= 0) {
         throw new RuntimeException('Płatność online jest dostępna wyłącznie dla dostawy ze znanym kosztem.');
     }

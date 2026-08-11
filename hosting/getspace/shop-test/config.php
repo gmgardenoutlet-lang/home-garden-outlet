@@ -40,3 +40,11 @@ define('PAYNOW_ENABLED', filter_var(hgo_paynow_config('HGO_PAYNOW_ENABLED', 'fal
 define('PAYNOW_ENV', hgo_paynow_config('HGO_PAYNOW_ENV', 'sandbox'));
 define('PAYNOW_API_KEY', hgo_paynow_config('HGO_PAYNOW_API_KEY'));
 define('PAYNOW_SIGNATURE_KEY', hgo_paynow_config('HGO_PAYNOW_SIGNATURE_KEY'));
+define('SHOP_ALLOWED_COUNTRIES', [
+    'PL' => ['name' => 'Polska', 'callingCode' => '48'],
+    'DE' => ['name' => 'Niemcy', 'callingCode' => '49'],
+    'CZ' => ['name' => 'Czechy', 'callingCode' => '420'],
+    'SK' => ['name' => 'Słowacja', 'callingCode' => '421'],
+    'LT' => ['name' => 'Litwa', 'callingCode' => '370'],
+]);
+define('FOREIGN_SHIPPING_ENABLED', filter_var(hgo_paynow_config('HGO_FOREIGN_SHIPPING_ENABLED', 'false'), FILTER_VALIDATE_BOOLEAN));

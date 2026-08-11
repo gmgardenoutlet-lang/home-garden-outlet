@@ -32,14 +32,22 @@ try {
 
     $products = shop_test_product_map();
     $cart = shop_test_decode_cart((string)($_POST['cart_payload'] ?? ''), $products);
+    $customerData = shop_test_customer_from_post();
 
+    $countryCode = $customerData['countryCode'];
+    $foreignShipping = $countryCode !== 'PL';
     $productTotalCents = 0;
     $shippingTotalCents = 0;
-    $quoteRequired = false;
+    $quoteRequired = $foreignShipping;
     $items = [];
     foreach ($cart['items'] as $row) {
         $product = $row['product'];
         $shipping = shop_test_resolve_item_delivery($row);
+        if ($foreignShipping) {
+            $shipping['shippingUnitCents'] = null;
+            $shipping['shippingLineCents'] = null;
+            $shipping['shippingRequiresConfirmation'] = true;
+        }
         $productTotalCents += (int)$row['lineTotalCents'];
         if ($shipping['shippingLineCents'] !== null) {
             $shippingTotalCents += (int)$shipping['shippingLineCents'];
@@ -59,9 +67,9 @@ try {
         ] + $shipping;
     }
 
-    $totalCents = $productTotalCents + $shippingTotalCents;
+    $shippingTotalCents = $foreignShipping ? null : $shippingTotalCents;
+    $totalCents = $shippingTotalCents === null ? null : $productTotalCents + $shippingTotalCents;
     $now = (new DateTimeImmutable('now', new DateTimeZone(STATS_TIMEZONE)))->format(DATE_ATOM);
-    $customerData = shop_test_customer_from_post();
 
     $order = [
         'orderId' => '',
@@ -69,6 +77,7 @@ try {
         'updatedAt' => $now,
         'status' => $quoteRequired ? 'awaiting_shipping_quote' : 'awaiting_payment',
         'orderStatus' => $quoteRequired ? 'awaiting_shipping_quote' : 'awaiting_payment',
+        'countryCode' => $countryCode,
         'customer' => $customerData['customer'],
         'deliveryAddress' => $customerData['deliveryAddress'],
         'invoice' => $customerData['invoice'],
@@ -77,11 +86,11 @@ try {
         'productsTotal' => shop_test_cents_to_price($productTotalCents),
         'productsTotalCents' => $productTotalCents,
         'shippingTotalCents' => $shippingTotalCents,
-        'shippingTotal' => shop_test_cents_to_price($shippingTotalCents),
+        'shippingTotal' => $shippingTotalCents === null ? null : shop_test_cents_to_price($shippingTotalCents),
         'delivery' => ['label' => 'Dostawa per produkt', 'requiresConfirmation' => $quoteRequired, 'pricingType' => $quoteRequired ? 'quote_required' : 'fixed_price'],
         'deliveryCost' => $quoteRequired ? null : shop_test_cents_to_price($shippingTotalCents),
         'deliveryCostCents' => $quoteRequired ? null : $shippingTotalCents,
-        'total' => shop_test_cents_to_price($totalCents),
+        'total' => $totalCents === null ? null : shop_test_cents_to_price($totalCents),
         'totalCents' => $totalCents,
         'currency' => 'PLN',
         'paymentMethod' => $paymentMethod,

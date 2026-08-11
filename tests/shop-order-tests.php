@@ -53,6 +53,15 @@ function test_checkout_customer_errors(array $overrides = []): array
 }
 
 test_assert(shop_sales_enabled(), 'Test musi działać z HGO_SHOP_SALES_ENABLED=true.');
+test_assert(FOREIGN_SHIPPING_ENABLED === false, 'Dostawy zagraniczne muszą pozostać wyłączone publicznie.');
+test_assert(array_keys(SHOP_ALLOWED_COUNTRIES) === ['PL', 'DE', 'CZ', 'SK', 'LT'], 'Centralna lista krajów nie jest kompletna.');
+test_assert(shop_test_order_country_code(['deliveryAddress' => ['country' => 'DE']]) === 'DE', 'Nie odczytano kraju z adresu dostawy.');
+test_assert(shop_test_order_country_code([]) === 'PL', 'Historyczne zamówienie bez countryCode nie ma fallbacku PL.');
+test_assert(shop_test_normalize_phone_for_country('123 456 789', 'PL') === '+48123456789', 'Polska normalizacja telefonu uległa regresji.');
+test_assert(shop_test_normalize_phone_for_country('+49 30 123456', 'DE') === '+4930123456', 'Telefon DE nie spełnia E.164.');
+test_assert(shop_test_normalize_phone_for_country('030 123456', 'DE') === null, 'Telefon zagraniczny bez kodu kraju został zaakceptowany.');
+test_assert(shop_test_normalize_postal_code_for_country('55080', 'PL') === '55-080', 'Polski kod pocztowy nie jest normalizowany.');
+test_assert(shop_test_normalize_postal_code_for_country('10115', 'DE') === '10115', 'Zagraniczny kod pocztowy został odrzucony.');
 boot_admin();
 $checkoutSubmissionToken = shop_test_checkout_submission_token();
 test_assert($checkoutSubmissionToken !== '', 'Brakuje tokenu idempotencji checkoutu.');
@@ -350,6 +359,11 @@ test_assert($mailResult['customer'] && $mailResult['admin'] && count($sentMessag
 $quoteMail = $mailOrder; $quoteMail['orderStatus'] = 'awaiting_shipping_quote';
 $quoteLines = shop_order_email_lines($quoteMail, false);
 test_assert(!str_contains(implode("\n", $quoteLines), 'Rachunek:') && !str_contains(implode("\n", $quoteLines), 'Razem:'), 'E-mail wyceny zawiera dane przelewu lub finalną kwotę.');
+
+$foreignOrder = shop_create_order(['orderId' => '', 'createdAt' => $now, 'updatedAt' => $now, 'countryCode' => 'DE', 'status' => 'awaiting_shipping_quote', 'orderStatus' => 'awaiting_shipping_quote', 'paymentProvider' => 'paynow', 'paymentMethod' => 'paynow', 'paymentStatus' => 'not_started', 'productsTotalCents' => 19999, 'shippingTotalCents' => null, 'deliveryCostCents' => null, 'totalCents' => null, 'customer' => ['email' => 'client@example.test'], 'deliveryAddress' => ['country' => 'DE'], 'items' => [['name' => 'Figura', 'quantity' => 1, 'unitPriceCents' => 19999, 'shippingRequiresConfirmation' => true, 'shippingLineCents' => null]], 'delivery' => ['pricingType' => 'quote_required', 'requiresConfirmation' => true]]);
+test_assert(($foreignOrder['orderStatus'] ?? '') === 'awaiting_shipping_quote' && array_key_exists('shippingTotalCents', $foreignOrder) && $foreignOrder['shippingTotalCents'] === null && $foreignOrder['totalCents'] === null, 'Zagraniczne zamówienie udaje znany koszt lub sumę.');
+$foreignQuoteLines = shop_order_email_lines($foreignOrder, false);
+test_assert(str_contains(implode("\n", $foreignQuoteLines), 'Dostawa razem: koszt do potwierdzenia.') && !str_contains(implode("\n", $foreignQuoteLines), 'Razem:'), 'E-mail zagranicznej wyceny zawiera finalną kwotę.');
 
 $quote = shop_test_individual_delivery();
 test_assert(($quote['pricingType'] ?? '') === 'quote_required' && ($quote['costNumber'] ?? null) === null, 'Dostawa indywidualna nie została oznaczona jako quote_required.');
