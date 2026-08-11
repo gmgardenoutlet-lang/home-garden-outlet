@@ -1186,6 +1186,58 @@ function shop_update_order(string $orderId, string $orderStatus, string $payment
     shop_save_order($order);
 }
 
+function shop_set_order_archived(string $orderId, bool $archived, string $administrator): void
+{
+    $order = shop_load_order($orderId);
+    if (!$order) {
+        throw new RuntimeException('Nie znaleziono zamówienia.');
+    }
+
+    $now = (new DateTimeImmutable('now', new DateTimeZone(STATS_TIMEZONE)))->format(DATE_ATOM);
+    $order['archived'] = $archived;
+    if ($archived) {
+        $order['archivedAt'] = $now;
+        $order['archivedBy'] = $administrator !== '' ? $administrator : 'administrator';
+    } else {
+        unset($order['archivedAt'], $order['archivedBy']);
+    }
+    $order['updatedAt'] = $now;
+    shop_save_order($order);
+}
+
+function shop_mark_order_as_test(string $orderId, string $administrator): void
+{
+    $order = shop_load_order($orderId);
+    if (!$order) {
+        throw new RuntimeException('Nie znaleziono zamówienia.');
+    }
+
+    $order['isTestOrder'] = true;
+    $order['testOrderMarkedAt'] = (new DateTimeImmutable('now', new DateTimeZone(STATS_TIMEZONE)))->format(DATE_ATOM);
+    $order['testOrderMarkedBy'] = $administrator !== '' ? $administrator : 'administrator';
+    $order['updatedAt'] = $order['testOrderMarkedAt'];
+    shop_save_order($order);
+}
+
+function shop_delete_test_order(string $orderId, string $confirmation): void
+{
+    $order = shop_load_order($orderId);
+    if (!$order) {
+        throw new RuntimeException('Nie znaleziono zamówienia.');
+    }
+    if (empty($order['isTestOrder'])) {
+        throw new RuntimeException('Trwale można usunąć wyłącznie jednoznacznie oznaczone zamówienie testowe.');
+    }
+    if (!hash_equals((string)($order['orderId'] ?? ''), trim($confirmation))) {
+        throw new RuntimeException('Wpisz dokładny numer zamówienia, aby potwierdzić trwałe usunięcie.');
+    }
+
+    $file = shop_order_file($orderId);
+    if (!is_file($file) || !@unlink($file)) {
+        throw new RuntimeException('Nie udało się trwale usunąć zamówienia testowego.');
+    }
+}
+
 function shop_mark_bank_transfer_paid(string $orderId, string $administrator = ''): bool
 {
     $order = shop_load_order($orderId);

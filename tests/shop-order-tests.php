@@ -256,12 +256,24 @@ test_assert(shop_mark_bank_transfer_paid((string)$bankOrder['orderId'], 'test-ad
 $paynowConfirmedOrder = shop_create_order([
     'orderId' => '', 'createdAt' => $now, 'updatedAt' => $now,
     'status' => 'paid', 'orderStatus' => 'paid', 'paymentProvider' => 'paynow', 'paymentMethod' => 'paynow',
-    'paymentStatus' => 'confirmed', 'totalCents' => 2000,
+    'paymentStatus' => 'confirmed', 'paymentId' => 'TEST-PAYNOW-ORDER', 'totalCents' => 2000,
 ]);
 shop_update_order((string)$paynowConfirmedOrder['orderId'], 'W przygotowaniu', 'not_started', 'test realizacji');
 $paynowAfterManualUpdate = shop_load_order((string)$paynowConfirmedOrder['orderId']);
 test_assert(($paynowAfterManualUpdate['paymentStatus'] ?? '') === 'confirmed', 'Ręczny zapis cofnął potwierdzoną płatność Paynow.');
 test_assert(($paynowAfterManualUpdate['orderStatus'] ?? '') === 'W przygotowaniu', 'Nie można zaktualizować realizacji zamówienia Paynow.');
+
+shop_set_order_archived((string)$paynowConfirmedOrder['orderId'], true, 'test-admin');
+$archivedPaynowOrder = shop_load_order((string)$paynowConfirmedOrder['orderId']);
+test_assert(!empty($archivedPaynowOrder['archived']) && !empty($archivedPaynowOrder['archivedAt']) && ($archivedPaynowOrder['paymentStatus'] ?? '') === 'confirmed', 'Archiwizacja zmieniła płatność Paynow albo nie zapisała metadanych.');
+shop_set_order_archived((string)$paynowConfirmedOrder['orderId'], false, 'test-admin');
+$restoredPaynowOrder = shop_load_order((string)$paynowConfirmedOrder['orderId']);
+test_assert(empty($restoredPaynowOrder['archived']) && !isset($restoredPaynowOrder['archivedAt']) && ($restoredPaynowOrder['paymentId'] ?? '') === ($paynowConfirmedOrder['paymentId'] ?? ''), 'Przywrócenie zmieniło dane płatności lub pozostawiło archiwum.');
+test_throws(static fn() => shop_delete_test_order((string)$paynowConfirmedOrder['orderId'], (string)$paynowConfirmedOrder['orderId']), 'Zwykłe zamówienie zostało trwale usunięte.');
+shop_mark_order_as_test((string)$paynowConfirmedOrder['orderId'], 'test-admin');
+test_throws(static fn() => shop_delete_test_order((string)$paynowConfirmedOrder['orderId'], 'błędne-potwierdzenie'), 'Usunięcie testowe zaakceptowało błędne potwierdzenie.');
+shop_delete_test_order((string)$paynowConfirmedOrder['orderId'], (string)$paynowConfirmedOrder['orderId']);
+test_assert(shop_load_order((string)$paynowConfirmedOrder['orderId']) === null, 'Testowe zamówienie nie zostało trwale usunięte po potwierdzeniu.');
 
 $quoteOrder = shop_create_order(['orderId' => '', 'createdAt' => $now, 'updatedAt' => $now, 'status' => 'awaiting_shipping_quote', 'orderStatus' => 'awaiting_shipping_quote', 'paymentProvider' => 'bank_transfer', 'paymentStatus' => 'not_started', 'productsTotalCents' => 19999, 'totalCents' => 19999, 'customer' => ['email' => 'client@example.test'], 'items' => [['name' => 'Figura', 'quantity' => 1, 'unitPriceCents' => 19999, 'shippingName' => 'Paleta', 'shippingRequiresConfirmation' => true, 'shippingUnitCents' => null, 'shippingLineCents' => null]], 'delivery' => ['label' => 'Paleta']]);
 $quoteMessages = [];

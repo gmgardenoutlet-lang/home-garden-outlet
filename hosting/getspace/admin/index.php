@@ -51,6 +51,11 @@ function admin_order_is_paid(array $order): bool
         || admin_order_status_key((string)($order['orderStatus'] ?? $order['status'] ?? '')) === 'paid';
 }
 
+function admin_order_is_archived(array $order): bool
+{
+    return !empty($order['archived']);
+}
+
 function admin_order_is_pickup(array $order): bool
 {
     $delivery = (array)($order['delivery'] ?? []);
@@ -62,6 +67,8 @@ function admin_order_is_pickup(array $order): bool
 
 function admin_order_matches_filter(array $order, string $filter): bool
 {
+    if ($filter === 'archive') return admin_order_is_archived($order);
+    if (admin_order_is_archived($order)) return false;
     $status = admin_order_status_key((string)($order['orderStatus'] ?? $order['status'] ?? ''));
     $paid = admin_order_is_paid($order);
     $terminal = in_array($status, ['shipped', 'completed', 'cancelled'], true);
@@ -203,6 +210,28 @@ try {
             );
             flash('success', 'Zamówienie zostało zaktualizowane.');
             redirect_admin('orders=1');
+        }
+
+        if ($action === 'archive_order' || $action === 'restore_order') {
+            $archived = $action === 'archive_order';
+            shop_set_order_archived(post_text('order_id'), $archived, (string)($_SESSION['admin_username'] ?? 'administrator'));
+            flash('success', $archived ? 'Zamówienie przeniesiono do archiwum.' : 'Zamówienie przywrócono z archiwum.');
+            redirect_admin('orders=1' . ($archived ? '' : '&filter=all'));
+        }
+
+        if ($action === 'mark_order_test') {
+            if (post_text('test_order_confirmation') !== '1') {
+                throw new RuntimeException('Potwierdź oznaczenie zamówienia jako testowe.');
+            }
+            shop_mark_order_as_test(post_text('order_id'), (string)($_SESSION['admin_username'] ?? 'administrator'));
+            flash('success', 'Zamówienie oznaczono jako testowe.');
+            redirect_admin('orders=1');
+        }
+
+        if ($action === 'delete_test_order') {
+            shop_delete_test_order(post_text('order_id'), post_text('delete_confirmation'));
+            flash('success', 'Testowe zamówienie zostało trwale usunięte.');
+            redirect_admin('orders=1&filter=archive');
         }
 
         if ($action === 'mark_bank_transfer_paid') {
@@ -535,7 +564,7 @@ $statsTopProducts = [];
 $googleConfig = load_google_business_config();
 $googleConfigStatus = google_business_config_status($googleConfig);
 $shopOrders = $showOrders ? shop_load_orders() : [];
-$orderFilterLabels = ['all' => 'Wszystkie', 'new' => 'Nowe', 'unpaid' => 'Nieopłacone', 'paid' => 'Opłacone', 'preparing' => 'Do przygotowania', 'shipping' => 'Do wysyłki', 'shipped' => 'Wysłane', 'completed' => 'Zrealizowane', 'cancelled' => 'Anulowane'];
+$orderFilterLabels = ['all' => 'Wszystkie', 'new' => 'Nowe', 'unpaid' => 'Nieopłacone', 'paid' => 'Opłacone', 'preparing' => 'Do przygotowania', 'shipping' => 'Do wysyłki', 'shipped' => 'Wysłane', 'completed' => 'Zrealizowane', 'cancelled' => 'Anulowane', 'archive' => 'Archiwum'];
 $orderFilter = (string)($_GET['filter'] ?? 'all');
 if (!isset($orderFilterLabels[$orderFilter])) $orderFilter = 'all';
 usort($shopOrders, static fn(array $a, array $b): int => strcmp((string)($b['createdAt'] ?? ''), (string)($a['createdAt'] ?? '')));
@@ -992,6 +1021,45 @@ if ($showStats) {
                   <button class="btn btn-small" type="submit">Płatność otrzymana</button>
                 </form>
               <?php endif; ?>
+              <section class="order-management" aria-label="Zarządzanie zamówieniem">
+                <h3>Zarządzanie zamówieniem</h3>
+                <?php if (admin_order_is_archived($order)): ?>
+                  <form method="post" class="order-admin-form">
+                    <input type="hidden" name="csrf" value="<?= e(csrf_token()) ?>">
+                    <input type="hidden" name="action" value="restore_order">
+                    <input type="hidden" name="order_id" value="<?= e((string)($order['orderId'] ?? '')) ?>">
+                    <button class="btn btn-small" type="submit">Przywróć z archiwum</button>
+                  </form>
+                  <?php if (!empty($order['isTestOrder'])): ?>
+                    <form method="post" class="order-admin-form order-delete-form">
+                      <input type="hidden" name="csrf" value="<?= e(csrf_token()) ?>">
+                      <input type="hidden" name="action" value="delete_test_order">
+                      <input type="hidden" name="order_id" value="<?= e((string)($order['orderId'] ?? '')) ?>">
+                      <label>Wpisz numer zamówienia, aby trwale je usunąć<input name="delete_confirmation" autocomplete="off" required></label>
+                      <p class="muted">Tej operacji nie można cofnąć. Trwale usuwane mogą być wyłącznie zamówienia testowe.</p>
+                      <button class="btn btn-small btn-danger" type="submit">Usuń trwale</button>
+                    </form>
+                  <?php endif; ?>
+                <?php else: ?>
+                  <form method="post" class="order-admin-form">
+                    <input type="hidden" name="csrf" value="<?= e(csrf_token()) ?>">
+                    <input type="hidden" name="action" value="archive_order">
+                    <input type="hidden" name="order_id" value="<?= e((string)($order['orderId'] ?? '')) ?>">
+                    <button class="btn btn-small" type="submit">Przenieś do archiwum</button>
+                  </form>
+                  <?php if (empty($order['isTestOrder'])): ?>
+                    <form method="post" class="order-admin-form order-test-form">
+                      <input type="hidden" name="csrf" value="<?= e(csrf_token()) ?>">
+                      <input type="hidden" name="action" value="mark_order_test">
+                      <input type="hidden" name="order_id" value="<?= e((string)($order['orderId'] ?? '')) ?>">
+                      <label class="check-line"><input type="checkbox" name="test_order_confirmation" value="1" required> Potwierdzam, że to zamówienie administracyjne/testowe.</label>
+                      <button class="btn btn-small btn-secondary" type="submit">Oznacz jako testowe</button>
+                    </form>
+                  <?php else: ?>
+                    <p class="muted">Zamówienie jest jednoznacznie oznaczone jako testowe. Trwałe usunięcie będzie dostępne dopiero w archiwum.</p>
+                  <?php endif; ?>
+                <?php endif; ?>
+              </section>
               <?php if (($order['orderStatus'] ?? '') === 'awaiting_shipping_quote'): ?>
                 <?php foreach ($items as $itemIndex => $item): ?>
                   <?php if (!empty($item['shippingRequiresConfirmation'])): ?>
