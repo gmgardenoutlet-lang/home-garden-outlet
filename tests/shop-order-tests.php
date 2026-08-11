@@ -93,7 +93,7 @@ foreach (['123456789', '123 456 789', '123-456-789', '+48123456789', '+48 123 45
 }
 test_assert(test_checkout_customer_errors(['phone_prefix' => '+48', 'phone_number' => '600 402 939']) === [], 'Telefon PL w dwóch polach został odrzucony.');
 test_assert(($_POST['customer_phone'] ?? '') === '+48600402939', 'Telefon PL z prefiksem nie został zapisany jako E.164.');
-test_assert(test_checkout_customer_errors(['delivery_country' => 'DE', 'phone_prefix' => '+48', 'phone_number' => '30123456']) === [] && ($_POST['delivery_country'] ?? '') === 'PL', 'Przy wyłączonej fladze DE z prefiksem PL nie został wymuszony jako checkout PL.');
+test_assert(test_checkout_customer_errors(['delivery_country' => 'DE', 'phone_prefix' => '+48', 'phone_number' => '301234567']) === [] && ($_POST['delivery_country'] ?? '') === 'PL', 'Przy wyłączonej fladze DE z prefiksem PL nie został wymuszony jako checkout PL.');
 foreach (['12345', '1234567890', 'abc123456789', '+49 123456789'] as $phone) {
     test_assert(isset(test_checkout_customer_errors(['customer_phone' => $phone])['customer_phone']), 'Niepoprawny telefon został zaakceptowany.');
 }
