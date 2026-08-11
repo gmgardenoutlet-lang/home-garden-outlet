@@ -51,7 +51,7 @@ if (!$order) {
             <p><strong>Kwota:</strong> <?= e(shop_test_price_label(((int)($order['totalCents'] ?? 0)) / 100)) ?><br><strong>Odbiorca:</strong> <?= e($transfer['recipient'] ?? '') ?><br><strong>Rachunek:</strong> <?= e($transfer['accountNumber'] ?? '') ?><br><strong>Tytuł:</strong> <?= e($transfer['transferTitle'] ?? '') ?></p>
           </section>
         <?php elseif (($order['status'] ?? '') === 'awaiting_shipping_quote'): ?>
-          <section class="confirmation-section"><h2>Koszt dostawy do potwierdzenia</h2><p>Koszt dostawy wymaga indywidualnego potwierdzenia. Skontaktujemy się z Tobą przed płatnością.</p></section>
+          <section class="confirmation-section"><h2><?= shop_test_order_country_code($order) === 'PL' ? 'Koszt dostawy do potwierdzenia' : 'Zamówienie zostało przyjęte do wyceny dostawy' ?></h2><p><?= shop_test_order_country_code($order) === 'PL' ? 'Koszt dostawy wymaga indywidualnego potwierdzenia. Skontaktujemy się z Tobą przed płatnością.' : 'Skontaktujemy się z Tobą po ustaleniu kosztu wysyłki.' ?></p></section>
         <?php elseif (($order['paymentMethod'] ?? '') === 'paynow' && ($order['delivery']['pricingType'] ?? '') === 'fixed_price'): ?>
           <section class="confirmation-section">
             <h2>Płatność online Paynow</h2>

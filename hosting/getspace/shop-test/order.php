@@ -25,17 +25,20 @@ try {
     if ($submissionToken === '' || !hash_equals(shop_test_checkout_submission_token(), $submissionToken)) {
         throw new RuntimeException('Formularz zamówienia wygasł. Odśwież stronę i spróbuj ponownie.');
     }
+    $customerData = shop_test_customer_from_post();
+    $countryCode = $customerData['countryCode'];
+    $foreignShipping = $countryCode !== 'PL';
     $paymentMethod = (string)($_POST['payment_method'] ?? '');
-    if (!in_array($paymentMethod, ['bank_transfer', 'paynow'], true) || empty(shop_payment_methods()[$paymentMethod])) {
+    if (!$foreignShipping && (!in_array($paymentMethod, ['bank_transfer', 'paynow'], true) || empty(shop_payment_methods()[$paymentMethod]))) {
         throw new RuntimeException('Wybrana metoda płatności nie jest dostępna.');
+    }
+    if ($foreignShipping) {
+        $paymentMethod = null;
     }
 
     $products = shop_test_product_map();
     $cart = shop_test_decode_cart((string)($_POST['cart_payload'] ?? ''), $products);
-    $customerData = shop_test_customer_from_post();
 
-    $countryCode = $customerData['countryCode'];
-    $foreignShipping = $countryCode !== 'PL';
     $productTotalCents = 0;
     $shippingTotalCents = 0;
     $quoteRequired = $foreignShipping;

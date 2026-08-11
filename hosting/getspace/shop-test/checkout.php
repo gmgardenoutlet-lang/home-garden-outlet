@@ -9,6 +9,7 @@ $publicProducts = shop_test_public_products();
 $checkoutErrors = shop_test_checkout_errors();
 $checkoutOld = shop_test_checkout_old_input();
 $checkoutPaymentMethod = shop_test_checkout_payment_method($checkoutOld);
+$checkoutCountry = shop_test_order_country_code(['countryCode' => $checkoutOld['delivery_country'] ?? 'PL']);
 function checkout_value(array $old, string $key, string $default = ''): string { return e((string)($old[$key] ?? $default)); }
 function checkout_error(array $errors, string $key): string { return isset($errors[$key]) ? '<small class="checkout-field-error" id="error-' . e($key) . '">' . e((string)$errors[$key]) . '</small>' : ''; }
 function checkout_field_attrs(array $errors, string $key): string { return isset($errors[$key]) ? ' class="has-error" aria-invalid="true" aria-describedby="error-' . e($key) . '"' : ''; }
@@ -59,6 +60,7 @@ function checkout_field_attrs(array $errors, string $key): string { return isset
           <strong>Odbiór przesyłki</strong>
           <p>Zalecamy sprawdzenie przesyłki przy odbiorze, najlepiej w obecności kuriera. W przypadku widocznych uszkodzeń warto sporządzić protokół szkody i wykonać zdjęcia. Brak protokołu nie wyłącza prawa do reklamacji.</p>
         </aside>
+        <aside class="shipment-check-note" data-foreign-shipping-notice hidden><strong>Dostawa zagraniczna</strong><p>Koszt dostawy zostanie ustalony indywidualnie po złożeniu zamówienia. Skontaktujemy się z Tobą przed płatnością.</p><p>Na tym etapie nie pobieramy płatności.</p></aside>
       </div>
 
       <form method="post" action="/sklep/order" class="checkout-form" data-checkout-form>
@@ -76,8 +78,12 @@ function checkout_field_attrs(array $errors, string $key): string { return isset
           <p class="eyebrow">Krok 4</p>
           <h3>Adres dostawy</h3>
           <label>Ulica i numer<input name="delivery_street" value="<?= checkout_value($checkoutOld, 'delivery_street') ?>" required autocomplete="street-address"<?= checkout_field_attrs($checkoutErrors, 'delivery_street') ?>><?= checkout_error($checkoutErrors, 'delivery_street') ?></label>
-          <div class="form-row"><label>Kod pocztowy<input name="delivery_postal_code" value="<?= checkout_value($checkoutOld, 'delivery_postal_code') ?>" required maxlength="6" inputmode="numeric" autocomplete="postal-code"<?= checkout_field_attrs($checkoutErrors, 'delivery_postal_code') ?>><?= checkout_error($checkoutErrors, 'delivery_postal_code') ?></label><label>Miejscowość<input name="delivery_city" value="<?= checkout_value($checkoutOld, 'delivery_city') ?>" required autocomplete="address-level2"<?= checkout_field_attrs($checkoutErrors, 'delivery_city') ?>><?= checkout_error($checkoutErrors, 'delivery_city') ?></label></div>
-          <label>Kraj<input name="delivery_country" value="<?= checkout_value($checkoutOld, 'delivery_country', 'PL') ?>" maxlength="2" required autocomplete="country"<?= checkout_field_attrs($checkoutErrors, 'delivery_country') ?>><?= checkout_error($checkoutErrors, 'delivery_country') ?></label>
+          <div class="form-row"><label>Kod pocztowy<input name="delivery_postal_code" data-postal-code value="<?= checkout_value($checkoutOld, 'delivery_postal_code') ?>" required maxlength="6" inputmode="numeric" autocomplete="postal-code"<?= checkout_field_attrs($checkoutErrors, 'delivery_postal_code') ?>><?= checkout_error($checkoutErrors, 'delivery_postal_code') ?></label><label>Miejscowość<input name="delivery_city" value="<?= checkout_value($checkoutOld, 'delivery_city') ?>" required autocomplete="address-level2"<?= checkout_field_attrs($checkoutErrors, 'delivery_city') ?>><?= checkout_error($checkoutErrors, 'delivery_city') ?></label></div>
+          <?php if (FOREIGN_SHIPPING_ENABLED): ?>
+            <label>Kraj<select name="delivery_country" data-checkout-country required autocomplete="country"<?= checkout_field_attrs($checkoutErrors, 'delivery_country') ?>><?php foreach (SHOP_ALLOWED_COUNTRIES as $code => $country): ?><option value="<?= e($code) ?>"<?= $checkoutCountry === $code ? ' selected' : '' ?>><?= e($code . ' — ' . $country['name']) ?></option><?php endforeach; ?></select><?= checkout_error($checkoutErrors, 'delivery_country') ?></label>
+          <?php else: ?>
+            <label>Kraj<input name="delivery_country" value="<?= checkout_value($checkoutOld, 'delivery_country', 'PL') ?>" maxlength="2" required autocomplete="country"<?= checkout_field_attrs($checkoutErrors, 'delivery_country') ?>><?= checkout_error($checkoutErrors, 'delivery_country') ?></label>
+          <?php endif; ?>
         </section>
         <section class="checkout-step">
           <p class="eyebrow">Faktura</p>
@@ -93,7 +99,7 @@ function checkout_field_attrs(array $errors, string $key): string { return isset
           <label>Uwagi<textarea name="customer_notes" rows="3" placeholder="Np. dogodna godzina kontaktu albo informacja o dostawie"><?= checkout_value($checkoutOld, 'customer_notes') ?></textarea></label>
           <p class="privacy-note">Administratorem Twoich danych osobowych jest EMAALL GARDEN OUTLET sp. z o.o. Dane podane w formularzu wykorzystamy do przyjęcia i realizacji zamówienia, płatności, dostawy, wystawienia dokumentów sprzedaży oraz obsługi posprzedażowej. Dane mogą być przekazywane podmiotom uczestniczącym w realizacji zamówienia, w szczególności operatorowi płatności, firmom kurierskim, operatorom logistycznym oraz producentowi lub dostawcy realizującemu wysyłkę bezpośrednio do klienta. Więcej informacji o przetwarzaniu danych i Twoich prawach znajdziesz w <a href="/polityka-prywatnosci">Polityce prywatności</a>.</p>
         </section>
-        <section class="checkout-step payment-step">
+        <section class="checkout-step payment-step" data-payment-step>
           <p class="eyebrow">Krok 5</p>
           <h3>Płatność</h3>
           <?php if (!empty(shop_payment_methods()['paynow'])): ?>
@@ -111,14 +117,14 @@ function checkout_field_attrs(array $errors, string $key): string { return isset
             <span>Akceptuję <a href="<?= e(shop_catalog_url()) ?>/regulamin" target="_blank" rel="noopener noreferrer">Regulamin</a> sklepu internetowego Home &amp; Garden Outlet.</span>
           </label>
           <?= checkout_error($checkoutErrors, 'terms') ?>
-          <button class="btn btn-wide" type="submit">Kupuję i płacę</button>
+          <button class="btn btn-wide" type="submit" data-checkout-submit>Kupuję i płacę</button>
         </section>
       </form>
     </section>
   </main>
 
   <?php shop_test_footer(); ?>
-  <script>window.HGO_SHOP_SALES_ENABLED = <?= shop_sales_enabled() ? 'true' : 'false' ?>; window.HGO_SHOP_PRODUCTS = <?= json_encode($publicProducts, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_HEX_TAG) ?>;</script>
-  <script src="/sklep/shop.js?v=20260809-shipment-check1"></script>
+  <script>window.HGO_SHOP_SALES_ENABLED = <?= shop_sales_enabled() ? 'true' : 'false' ?>; window.HGO_FOREIGN_SHIPPING_ENABLED = <?= FOREIGN_SHIPPING_ENABLED ? 'true' : 'false' ?>; window.HGO_SHOP_PRODUCTS = <?= json_encode($publicProducts, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_HEX_TAG) ?>;</script>
+  <script src="/sklep/shop.js?v=20260811-foreign-shipping1"></script>
 </body>
 </html>

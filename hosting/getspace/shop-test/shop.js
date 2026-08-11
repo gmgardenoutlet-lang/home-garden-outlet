@@ -1,6 +1,7 @@
 (function () {
   const products = Array.isArray(window.HGO_SHOP_PRODUCTS) ? window.HGO_SHOP_PRODUCTS : [];
   const salesEnabled = window.HGO_SHOP_SALES_ENABLED === true;
+  const foreignShippingEnabled = window.HGO_FOREIGN_SHIPPING_ENABLED === true;
   const bySlug = new Map(products.map((product) => [product.slug, product]));
   const storageKey = "hgo-shop-test-cart";
   const formatter = new Intl.NumberFormat("pl-PL", { style: "currency", currency: "PLN" });
@@ -20,7 +21,11 @@
   const cartCounts = Array.from(document.querySelectorAll("[data-cart-count]"));
   const emptyActions = document.querySelector("[data-cart-empty-actions]");
   const checkoutLink = document.querySelector("[data-checkout-link]");
-  const checkoutSubmit = form ? form.querySelector('button[type="submit"]') : null;
+  const checkoutSubmit = form ? form.querySelector('[data-checkout-submit]') : null;
+  const countrySelect = document.querySelector('[data-checkout-country]');
+  const postalCodeInput = document.querySelector('[data-postal-code]');
+  const paymentStep = document.querySelector('[data-payment-step]');
+  const foreignShippingNotice = document.querySelector('[data-foreign-shipping-notice]');
   const shipmentCheckNotice = document.querySelector("[data-shipment-check-notice]");
   const menuToggle = document.querySelector(".menu-toggle");
   const mainMenu = document.querySelector("#main-menu");
@@ -200,9 +205,24 @@
   };
 
   const itemDeliveryMethods = (item) => Array.isArray(bySlug.get(item.slug)?.deliveryMethods) ? bySlug.get(item.slug).deliveryMethods : [];
+  const isForeignCheckout = () => foreignShippingEnabled && countrySelect instanceof HTMLSelectElement && countrySelect.value !== 'PL';
+
+  const updateCountryCheckoutUi = () => {
+    const foreign = isForeignCheckout();
+    if (paymentStep) paymentStep.hidden = foreign;
+    if (foreignShippingNotice) foreignShippingNotice.hidden = !foreign;
+    if (checkoutSubmit instanceof HTMLButtonElement) checkoutSubmit.textContent = foreign ? 'Złóż zamówienie do wyceny' : 'Kupuję i płacę';
+    if (postalCodeInput instanceof HTMLInputElement) {
+      postalCodeInput.maxLength = foreign ? 20 : 6;
+      postalCodeInput.inputMode = foreign ? 'text' : 'numeric';
+    }
+    if (form) form.querySelectorAll('input[name="payment_method"]').forEach((input) => {
+      if (input instanceof HTMLInputElement) { input.disabled = foreign; input.required = !foreign; }
+    });
+  };
 
   const setCheckoutAvailability = (cart) => {
-    const hasDelivery = cart.items.every((item) => itemDeliveryMethods(item).some((method) => method.method === item.shippingProfileId));
+    const hasDelivery = isForeignCheckout() || cart.items.every((item) => itemDeliveryMethods(item).some((method) => method.method === item.shippingProfileId));
     const canContinue = cart.items.length > 0 && hasDelivery;
     if (checkoutLink) {
       checkoutLink.classList.toggle("is-disabled", !canContinue);
@@ -326,6 +346,7 @@
 
   const renderPerItemCart = () => {
     const cart = cartWithValidItems();
+    updateCountryCheckoutUi();
     let changed = false;
     cart.items.forEach((item) => {
       const methods = itemDeliveryMethods(item);
@@ -350,6 +371,27 @@
       if (deliveryTotal) deliveryTotal.textContent = "—";
       if (cartTotalLabel) cartTotalLabel.textContent = "Razem";
       cartTotal.textContent = formatter.format(0);
+      setCheckoutAvailability(cart);
+      if (cartPayload) cartPayload.value = JSON.stringify(cart);
+      return;
+    }
+
+    if (isForeignCheckout()) {
+      let productTotal = 0;
+      cart.items.forEach((item) => {
+        const product = bySlug.get(item.slug);
+        const price = Number(product.price) || 0;
+        productTotal += price * item.quantity;
+        const row = document.createElement("div");
+        row.className = "cart-row";
+        row.innerHTML = `<img src="${escapeAttr(product.image)}" alt="" width="82" height="82"><div class="cart-row-main"><strong>${escapeHtml(product.name)}</strong><br><span>${formatter.format(price)} / szt.</span></div><div class="qty"><button type="button" data-cart-minus="${escapeAttr(item.slug)}">-</button><span>${item.quantity}</span><button type="button" data-cart-plus="${escapeAttr(item.slug)}">+</button></div><button type="button" class="cart-clear" data-cart-remove="${escapeAttr(item.slug)}">Usuń</button>`;
+        cartItems.appendChild(row);
+      });
+      if (productsTotal) productsTotal.textContent = formatter.format(productTotal);
+      if (deliveryTotal) deliveryTotal.textContent = 'Do indywidualnej wyceny';
+      if (cartTotalLabel) cartTotalLabel.textContent = 'Kwota końcowa po wycenie dostawy';
+      cartTotal.textContent = '—';
+      if (shipmentCheckNotice) shipmentCheckNotice.hidden = true;
       setCheckoutAvailability(cart);
       if (cartPayload) cartPayload.value = JSON.stringify(cart);
       return;
@@ -564,6 +606,10 @@
     }
     if (target instanceof HTMLInputElement && target.matches("[data-terms-checkbox]")) {
       target.setCustomValidity("");
+    }
+    if (target === countrySelect) {
+      renderPerItemCart();
+      return;
     }
   });
 

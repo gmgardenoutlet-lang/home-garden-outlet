@@ -48,5 +48,8 @@ frontend_assert(str_contains($javascript, 'deliverySelected'), 'Frontend nie wym
 frontend_assert(str_contains($javascript, 'Koszt wymaga indywidualnego potwierdzenia'), 'Frontend nie komunikuje wyceny indywidualnej.');
 frontend_assert(str_contains($javascript, 'data-products-total') && str_contains($javascript, 'data-delivery-total'), 'Frontend nie rozbija podsumowania na produkty i dostawę.');
 frontend_assert(str_contains($order, 'shop_test_resolve_item_delivery'), 'Backend nie rozlicza dostawy per pozycja.');
+frontend_assert(str_contains($checkout, 'FOREIGN_SHIPPING_ENABLED') && str_contains($checkout, 'data-checkout-country'), 'Checkout nie ma przełączanego wybierania kraju.');
+frontend_assert(str_contains($javascript, 'Złóż zamówienie do wyceny') && str_contains($javascript, 'Do indywidualnej wyceny'), 'Frontend nie obsługuje wyceny zagranicznej.');
+frontend_assert(str_contains($order, "'paymentMethod' => \$paymentMethod") && str_contains($order, "'shippingTotalCents' => \$shippingTotalCents"), 'Backend nie wymusza modelu płatności i dostawy dla kraju.');
 
 echo 'PASS: shop frontend ' . ($expectedSales ? 'enabled' : 'disabled') . " tests\n";

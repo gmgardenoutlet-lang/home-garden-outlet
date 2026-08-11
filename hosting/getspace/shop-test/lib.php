@@ -573,7 +573,9 @@ function shop_test_validate_checkout_customer_input(): void
     } else {
         $normalizedPhone = shop_test_normalize_phone_for_country($phone, $countryCode);
         if ($normalizedPhone === null) {
-            $errors['customer_phone'] = 'Podaj prawidłowy numer telefonu. Polski numer powinien mieć 9 cyfr.';
+            $errors['customer_phone'] = $countryCode !== 'PL' && isset(SHOP_ALLOWED_COUNTRIES[$countryCode])
+                ? 'Podaj numer telefonu z kodem kraju, np. +' . SHOP_ALLOWED_COUNTRIES[$countryCode]['callingCode'] . ' …'
+                : 'Podaj prawidłowy numer telefonu. Polski numer powinien mieć 9 cyfr.';
         } else {
             $_POST['customer_phone'] = $normalizedPhone;
         }
@@ -582,7 +584,7 @@ function shop_test_validate_checkout_customer_input(): void
     if ($postalCode === '') {
         $errors['delivery_postal_code'] = 'Podaj kod pocztowy.';
     } elseif (($normalizedPostalCode = shop_test_normalize_postal_code_for_country($postalCode, $countryCode)) === null) {
-        $errors['delivery_postal_code'] = 'Podaj kod pocztowy w formacie 00-000.';
+        $errors['delivery_postal_code'] = $countryCode === 'PL' ? 'Podaj kod pocztowy w formacie 00-000.' : 'Podaj prawidłowy kod pocztowy.';
     } else {
         $_POST['delivery_postal_code'] = $normalizedPostalCode;
     }
