@@ -553,6 +553,7 @@ if ($showStats) {
       <a class="btn btn-secondary btn-small" href="/sklep/figury-ogrodowe" target="_blank" rel="noopener">Podgląd sklepu figur</a>
       <a class="btn btn-secondary btn-small" href="/admin/?stats=1">Statystyki</a>
       <a class="btn btn-secondary btn-small" href="/admin/?orders=1">Zamówienia sklepu</a>
+      <a class="btn btn-secondary btn-small" href="/admin/paynow-controlled-test.php?order_id=HGO-20260811-0001">Test Paynow — HGO-20260811-0001</a>
       <a class="btn btn-secondary btn-small" href="/admin/?shipping=1">Cennik dostaw</a>
       <a class="btn btn-secondary btn-small" href="/admin/?google_config=1">Google API</a>
       <a class="btn btn-secondary btn-small" href="/admin/?download=products">Kopia produktów</a>
