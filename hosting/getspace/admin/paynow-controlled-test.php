@@ -7,6 +7,12 @@ require __DIR__ . '/../shop-test/paynow.php';
 boot_admin();
 require_login();
 
+function admin_paynow_safe_message(Throwable $exception): string
+{
+    $message = preg_replace('/[^\pL\pN .,:;_()\-\[\]]/u', '', $exception->getMessage()) ?: 'Nieznany błąd.';
+    return function_exists('mb_substr') ? mb_substr($message, 0, 300, 'UTF-8') : substr($message, 0, 300);
+}
+
 function admin_paynow_test_candidate(): ?array
 {
     $candidate = null;
@@ -31,6 +37,7 @@ try {
         require_csrf();
         $action = post_text('action');
         if ($action === 'prepare') {
+            $stage = 'prepare_order';
             $candidate = admin_paynow_test_candidate();
             if (!$candidate) throw new RuntimeException('Brak produktu z ustalonym kosztem dostawy do testu.');
             $product = $candidate['product'];
@@ -60,26 +67,30 @@ try {
             exit;
         }
         if ($action === 'start') {
+            $stage = 'create_payment';
             $payment = paynow_start_admin_test_payment(shop_safe_order_id(post_text('order_id')));
             header('Location: ' . $payment['redirectUrl'], true, 303);
             exit;
         }
     }
 } catch (Throwable $e) {
-    $error = 'Nie udało się przygotować kontrolowanego testu.';
+    $error = ['stage' => $stage ?? 'unknown', 'message' => admin_paynow_safe_message($e)];
 }
 
 $orderId = shop_safe_order_id((string)($_GET['order_id'] ?? ''));
 $order = $orderId !== '' ? shop_load_order($orderId) : null;
+$payload = $order && !empty($order['paynowAdminTest']) ? paynow_payment_payload($order) : null;
+$itemsTotal = is_array($payload) ? array_sum(array_map(static fn(array $item): int => (int)$item['quantity'] * (int)$item['price'], $payload['orderItems'])) : null;
 ?>
 <!doctype html>
 <html lang="pl"><head><meta charset="utf-8"><meta name="robots" content="noindex,nofollow,noarchive"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Kontrolowany test Paynow</title><link rel="stylesheet" href="/admin/style.css"></head>
 <body><main class="narrow"><section class="card"><h1>Kontrolowany test Paynow</h1>
-<?php if (!empty($error)): ?><p><?= e($error) ?></p><?php elseif (!$order): ?>
+<?php if (!empty($error)): ?><p><strong>Stage:</strong> <?= e($error['stage']) ?><br><strong>Message:</strong> <?= e($error['message']) ?></p><?php elseif (!$order): ?>
   <p>Utworzy jedno normalne zamówienie testowe z najniższą aktualną ceną produktu i znanym kosztem dostawy. Nie tworzy płatności.</p>
   <form method="post"><input type="hidden" name="csrf" value="<?= e(csrf_token()) ?>"><input type="hidden" name="action" value="prepare"><button class="btn" type="submit">Przygotuj zamówienie testowe</button></form>
 <?php elseif (!empty($order['paynowAdminTest'])): ?>
   <p><strong>Zamówienie:</strong> <?= e($order['orderId']) ?><br><strong>Kwota:</strong> <?= e(shop_test_price_label((float)$order['total'])) ?></p>
+  <?php if ($payload): ?><p><strong>Payload sanity:</strong><br>amount: <?= e((string)$payload['amount']) ?><br>currency: <?= e($payload['currency']) ?><br>externalId: <?= e($payload['externalId']) ?><br>description: <?= e($payload['description']) ?><br>buyer: e-mail, imię i nazwisko<br>orderItems suma: <?= e((string)$itemsTotal) ?><br>continueUrl: konfiguracja Paynow<br>notificationUrl: konfiguracja Paynow</p><?php endif; ?>
   <p>Płatność nie została jeszcze utworzona. Przejście dalej utworzy jedną płatność produkcyjną i otworzy stronę Paynow.</p>
   <form method="post"><input type="hidden" name="csrf" value="<?= e(csrf_token()) ?>"><input type="hidden" name="action" value="start"><input type="hidden" name="order_id" value="<?= e($order['orderId']) ?>"><button class="btn" type="submit">Utwórz płatność i przejdź do Paynow</button></form>
 <?php else: ?><p>Nie znaleziono kontrolowanego zamówienia testowego.</p><?php endif; ?>

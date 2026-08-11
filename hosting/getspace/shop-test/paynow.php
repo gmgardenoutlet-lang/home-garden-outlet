@@ -207,7 +207,14 @@ function paynow_post_payment(array $order): array
     $curlError = curl_error($curl);
     curl_close($curl);
     if (!is_string($responseBody) || $httpCode !== 201) {
-        throw new RuntimeException('Nie udało się utworzyć płatności Paynow' . ($curlError !== '' ? '.' : ' (HTTP ' . $httpCode . ').'));
+        $response = is_string($responseBody) ? json_decode($responseBody, true) : null;
+        $error = is_array($response) && is_array($response['errors'][0] ?? null) ? $response['errors'][0] : [];
+        $errorType = preg_replace('/[^A-Z_]/', '', (string)($error['errorType'] ?? '')) ?: 'UNKNOWN';
+        $message = trim((string)($error['message'] ?? ''));
+        if ($curlError !== '') {
+            throw new RuntimeException('Paynow: bezpieczne połączenie nie powiodło się.');
+        }
+        throw new RuntimeException('Paynow HTTP ' . $httpCode . ' [' . $errorType . ']' . ($message !== '' ? ': ' . $message : '.'));
     }
     $response = json_decode($responseBody, true);
     if (!is_array($response) || !is_string($response['paymentId'] ?? null) || !is_string($response['redirectUrl'] ?? null)
@@ -258,6 +265,10 @@ function paynow_start_admin_test_payment(string $orderId): array
         }
         if (($order['delivery']['pricingType'] ?? '') !== 'fixed_price' || (int)($order['totalCents'] ?? 0) <= 0) {
             throw new RuntimeException('Kontrolowane zamówienie nie ma ostatecznej kwoty.');
+        }
+        if (!in_array((string)($order['orderStatus'] ?? ''), ['awaiting_payment', 'payment_failed'], true)
+            || in_array((string)($order['paymentStatus'] ?? ''), ['confirmed', 'paid'], true)) {
+            throw new RuntimeException('Status zamówienia nie pozwala na utworzenie testowej płatności.');
         }
         $order['paynowIdempotencyKey'] = paynow_idempotency_key($order);
         shop_save_order($order);
