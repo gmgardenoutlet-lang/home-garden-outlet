@@ -41,6 +41,17 @@ function test_customer_post(array $overrides = []): array
     ], $overrides);
 }
 
+function test_checkout_customer_errors(array $overrides = []): array
+{
+    $_POST = test_customer_post($overrides);
+    try {
+        shop_test_validate_checkout_customer_input();
+    } catch (ShopCheckoutValidationException $exception) {
+        return $exception->errors;
+    }
+    return [];
+}
+
 test_assert(shop_sales_enabled(), 'Test musi działać z HGO_SHOP_SALES_ENABLED=true.');
 boot_admin();
 $checkoutSubmissionToken = shop_test_checkout_submission_token();
@@ -57,6 +68,34 @@ test_assert(($rememberedErrors['customer_email'] ?? '') === 'Testowy błąd pola
 test_assert(($rememberedInput['payment_method'] ?? '') === 'paynow' && shop_test_checkout_payment_method($rememberedInput) === 'bank_transfer', 'Error bag nie zachowuje wyboru płatności lub nie odrzuca nieaktywnej metody.');
 test_assert(($rememberedInput['shipping_selections']['figura-testowa'] ?? '') === 'kurier-standardowy' && ($rememberedInput['shipping_selections']['figura-testowa-druga'] ?? '') === 'kurier-sredni', 'Error bag nie zachowuje identyfikatorów dostawy per pozycja.');
 test_assert(shop_load_orders() === [], 'Sam test error bag utworzył zamówienie.');
+
+foreach (['jan@example.pl', 'biuro@firma.com', 'test.test+zamowienie@example.com'] as $email) {
+    test_assert(test_checkout_customer_errors(['customer_email' => $email]) === [], 'Poprawny e-mail został odrzucony.');
+}
+test_assert(isset(test_checkout_customer_errors(['customer_email' => 'test@'])['customer_email']), 'Niepoprawny e-mail został zaakceptowany.');
+test_assert(test_checkout_customer_errors(['customer_email' => ''])['customer_email'] === 'Podaj adres e-mail.', 'Pusty e-mail nie zwraca właściwego błędu.');
+
+foreach (['123456789', '123 456 789', '123-456-789', '+48123456789', '+48 123 456 789', '0048 123456789'] as $phone) {
+    test_assert(test_checkout_customer_errors(['customer_phone' => $phone]) === [], 'Poprawny polski telefon został odrzucony.');
+    test_assert(($_POST['customer_phone'] ?? '') === '+48123456789', 'Telefon nie został znormalizowany do formatu +48.');
+}
+foreach (['12345', '1234567890', 'abc123456789', '+49 123456789'] as $phone) {
+    test_assert(isset(test_checkout_customer_errors(['customer_phone' => $phone])['customer_phone']), 'Niepoprawny telefon został zaakceptowany.');
+}
+test_assert(test_checkout_customer_errors(['customer_phone' => ''])['customer_phone'] === 'Podaj numer telefonu.', 'Pusty telefon nie zwraca właściwego błędu.');
+
+foreach (['55-080', '55080'] as $postalCode) {
+    test_assert(test_checkout_customer_errors(['delivery_postal_code' => $postalCode]) === [], 'Poprawny kod pocztowy został odrzucony.');
+    test_assert(($_POST['delivery_postal_code'] ?? '') === '55-080', 'Kod pocztowy nie został znormalizowany.');
+}
+foreach (['5-080', '5508', 'ABCDE'] as $postalCode) {
+    test_assert(isset(test_checkout_customer_errors(['delivery_postal_code' => $postalCode])['delivery_postal_code']), 'Niepoprawny kod pocztowy został zaakceptowany.');
+}
+test_assert(test_checkout_customer_errors(['delivery_postal_code' => ''])['delivery_postal_code'] === 'Podaj kod pocztowy.', 'Pusty kod pocztowy nie zwraca właściwego błędu.');
+
+$threeFieldErrors = test_checkout_customer_errors(['customer_email' => 'test@', 'customer_phone' => '123', 'delivery_postal_code' => 'abc']);
+test_assert(count($threeFieldErrors) === 3 && isset($threeFieldErrors['customer_email'], $threeFieldErrors['customer_phone'], $threeFieldErrors['delivery_postal_code']), 'Trzy błędne pola nie zwracają trzech osobnych błędów.');
+test_assert(shop_load_orders() === [], 'Walidacja błędnych danych utworzyła zamówienie.');
 
 // Customer-facing delivery code deliberately does not fall back to defaults.
 // Give this isolated test an explicit admin-cennik fixture instead.

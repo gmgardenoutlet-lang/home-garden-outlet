@@ -510,6 +510,49 @@ function shop_test_customer_from_post(): array
     ];
 }
 
+function shop_test_validate_checkout_customer_input(): void
+{
+    $errors = [];
+    $email = shop_test_text_field('customer_email', 160);
+    $phone = shop_test_text_field('customer_phone', 60);
+    $postalCode = shop_test_text_field('delivery_postal_code', 20);
+
+    if ($email === '') {
+        $errors['customer_email'] = 'Podaj adres e-mail.';
+    } elseif (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
+        $errors['customer_email'] = 'Podaj prawidłowy adres e-mail, np. jan@example.pl.';
+    }
+
+    if ($phone === '') {
+        $errors['customer_phone'] = 'Podaj numer telefonu.';
+    } else {
+        $compactPhone = preg_replace('/[\s\-()]+/', '', $phone) ?? '';
+        if (str_starts_with($compactPhone, '+48')) {
+            $compactPhone = substr($compactPhone, 3);
+        } elseif (str_starts_with($compactPhone, '0048')) {
+            $compactPhone = substr($compactPhone, 4);
+        }
+        if (!ctype_digit($compactPhone) || strlen($compactPhone) !== 9) {
+            $errors['customer_phone'] = 'Podaj prawidłowy numer telefonu. Polski numer powinien mieć 9 cyfr.';
+        } else {
+            $_POST['customer_phone'] = '+48' . $compactPhone;
+        }
+    }
+
+    if ($postalCode === '') {
+        $errors['delivery_postal_code'] = 'Podaj kod pocztowy.';
+    } elseif (preg_match('/^(\d{2})-?(\d{3})$/', $postalCode, $matches) !== 1) {
+        $errors['delivery_postal_code'] = 'Podaj kod pocztowy w formacie 00-000.';
+    } else {
+        $_POST['delivery_postal_code'] = $matches[1] . '-' . $matches[2];
+    }
+
+    if ($errors !== []) {
+        throw new ShopCheckoutValidationException($errors, $_POST);
+    }
+    $_POST['customer_email'] = $email;
+}
+
 function shop_test_require_terms(): void
 {
     if (empty($_POST['terms'])) {

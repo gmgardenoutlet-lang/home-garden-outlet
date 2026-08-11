@@ -14,6 +14,7 @@ try {
         throw new RuntimeException('Zamówienie można złożyć tylko formularzem sklepu testowego.');
     }
     require_csrf();
+    shop_test_validate_checkout_customer_input();
     shop_test_require_terms();
     $submissionToken = (string)($_POST['checkout_submission_token'] ?? '');
     $existingOrderId = shop_test_checkout_existing_order($submissionToken);
