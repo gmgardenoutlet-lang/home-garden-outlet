@@ -23,6 +23,7 @@
   const checkoutLink = document.querySelector("[data-checkout-link]");
   const checkoutSubmit = form ? form.querySelector('[data-checkout-submit]') : null;
   const countrySelect = document.querySelector('[data-checkout-country]');
+  const phonePrefixSelect = document.querySelector('[data-phone-prefix]');
   const postalCodeInput = document.querySelector('[data-postal-code]');
   const paymentStep = document.querySelector('[data-payment-step]');
   const foreignShippingNotice = document.querySelector('[data-foreign-shipping-notice]');
@@ -608,6 +609,8 @@
       target.setCustomValidity("");
     }
     if (target === countrySelect) {
+      const callingCode = countrySelect.selectedOptions[0]?.dataset.callingCode;
+      if (callingCode && phonePrefixSelect instanceof HTMLSelectElement) phonePrefixSelect.value = `+${callingCode}`;
       renderPerItemCart();
       return;
     }

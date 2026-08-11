@@ -552,7 +552,8 @@ function shop_test_validate_checkout_customer_input(): void
 {
     $errors = [];
     $email = shop_test_text_field('customer_email', 160);
-    $phone = shop_test_text_field('customer_phone', 60);
+    $phonePrefix = trim((string) ($_POST['phone_prefix'] ?? ''));
+    $phoneNumber = trim((string) ($_POST['phone_number'] ?? $_POST['customer_phone'] ?? ''));
     $postalCode = shop_test_text_field('delivery_postal_code', 20);
     $countryCode = strtoupper(shop_test_text_field('delivery_country', 2));
 
@@ -568,14 +569,21 @@ function shop_test_validate_checkout_customer_input(): void
         $errors['customer_email'] = 'Podaj prawidłowy adres e-mail, np. jan@example.pl.';
     }
 
-    if ($phone === '') {
+    if ($phonePrefix === '' && !isset($_POST['phone_number'])) {
+        $phonePrefix = '+' . (SHOP_ALLOWED_COUNTRIES[$countryCode]['callingCode'] ?? '48');
+    }
+    if ($phonePrefix === '') {
+        $errors['customer_phone'] = 'Wybierz kod kierunkowy.';
+    } elseif (!isset(SHOP_ALLOWED_COUNTRIES[$countryCode]) || $phonePrefix !== '+' . SHOP_ALLOWED_COUNTRIES[$countryCode]['callingCode']) {
+        $errors['customer_phone'] = 'Kod kierunkowy telefonu nie odpowiada wybranemu krajowi.';
+    } elseif ($phoneNumber === '') {
         $errors['customer_phone'] = 'Podaj numer telefonu.';
     } else {
-        $normalizedPhone = shop_test_normalize_phone_for_country($phone, $countryCode);
+        $normalizedPhone = shop_test_normalize_phone_for_country($phonePrefix . $phoneNumber, $countryCode);
         if ($normalizedPhone === null) {
             $errors['customer_phone'] = $countryCode !== 'PL' && isset(SHOP_ALLOWED_COUNTRIES[$countryCode])
                 ? 'Podaj numer telefonu z kodem kraju, np. +' . SHOP_ALLOWED_COUNTRIES[$countryCode]['callingCode'] . ' …'
-                : 'Podaj prawidłowy numer telefonu. Polski numer powinien mieć 9 cyfr.';
+                : 'Podaj prawidłowy numer telefonu.';
         } else {
             $_POST['customer_phone'] = $normalizedPhone;
         }
@@ -628,7 +636,7 @@ function shop_test_checkout_errors(): array
 function shop_test_checkout_remember_validation_error(array $errors, array $input): void
 {
     $_SESSION['checkout_errors'] = $errors;
-    $oldInput = array_intersect_key($input, array_flip(['customer_first_name', 'customer_last_name', 'customer_email', 'customer_phone', 'delivery_street', 'delivery_postal_code', 'delivery_city', 'delivery_country', 'invoice_requested', 'invoice_company_name', 'invoice_nip', 'invoice_address', 'customer_notes', 'payment_method', 'terms']));
+    $oldInput = array_intersect_key($input, array_flip(['customer_first_name', 'customer_last_name', 'customer_email', 'customer_phone', 'phone_prefix', 'phone_number', 'delivery_street', 'delivery_postal_code', 'delivery_city', 'delivery_country', 'invoice_requested', 'invoice_company_name', 'invoice_nip', 'invoice_address', 'customer_notes', 'payment_method', 'terms']));
     $cart = json_decode((string) ($input['cart_payload'] ?? ''), true);
     if (is_array($cart) && is_array($cart['items'] ?? null)) {
         foreach ($cart['items'] as $item) {
