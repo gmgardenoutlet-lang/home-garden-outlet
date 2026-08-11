@@ -113,6 +113,10 @@ try {
     }
     header('Location: ' . shop_catalog_url() . '/potwierdzenie?id=' . rawurlencode((string)$order['orderId']), true, 303);
     exit;
+} catch (ShopCheckoutValidationException $exception) {
+    shop_test_checkout_remember_validation_error($exception->errors, $exception->oldInput);
+    header('Location: ' . shop_catalog_url() . '/zamowienie', true, 303);
+    exit;
 } catch (Throwable $exception) {
     $error = $exception->getMessage();
 }

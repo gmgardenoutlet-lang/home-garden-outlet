@@ -870,6 +870,11 @@ main {
   line-height: 1.72;
 }
 
+.checkout-form input.has-error,
+.checkout-form textarea.has-error,
+.checkout-form select.has-error { border-color: #b84b4b; box-shadow: 0 0 0 3px rgba(184, 75, 75, .10); }
+.checkout-field-error { display: block; margin-top: 6px; color: #9b2c2c; font-size: 13px; line-height: 1.4; }
+
 .product-status-grid {
   display: flex;
   gap: 8px;

@@ -49,6 +49,15 @@ shop_test_remember_checkout_order($checkoutSubmissionToken, 'HGO-20260809-0001')
 test_assert(shop_test_checkout_existing_order($checkoutSubmissionToken) === 'HGO-20260809-0001', 'Ponowny submit checkoutu nie wskazuje istniejącego zamówienia.');
 test_assert(shop_test_checkout_submission_token() !== $checkoutSubmissionToken, 'Nowy checkout używa starego tokenu idempotencji.');
 
+$errorInput = test_customer_post(['customer_phone' => '123456789', 'payment_method' => 'paynow', 'cart_payload' => json_encode(['items' => [['slug' => 'figura-testowa', 'shippingProfileId' => 'kurier-standardowy'], ['slug' => 'figura-testowa-druga', 'shippingProfileId' => 'kurier-sredni']]])]);
+shop_test_checkout_remember_validation_error(['customer_email' => 'Testowy błąd pola e-mail'], $errorInput);
+$rememberedErrors = shop_test_checkout_errors();
+$rememberedInput = shop_test_checkout_old_input();
+test_assert(($rememberedErrors['customer_email'] ?? '') === 'Testowy błąd pola e-mail' && ($rememberedInput['customer_first_name'] ?? '') === 'Jan' && ($rememberedInput['customer_phone'] ?? '') === '123456789', 'Error bag nie zachowuje danych kontaktowych.');
+test_assert(shop_test_checkout_payment_method($rememberedInput) === 'paynow', 'Error bag nie zachowuje dozwolonej metody Paynow.');
+test_assert(str_contains((string)($rememberedInput['cart_payload'] ?? ''), 'kurier-standardowy') && str_contains((string)($rememberedInput['cart_payload'] ?? ''), 'kurier-sredni'), 'Error bag nie zachowuje identyfikatorów dostawy per pozycja.');
+test_assert(shop_load_orders() === [], 'Sam test error bag utworzył zamówienie.');
+
 // Customer-facing delivery code deliberately does not fall back to defaults.
 // Give this isolated test an explicit admin-cennik fixture instead.
 save_shipping_profiles([

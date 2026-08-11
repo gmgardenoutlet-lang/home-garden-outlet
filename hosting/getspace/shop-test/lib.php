@@ -517,6 +517,40 @@ function shop_test_require_terms(): void
     }
 }
 
+final class ShopCheckoutValidationException extends RuntimeException
+{
+    public function __construct(public array $errors, public array $oldInput)
+    {
+        parent::__construct('Formularz wymaga poprawy.');
+    }
+}
+
+function shop_test_checkout_old_input(): array
+{
+    $old = $_SESSION['checkout_old_input'] ?? [];
+    unset($_SESSION['checkout_old_input']);
+    return is_array($old) ? $old : [];
+}
+
+function shop_test_checkout_errors(): array
+{
+    $errors = $_SESSION['checkout_errors'] ?? [];
+    unset($_SESSION['checkout_errors']);
+    return is_array($errors) ? $errors : [];
+}
+
+function shop_test_checkout_remember_validation_error(array $errors, array $input): void
+{
+    $_SESSION['checkout_errors'] = $errors;
+    $_SESSION['checkout_old_input'] = array_intersect_key($input, array_flip(['customer_first_name', 'customer_last_name', 'customer_email', 'customer_phone', 'delivery_street', 'delivery_postal_code', 'delivery_city', 'delivery_country', 'invoice_requested', 'invoice_company_name', 'invoice_nip', 'invoice_address', 'customer_notes', 'payment_method', 'terms', 'cart_payload']));
+}
+
+function shop_test_checkout_payment_method(array $oldInput): string
+{
+    $method = (string)($oldInput['payment_method'] ?? 'bank_transfer');
+    return in_array($method, ['bank_transfer', 'paynow'], true) && !empty(shop_payment_methods()[$method]) ? $method : 'bank_transfer';
+}
+
 function shop_test_text_field(string $key, int $maxLength = 300): string
 {
     $value = trim((string)($_POST[$key] ?? ''));
