@@ -457,6 +457,9 @@ input:focus, textarea:focus, select:focus { outline: 3px solid rgba(63, 111, 69,
   .order-grid { grid-template-columns: 1fr; }
   .order-card-head { display: grid; padding: 17px; }
   .order-card-details { padding: 0 17px 17px; }
+  .order-card .stats-table { min-width: 0; table-layout: fixed; font-size: 12px; }
+  .order-card .stats-table th, .order-card .stats-table td { padding: 9px 5px; overflow-wrap: anywhere; }
+  .order-card .stats-table th { font-size: 10px; letter-spacing: 0; }
   .order-details-toggle { align-self: start; }
   .stat-card { min-height: 100px; padding: 16px; }
   .form-actions { position: sticky; bottom: 0; z-index: 5; margin: 20px -17px -17px; padding: 12px 17px calc(12px + env(safe-area-inset-bottom)); border-top: 1px solid var(--line); background: rgba(255,255,255,.96); }
