@@ -13,6 +13,87 @@ function image_url(string $path): string
     return str_starts_with($path, '/') ? $path : '/' . $path;
 }
 
+function admin_order_status_key(string $status): string
+{
+    return [
+        'Testowe' => 'new', 'Nowe' => 'new', 'Oczekuje na płatność' => 'awaiting_payment',
+        'Opłacone' => 'paid', 'W przygotowaniu' => 'processing', 'Wysłane' => 'shipped',
+        'Odebrane osobiście' => 'pickup_completed', 'Anulowane' => 'cancelled', 'Zwrócone' => 'returned',
+    ][$status] ?? $status;
+}
+
+function admin_order_status_label(string $status): string
+{
+    return [
+        'new' => 'Nowe', 'awaiting_payment' => 'Oczekuje na płatność', 'awaiting_shipping_quote' => 'Oczekuje na wycenę dostawy',
+        'paid' => 'Opłacone', 'processing' => 'W przygotowaniu', 'shipped' => 'Wysłane', 'completed' => 'Zrealizowane',
+        'cancelled' => 'Anulowane', 'payment_failed' => 'Błąd płatności', 'returned' => 'Zwrócone',
+        'refunded' => 'Zwrot środków', 'pickup_completed' => 'Odebrane osobiście',
+    ][admin_order_status_key($status)] ?? $status;
+}
+
+function admin_payment_status_label(string $status): string
+{
+    return [
+        'confirmed' => 'Potwierdzona', 'not_started' => 'Nie rozpoczęta', 'new' => 'Nowa',
+        'pending' => 'Oczekuje na potwierdzenie', 'awaiting' => 'Oczekuje na płatność',
+        'awaiting_payment' => 'Oczekuje na płatność', 'paid' => 'Opłacona', 'rejected' => 'Odrzucona',
+        'expired' => 'Wygasła', 'abandoned' => 'Przerwana', 'error' => 'Błąd płatności',
+        'failed' => 'Błąd płatności', 'cancelled' => 'Anulowana', 'refunded' => 'Zwrot środków',
+        'Testowe bez płatności' => 'Nie rozpoczęta', 'Oczekuje na płatność' => 'Oczekuje na płatność',
+        'Opłacone' => 'Opłacona', 'Anulowane' => 'Anulowana', 'Zwrot' => 'Zwrot środków',
+    ][$status] ?? $status;
+}
+
+function admin_order_is_paid(array $order): bool
+{
+    return in_array((string)($order['paymentStatus'] ?? ''), ['confirmed', 'paid'], true)
+        || admin_order_status_key((string)($order['orderStatus'] ?? $order['status'] ?? '')) === 'paid';
+}
+
+function admin_order_is_pickup(array $order): bool
+{
+    $delivery = (array)($order['delivery'] ?? []);
+    $text = (string)($delivery['label'] ?? '');
+    foreach ((array)($order['items'] ?? []) as $item) $text .= ' ' . (string)($item['shippingName'] ?? '');
+    $text = function_exists('mb_strtolower') ? mb_strtolower($text, 'UTF-8') : strtolower($text);
+    return str_contains($text, 'odbiór') || str_contains($text, 'odbior');
+}
+
+function admin_order_matches_filter(array $order, string $filter): bool
+{
+    $status = admin_order_status_key((string)($order['orderStatus'] ?? $order['status'] ?? ''));
+    $paid = admin_order_is_paid($order);
+    $terminal = in_array($status, ['shipped', 'completed', 'cancelled'], true);
+    return match ($filter) {
+        'new' => $status === 'new',
+        'unpaid' => $status !== 'cancelled' && ($status === 'awaiting_payment' || !$paid),
+        'paid' => $paid,
+        'preparing' => in_array($status, ['paid', 'processing'], true) && !$terminal,
+        'shipping' => $paid && !admin_order_is_pickup($order) && !$terminal,
+        'shipped' => $status === 'shipped',
+        'completed' => $status === 'completed',
+        'cancelled' => $status === 'cancelled',
+        default => true,
+    };
+}
+
+function admin_order_status_options(): array
+{
+    return ['new', 'awaiting_payment', 'awaiting_shipping_quote', 'paid', 'processing', 'shipped', 'completed', 'cancelled', 'payment_failed'];
+}
+
+function admin_payment_status_options(): array
+{
+    return ['not_started', 'awaiting', 'awaiting_payment', 'confirmed', 'paid', 'failed', 'cancelled'];
+}
+
+function admin_order_date_label(string $date): string
+{
+    try { return (new DateTimeImmutable($date))->setTimezone(new DateTimeZone(STATS_TIMEZONE))->format('d.m.Y H:i'); }
+    catch (Throwable $ignored) { return $date; }
+}
+
 function gallery_paths(array $product): array
 {
     $result = [];
@@ -454,8 +535,19 @@ $statsTopProducts = [];
 $googleConfig = load_google_business_config();
 $googleConfigStatus = google_business_config_status($googleConfig);
 $shopOrders = $showOrders ? shop_load_orders() : [];
-$shopOrderStatuses = shop_order_statuses();
-$shopPaymentStatuses = shop_payment_statuses();
+$orderFilterLabels = ['all' => 'Wszystkie', 'new' => 'Nowe', 'unpaid' => 'Nieopłacone', 'paid' => 'Opłacone', 'preparing' => 'Do przygotowania', 'shipping' => 'Do wysyłki', 'shipped' => 'Wysłane', 'completed' => 'Zrealizowane', 'cancelled' => 'Anulowane'];
+$orderFilter = (string)($_GET['filter'] ?? 'all');
+if (!isset($orderFilterLabels[$orderFilter])) $orderFilter = 'all';
+usort($shopOrders, static fn(array $a, array $b): int => strcmp((string)($b['createdAt'] ?? ''), (string)($a['createdAt'] ?? '')));
+$orderFilterCounts = array_fill_keys(array_keys($orderFilterLabels), 0);
+foreach ($shopOrders as $shopOrder) {
+    foreach ($orderFilterLabels as $filterKey => $_label) {
+        if (admin_order_matches_filter($shopOrder, $filterKey)) $orderFilterCounts[$filterKey]++;
+    }
+}
+$visibleShopOrders = array_values(array_filter($shopOrders, static fn(array $order): bool => admin_order_matches_filter($order, $orderFilter)));
+$shopOrderStatuses = admin_order_status_options();
+$shopPaymentStatuses = admin_payment_status_options();
 $shopDeliveryLabels = shop_delivery_labels();
 $shippingEditId = clean_shipping_profile_id((string)($_GET['shipping_edit'] ?? ''));
 $shippingEditing = $shippingEditId !== '' && isset($shippingProfilesById[$shippingEditId]);
@@ -796,39 +888,55 @@ if ($showStats) {
       <?php if (!$shopOrders): ?>
         <section class="card empty">Nie ma jeszcze zamówień testowych.</section>
       <?php else: ?>
+        <nav class="order-filters" aria-label="Filtry zamówień">
+          <?php foreach ($orderFilterLabels as $filterKey => $filterLabel): ?>
+            <a class="<?= $orderFilter === $filterKey ? 'active' : '' ?>" href="/admin/?orders=1&amp;filter=<?= e($filterKey) ?>"><?= e($filterLabel) ?> <span><?= e((string)$orderFilterCounts[$filterKey]) ?></span></a>
+          <?php endforeach; ?>
+        </nav>
+        <?php if (!$visibleShopOrders): ?>
+          <section class="card empty">Brak zamówień dla wybranego filtra.</section>
+        <?php else: ?>
         <section class="orders-list">
-          <?php foreach ($shopOrders as $order): ?>
+          <?php foreach ($visibleShopOrders as $order): ?>
             <?php
               $customer = is_array($order['customer'] ?? null) ? $order['customer'] : [];
+              $deliveryAddress = is_array($order['deliveryAddress'] ?? null) ? $order['deliveryAddress'] : [];
               $delivery = is_array($order['delivery'] ?? null) ? $order['delivery'] : [];
               $items = is_array($order['items'] ?? null) ? $order['items'] : [];
+              $orderStatus = (string)($order['orderStatus'] ?? $order['status'] ?? 'new');
+              $paymentStatus = (string)($order['paymentStatus'] ?? 'not_started');
+              $paymentMethod = (string)($order['paymentMethod'] ?? '');
             ?>
-            <article class="card order-card">
-              <div class="order-card-head">
+            <details class="card order-card">
+              <summary class="order-card-head">
                 <div>
-                  <p class="muted"><?= e((string)($order['createdAt'] ?? '')) ?></p>
                   <h2><?= e((string)($order['orderId'] ?? 'Zamówienie')) ?></h2>
+                  <p class="muted">Klient: <?= e((string)($customer['email'] ?? 'brak e-maila')) ?> · <?= e(admin_order_date_label((string)($order['createdAt'] ?? ''))) ?></p>
+                  <p class="order-card-badges"><span class="order-badge"><?= e(admin_order_status_label($orderStatus)) ?></span><span class="order-badge order-badge-payment">Płatność: <?= e($paymentMethod === 'paynow' ? 'Paynow — ' . admin_payment_status_label($paymentStatus) : ($paymentMethod === 'bank_transfer' ? 'Przelew tradycyjny — ' . admin_payment_status_label($paymentStatus) : admin_payment_status_label($paymentStatus))) ?></span></p>
                 </div>
                 <strong><?= e(number_format((float)($order['total'] ?? 0), 2, ',', ' ')) ?> zł</strong>
-              </div>
+                <span class="order-details-toggle"><span class="order-details-open">Rozwiń szczegóły</span><span class="order-details-close">Zwiń szczegóły</span></span>
+              </summary>
+
+              <div class="order-card-details">
 
               <div class="order-grid">
                 <div>
                   <h3>Klient</h3>
-                  <p><?= e($customer['name'] ?? '') ?></p>
+                  <p><?= e(trim((string)($customer['firstName'] ?? '') . ' ' . (string)($customer['lastName'] ?? '')) ?: (string)($customer['name'] ?? '')) ?></p>
                   <p><a href="mailto:<?= e($customer['email'] ?? '') ?>"><?= e($customer['email'] ?? '') ?></a></p>
                   <p><a href="tel:<?= e($customer['phone'] ?? '') ?>"><?= e($customer['phone'] ?? '') ?></a></p>
-                  <p><?= e($customer['address'] ?? '') ?>, <?= e($customer['postalCode'] ?? '') ?> <?= e($customer['city'] ?? '') ?></p>
+                  <p><?= e($deliveryAddress['street'] ?? $customer['address'] ?? '') ?>, <?= e($deliveryAddress['postalCode'] ?? $customer['postalCode'] ?? '') ?> <?= e($deliveryAddress['city'] ?? $customer['city'] ?? '') ?></p>
                   <?php if (trim((string)($customer['notes'] ?? '')) !== ''): ?><p class="muted">Uwagi: <?= e($customer['notes']) ?></p><?php endif; ?>
                 </div>
                 <div>
                   <h3>Dostawa i płatność</h3>
                   <p><?= e($delivery['label'] ?? 'Do ustalenia') ?> · <?= e((string)($delivery['costLabel'] ?? 'do ustalenia')) ?></p>
                   <?php if (trim((string)($delivery['profileId'] ?? '')) !== ''): ?><p class="muted">Profil dostawy: <code><?= e((string)$delivery['profileId']) ?></code><?= !empty($delivery['requiresConfirmation']) ? ' · wymaga potwierdzenia' : '' ?></p><?php endif; ?>
-                  <p>Metoda płatności: <?= e((string)($order['paymentMethod'] ?? 'Test')) ?></p>
-                  <p>Status płatności: <?= e((string)($order['paymentStatus'] ?? 'Testowe bez płatności')) ?></p>
+                  <p>Metoda płatności: <?= e($paymentMethod === 'paynow' ? 'Paynow' : ($paymentMethod === 'bank_transfer' ? 'Przelew tradycyjny' : $paymentMethod)) ?></p>
+                  <p>Status płatności: <?= e(admin_payment_status_label($paymentStatus)) ?></p>
                   <?php if (($order['paymentProvider'] ?? '') === 'paynow' && !empty($order['paymentId'])): ?><p>Paynow paymentId: <?= e((string)$order['paymentId']) ?></p><?php endif; ?>
-                  <p>Status zamówienia: <?= e((string)($order['orderStatus'] ?? 'Testowe')) ?></p>
+                  <p>Status zamówienia: <?= e(admin_order_status_label($orderStatus)) ?></p>
                 </div>
               </div>
 
@@ -856,17 +964,17 @@ if ($showStats) {
                 <div class="field">
                   <label>Status zamówienia</label>
                   <select name="order_status">
-                    <?php foreach ($shopOrderStatuses as $option): ?><option<?= (($order['orderStatus'] ?? 'Testowe') === $option) ? ' selected' : '' ?>><?= e($option) ?></option><?php endforeach; ?>
+                    <?php foreach ($shopOrderStatuses as $option): ?><option value="<?= e($option) ?>"<?= (admin_order_status_key($orderStatus) === $option) ? ' selected' : '' ?>><?= e(admin_order_status_label($option)) ?></option><?php endforeach; ?>
                   </select>
                 </div>
                 <div class="field">
                   <?php if (($order['paymentProvider'] ?? '') === 'paynow'): ?>
                     <label>Status płatności Paynow</label>
-                    <input type="text" value="<?= e((string)($order['paymentStatus'] ?? 'not_started')) ?>" readonly aria-readonly="true">
+                    <input type="text" value="<?= e(admin_payment_status_label($paymentStatus)) ?>" readonly aria-readonly="true">
                   <?php else: ?>
                     <label>Status płatności</label>
                     <select name="payment_status">
-                      <?php foreach ($shopPaymentStatuses as $option): ?><option<?= (($order['paymentStatus'] ?? 'Testowe bez płatności') === $option) ? ' selected' : '' ?>><?= e($option) ?></option><?php endforeach; ?>
+                      <?php foreach ($shopPaymentStatuses as $option): ?><option value="<?= e($option) ?>"<?= ($paymentStatus === $option) ? ' selected' : '' ?>><?= e(admin_payment_status_label($option)) ?></option><?php endforeach; ?>
                     </select>
                   <?php endif; ?>
                 </div>
@@ -902,9 +1010,11 @@ if ($showStats) {
                 </form>
               <?php endif; ?>
               <?php endif; ?>
-            </article>
+              </div>
+            </details>
           <?php endforeach; ?>
         </section>
+        <?php endif; ?>
       <?php endif; ?>
     <?php elseif ($showGoogleConfig): ?>
       <div class="page-heading">
