@@ -57,7 +57,7 @@ if (!$order) {
             <h2>Płatność online Paynow</h2>
             <p>Możesz opłacić zamówienie BLIK-iem lub przelewem online. Płatność zostanie uznana dopiero po potwierdzeniu Paynow.</p>
             <?php if ($paynowRedirectUrl !== null): ?>
-              <a class="btn" href="<?= e($paynowRedirectUrl) ?>" rel="noreferrer">Przejdź do Paynow</a>
+              <a class="btn" href="<?= e($paynowRedirectUrl) ?>" rel="noreferrer">Opłać zamówienie</a>
             <?php else: ?>
               <form method="post" action="/sklep/paynow-create-payment"><input type="hidden" name="csrf" value="<?= e(csrf_token()) ?>"><input type="hidden" name="order_id" value="<?= e($order['orderId'] ?? '') ?>"><button class="btn" type="submit">Przygotuj płatność Paynow</button></form>
             <?php endif; ?>
