@@ -13,6 +13,7 @@ function admin_paynow_test_diagnostic(array $overrides = []): array
         'POST_RECEIVED' => false,
         'ACTION_MATCHED' => false,
         'CREATE_PAYMENT_CALLED' => false,
+        'EXISTING_PAYMENT_USED' => false,
         'PAYNOW_HTTP_STATUS' => 'brak',
         'PAYMENT_ID_RECEIVED' => false,
         'REDIRECT_URL_RECEIVED' => false,
@@ -85,10 +86,11 @@ try {
         }
         if ($action === 'start') {
             $diagnostic['ACTION_MATCHED'] = true;
-            $diagnostic['CREATE_PAYMENT_CALLED'] = true;
             $_SESSION['paynow_controlled_test_diagnostic'] = $diagnostic;
             $stage = 'create_payment';
             $payment = paynow_start_admin_test_payment(shop_safe_order_id(post_text('order_id')));
+            $diagnostic['CREATE_PAYMENT_CALLED'] = empty($payment['existing']);
+            $diagnostic['EXISTING_PAYMENT_USED'] = !empty($payment['existing']);
             $diagnostic['PAYNOW_HTTP_STATUS'] = !empty($payment['existing']) ? 'brak (istniejąca płatność)' : '201';
             $diagnostic['PAYMENT_ID_RECEIVED'] = !empty($payment['paymentId']);
             $diagnostic['REDIRECT_URL_RECEIVED'] = !empty($payment['redirectUrl']);
@@ -129,8 +131,12 @@ $diagnostic = $_SESSION['paynow_controlled_test_diagnostic'] ?? admin_paynow_tes
   <p><strong>Zamówienie:</strong> <?= e($order['orderId']) ?><br><strong>Kwota:</strong> <?= e(shop_test_price_label((float)$order['total'])) ?></p>
   <p><strong>paymentId zapisany:</strong> <?= !empty($order['paymentId']) ? 'TAK' : 'NIE' ?><br><strong>redirectUrl zapisany:</strong> <?= !empty($order['paymentRedirectUrl']) ? 'TAK' : 'NIE' ?></p>
   <?php if ($payload): ?><p><strong>Payload sanity:</strong><br>amount: <?= e((string)$payload['amount']) ?><br>currency: <?= e($payload['currency']) ?><br>externalId: <?= e($payload['externalId']) ?><br>description: <?= e($payload['description']) ?><br>buyer: e-mail, imię i nazwisko<br>orderItems suma: <?= e((string)$itemsTotal) ?><br>continueUrl: konfiguracja Paynow<br>notificationUrl: konfiguracja Paynow<br>body byte length: <?= e((string)strlen($payloadBody)) ?><br>canonical payload byte length: <?= e((string)strlen($canonicalPayload)) ?><br>SAME_BODY_USED_FOR_SIGNATURE_AND_REQUEST: TAK</p><?php endif; ?>
-  <p>Płatność nie została jeszcze utworzona. Przejście dalej utworzy jedną płatność produkcyjną i otworzy stronę Paynow.</p>
+  <?php if (!empty($order['paymentId']) && !empty($order['paymentRedirectUrl'])): ?>
+    <p>Istnieje już jedna kontrolowana płatność. Przejście dalej otworzy jej stronę Paynow bez tworzenia nowej.</p>
+  <?php else: ?>
+    <p>Płatność nie została jeszcze utworzona. Przejście dalej utworzy jedną płatność produkcyjną i otworzy stronę Paynow.</p>
+  <?php endif; ?>
   <p><strong>Ostatnia diagnostyka POST:</strong><br><?php foreach ($diagnostic as $label => $value): ?><?= e($label) ?>: <?= is_bool($value) ? ($value ? 'TAK' : 'NIE') : e((string)$value) ?><br><?php endforeach; ?></p>
-  <form method="post"><input type="hidden" name="csrf" value="<?= e(csrf_token()) ?>"><input type="hidden" name="action" value="start"><input type="hidden" name="order_id" value="<?= e($order['orderId']) ?>"><button class="btn" type="submit">Utwórz płatność i przejdź do Paynow</button></form>
+  <form method="post"><input type="hidden" name="csrf" value="<?= e(csrf_token()) ?>"><input type="hidden" name="action" value="start"><input type="hidden" name="order_id" value="<?= e($order['orderId']) ?>"><button class="btn" type="submit"><?= !empty($order['paymentId']) && !empty($order['paymentRedirectUrl']) ? 'Przejdź do utworzonej płatności Paynow' : 'Utwórz płatność i przejdź do Paynow' ?></button></form>
 <?php else: ?><p>Nie znaleziono kontrolowanego zamówienia testowego.</p><?php endif; ?>
 </section></main></body></html>
