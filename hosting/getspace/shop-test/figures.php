@@ -37,11 +37,9 @@ $publicProducts = shop_test_public_products();
         <span>Ręczne malowanie</span>
         <span>Realizacja 2–5 dni roboczych</span>
         <span>Dostawa zależna od produktu</span>
-        <span>Odbiór osobisty w Kębłowicach</span>
       </div>
       <div class="shop-actions hero-actions">
         <a class="btn" href="#produkty">Zobacz produkty</a>
-        <span class="shop-sales-notice">Płatność: przelew tradycyjny</span>
       </div>
     </section>
 
@@ -79,7 +77,6 @@ $publicProducts = shop_test_public_products();
                 <?php if (shop_sales_enabled() && $view['canBuy']): ?>
                   <button class="btn" type="button" data-add-to-cart="<?= e($view['slug']) ?>">Dodaj do koszyka</button>
                 <?php endif; ?>
-                <span class="shop-sales-notice">Dostępny online</span>
               </div>
             </div>
           </article>

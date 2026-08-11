@@ -78,7 +78,6 @@ $details = $product ? array_filter([
           <?php endif; ?>
         </section>
         <section class="product-test-info">
-          <div class="admin-ribbon admin-ribbon-inline">Dostępny online</div>
           <p class="eyebrow">Figura ogrodowa</p>
           <h1><?= e($view['name']) ?></h1>
           <div class="product-status-grid">
