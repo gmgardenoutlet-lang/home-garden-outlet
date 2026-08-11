@@ -37,6 +37,16 @@ if (!function_exists('str_starts_with')) {
 
 function boot_admin(): void
 {
+    $host = strtolower((string)preg_replace('/:\\d+$/', '', (string)($_SERVER['HTTP_HOST'] ?? '')));
+    if ($host === 'www.mgoutlet.pl') {
+        $requestUri = (string)($_SERVER['REQUEST_URI'] ?? '/admin/');
+        if (!str_starts_with($requestUri, '/')) {
+            $requestUri = '/admin/';
+        }
+        header('Location: https://mgoutlet.pl' . $requestUri, true, 301);
+        exit;
+    }
+
     if (!is_dir(STORAGE_DIR)) {
         @mkdir(STORAGE_DIR, 0750, true);
     }
