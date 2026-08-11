@@ -114,7 +114,7 @@ function paynow_payment_payload(array $order): array
     $customer = (array)($order['customer'] ?? []);
     $address = (array)($order['deliveryAddress'] ?? []);
     $buyer = ['email' => (string)($customer['email'] ?? '')];
-    foreach (['firstName' => 'firstName', 'lastName' => 'lastName', 'phone' => 'phone'] as $target => $source) {
+    foreach (['firstName' => 'firstName', 'lastName' => 'lastName'] as $target => $source) {
         if (!empty($customer[$source])) $buyer[$target] = (string)$customer[$source];
     }
     if ($address) {
@@ -126,6 +126,10 @@ function paynow_payment_payload(array $order): array
     $items = [];
     foreach ((array)($order['items'] ?? []) as $item) {
         $items[] = ['name' => (string)($item['name'] ?? $item['productId']), 'category' => 'Garden', 'quantity' => (int)$item['quantity'], 'price' => (int)$item['unitPriceCents']];
+    }
+    $shippingCents = (int)($order['shippingTotalCents'] ?? $order['deliveryCostCents'] ?? 0);
+    if ($shippingCents > 0) {
+        $items[] = ['name' => 'Dostawa', 'category' => 'Delivery', 'quantity' => 1, 'price' => $shippingCents];
     }
     return ['amount' => (int)$order['totalCents'], 'currency' => 'PLN', 'externalId' => paynow_external_id($order),
         'description' => 'Zamówienie ' . paynow_external_id($order), 'buyer' => $buyer, 'orderItems' => $items];

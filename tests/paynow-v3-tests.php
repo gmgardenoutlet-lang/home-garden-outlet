@@ -18,6 +18,10 @@ $order = ['orderId' => 'HGO-20260809-0001', 'status' => 'new', 'paymentStatus' =
     'delivery' => ['pricingType' => 'fixed_price'], 'customer' => ['email' => 'test@example.test'], 'items' => [['productId' => 'a', 'name' => 'A', 'quantity' => 1, 'unitPriceCents' => 12345]]];
 paynow_test(paynow_external_id($order) === 'HGO-20260809-0001', 'externalId nie jest powiązany z orderId.');
 paynow_test(paynow_payment_payload($order)['amount'] === 12345, 'Kwota nie pochodzi z totalCents.');
+$withShipping = $order; $withShipping['totalCents'] = 14844; $withShipping['shippingTotalCents'] = 2499;
+$shippingPayload = paynow_payment_payload($withShipping);
+paynow_test(array_sum(array_map(static fn(array $item): int => $item['quantity'] * $item['price'], $shippingPayload['orderItems'])) === $shippingPayload['amount'], 'Pozycje Paynow nie sumują się do backendowego totalCents.');
+paynow_test(!array_key_exists('phone', $shippingPayload['buyer']), 'Telefon ma nieprawidłowy format dla Paynow V3.');
 $quote = $order; $quote['delivery']['pricingType'] = 'quote_required';
 try { paynow_payment_payload($quote); paynow_test(false, 'quote_required dopuszczono do płatności.'); } catch (RuntimeException $e) {}
 $paid = $order + ['paymentId' => 'NOLV-8F9-08K-WGD']; $paid['paymentId'] = 'NOLV-8F9-08K-WGD';
