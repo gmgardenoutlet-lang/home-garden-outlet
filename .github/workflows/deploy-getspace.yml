@@ -47,6 +47,8 @@ jobs:
           HGO_STORAGE_DIR="$(mktemp -d)" HGO_SHOP_SALES_ENABLED=true php tests/shop-order-tests.php
           HGO_SHOP_SALES_ENABLED=true HGO_PAYNOW_ENABLED=false php tests/shop-frontend-tests.php enabled
           HGO_SHOP_SALES_ENABLED=true php tests/paynow-v3-tests.php
+          php tests/codex-draft-tests.php
+          php -m | grep -qi '^zip$'
 
       - name: Przygotuj paczkę Getspace
         run: node scripts/build-getspace.mjs

@@ -6,6 +6,7 @@ const PRODUCTS_FILE = SITE_ROOT . '/data/products.json';
 const SHIPPING_PROFILES_FILE = SITE_ROOT . '/data/shipping-profiles.json';
 const UPLOAD_DIR = SITE_ROOT . '/uploads';
 define('STORAGE_DIR', getenv('HGO_STORAGE_DIR') ?: __DIR__ . '/storage');
+define('PRODUCT_IMAGE_DRAFT_DIR', STORAGE_DIR . '/product-image-drafts');
 define('BACKUP_DIR', STORAGE_DIR . '/backups');
 define('STATS_DIR', STORAGE_DIR . '/stats');
 define('ORDERS_DIR', STORAGE_DIR . '/orders');
@@ -18,6 +19,9 @@ const SHOP_BANK_TRANSFER_BANK = 'mBank';
 const SHOP_BANK_TRANSFER_BIC = 'BREXPLPWMBK';
 const MAX_UPLOAD_BYTES = 12 * 1024 * 1024;
 const MAX_IMAGE_EDGE = 2200;
+const MAX_DRAFT_IMAGES = 12;
+const PRODUCT_IMAGE_DRAFT_TTL = 7 * 24 * 60 * 60;
+const MAX_PRODUCT_DRAFT_JSON_BYTES = 256 * 1024;
 
 require_once SITE_ROOT . '/lib/geoip.php';
 
@@ -58,6 +62,9 @@ function boot_admin(): void
     }
     if (!is_dir(UPLOAD_DIR)) {
         @mkdir(UPLOAD_DIR, 0755, true);
+    }
+    if (!is_dir(PRODUCT_IMAGE_DRAFT_DIR)) {
+        @mkdir(PRODUCT_IMAGE_DRAFT_DIR, 0750, true);
     }
 
     ini_set('session.use_strict_mode', '1');
@@ -1566,13 +1573,7 @@ function uploaded_file(array $file, string $productName): string
         throw new RuntimeException('Zdjęcie jest za duże. Maksymalny rozmiar to 12 MB.');
     }
 
-    $tmp = (string)($file['tmp_name'] ?? '');
-    $info = @getimagesize($tmp);
-    $mime = is_array($info) ? (string)($info['mime'] ?? '') : '';
-    $extensions = ['image/jpeg' => 'jpg', 'image/png' => 'png', 'image/webp' => 'webp'];
-    if (!isset($extensions[$mime])) {
-        throw new RuntimeException('Dozwolone zdjęcia: JPG, PNG lub WebP. Zdjęcia HEIC zmień w telefonie na JPG.');
-    }
+    [$tmp, $mime, $extension] = validated_uploaded_image($file);
 
     $base = clean_filename($productName) . '-' . date('Ymd-His') . '-' . bin2hex(random_bytes(3));
     $optimized = optimize_image($tmp, $mime, UPLOAD_DIR . '/' . $base . '.webp');
@@ -1580,12 +1581,248 @@ function uploaded_file(array $file, string $productName): string
         return '/uploads/' . $base . '.webp';
     }
 
-    $target = UPLOAD_DIR . '/' . $base . '.' . $extensions[$mime];
+    $target = UPLOAD_DIR . '/' . $base . '.' . $extension;
     if (!move_uploaded_file($tmp, $target)) {
         throw new RuntimeException('Serwer nie mógł zapisać zdjęcia.');
     }
     @chmod($target, 0644);
     return '/uploads/' . basename($target);
+}
+
+/** @return array{string,string,string} temporary path, verified MIME type, extension */
+function validated_uploaded_image(array $file): array
+{
+    $tmp = (string)($file['tmp_name'] ?? '');
+    if ($tmp === '' || !is_uploaded_file($tmp)) {
+        throw new RuntimeException('Nieprawidłowy plik przesłanego zdjęcia.');
+    }
+    $info = @getimagesize($tmp);
+    $mime = is_array($info) ? (string)($info['mime'] ?? '') : '';
+    $extensions = ['image/jpeg' => 'jpg', 'image/png' => 'png', 'image/webp' => 'webp'];
+    if (!isset($extensions[$mime])) {
+        throw new RuntimeException('Dozwolone zdjęcia: JPG, PNG lub WebP. Zdjęcia HEIC zmień w telefonie na JPG.');
+    }
+    return [$tmp, $mime, $extensions[$mime]];
+}
+
+function product_image_draft_id(string $id): string
+{
+    return preg_match('/^[a-f0-9]{32}$/', $id) ? $id : '';
+}
+
+function product_image_draft_path(string $id): string
+{
+    $id = product_image_draft_id($id);
+    return $id === '' ? '' : PRODUCT_IMAGE_DRAFT_DIR . '/' . $id;
+}
+
+function load_product_image_draft(string $id): ?array
+{
+    $path = product_image_draft_path($id);
+    $metadata = $path === '' ? false : @file_get_contents($path . '/draft.json');
+    $draft = is_string($metadata) ? json_decode($metadata, true) : null;
+    return is_array($draft) && ($draft['id'] ?? '') === $id ? $draft : null;
+}
+
+function save_product_image_draft(array $draft): void
+{
+    $path = product_image_draft_path((string)($draft['id'] ?? ''));
+    if ($path === '') {
+        throw new RuntimeException('Nieprawidłowy identyfikator przygotowania zdjęć.');
+    }
+    $json = json_encode($draft, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+    if ($json === false || file_put_contents($path . '/draft.json', $json . PHP_EOL, LOCK_EX) === false) {
+        throw new RuntimeException('Nie udało się zapisać wersji roboczej zdjęć.');
+    }
+    @chmod($path . '/draft.json', 0640);
+}
+
+function codex_product_draft_field_limits(): array
+{
+    return [
+        'name' => 180, 'category' => 60, 'productType' => 120, 'imageAlt' => 240,
+        'description' => 1500, 'longDescription' => 6000, 'color' => 100,
+        'seoTitle' => 180, 'seoDescription' => 350, 'slug' => 180,
+    ];
+}
+
+function valid_codex_final_filename(string $value): bool
+{
+    return strlen($value) <= 200 && (bool)preg_match('/^[a-z0-9]+(?:-[a-z0-9]+)*\.webp$/', $value);
+}
+
+/** @return array{product:array,images:array,manualFieldsRequired:array} */
+function validate_codex_product_draft(string $json, array $draft): array
+{
+    if ($json === '' || strlen($json) > MAX_PRODUCT_DRAFT_JSON_BYTES) {
+        throw new RuntimeException('Plik product-draft.json jest pusty albo przekracza limit 256 KB.');
+    }
+    $data = json_decode($json, true, 32, JSON_THROW_ON_ERROR);
+    if (!is_array($data) || array_is_list($data)) throw new RuntimeException('product-draft.json musi zawierać obiekt JSON.');
+    $draftId = (string)($data['draftId'] ?? '');
+    if (!hash_equals((string)($draft['id'] ?? ''), $draftId)) {
+        throw new RuntimeException('Wynik Codexa należy do innego draftu. Identyfikator draftId musi być identyczny.');
+    }
+    if (($data['status'] ?? '') !== 'codex_prepared') throw new RuntimeException('Nieprawidłowy status wyniku Codexa.');
+    if (!is_array($data['product'] ?? null) || !is_array($data['images'] ?? null)) {
+        throw new RuntimeException('product-draft.json musi zawierać obiekty product oraz images.');
+    }
+
+    $product = [];
+    foreach (codex_product_draft_field_limits() as $field => $limit) {
+        if (!array_key_exists($field, $data['product'])) continue;
+        if (!is_string($data['product'][$field])) throw new RuntimeException('Pole product.' . $field . ' musi być tekstem.');
+        $value = trim($data['product'][$field]);
+        if (strlen($value) > $limit) throw new RuntimeException('Pole product.' . $field . ' jest za długie.');
+        $product[$field] = $value;
+    }
+    if (isset($data['product']['saleType']) && $data['product']['saleType'] !== 'garden_figure') {
+        throw new RuntimeException('Wynik Codexa może dotyczyć wyłącznie typu garden_figure.');
+    }
+    $categories = ['Wyposażenie domu', 'Wyposażenie ogrodu', 'Dekoracje', 'Oświetlenie', 'Inne'];
+    if (isset($product['category']) && $product['category'] !== '' && !in_array($product['category'], $categories, true)) {
+        throw new RuntimeException('Wynik Codexa zawiera nieobsługiwaną kategorię.');
+    }
+    if (isset($product['slug']) && $product['slug'] !== '' && clean_filename($product['slug']) !== $product['slug']) {
+        throw new RuntimeException('Slug w wyniku Codexa ma niedozwolony format.');
+    }
+
+    $available = [];
+    foreach ((array)($draft['images'] ?? []) as $image) {
+        if (is_array($image) && isset($image['prepared'])) $available[(string)$image['prepared']] = true;
+    }
+    if (count($data['images']) < 1 || count($data['images']) > MAX_DRAFT_IMAGES) {
+        throw new RuntimeException('Wynik Codexa musi zawierać od 1 do ' . MAX_DRAFT_IMAGES . ' zdjęć.');
+    }
+    $images = [];
+    $finalNames = [];
+    $mainCount = 0;
+    foreach ($data['images'] as $index => $image) {
+        if (!is_array($image)) throw new RuntimeException('Wpis zdjęcia nr ' . ($index + 1) . ' jest nieprawidłowy.');
+        $file = (string)($image['draftFile'] ?? '');
+        if ($file === '' || basename($file) !== $file || !isset($available[$file])) {
+            throw new RuntimeException('Wynik Codexa wskazuje zdjęcie spoza aktywnego draftu.');
+        }
+        if (isset($images[$file])) throw new RuntimeException('To samo zdjęcie zostało wskazane więcej niż raz.');
+        $role = (string)($image['role'] ?? 'gallery');
+        if (!in_array($role, ['main', 'gallery'], true)) throw new RuntimeException('Rola zdjęcia musi być main albo gallery.');
+        if ($role === 'main') $mainCount++;
+        $finalFilename = (string)($image['finalFilename'] ?? '');
+        if (!valid_codex_final_filename($finalFilename)) throw new RuntimeException('Proponowana nazwa pliku WebP jest nieprawidłowa.');
+        if (isset($finalNames[$finalFilename])) throw new RuntimeException('Dwa zdjęcia mają tę samą proponowaną nazwę WebP.');
+        $finalNames[$finalFilename] = true;
+        $alt = (string)($image['alt'] ?? '');
+        if (strlen($alt) > 240) throw new RuntimeException('ALT zdjęcia jest za długi.');
+        $view = (string)($image['view'] ?? 'other');
+        if (!in_array($view, ['front', 'side', 'back', 'detail', 'closeup', 'other'], true)) throw new RuntimeException('Nieprawidłowy typ ujęcia zdjęcia.');
+        $confidence = (string)($image['confidence'] ?? 'medium');
+        if (!in_array($confidence, ['high', 'medium', 'low'], true)) throw new RuntimeException('Nieprawidłowy poziom pewności analizy zdjęcia.');
+        $images[$file] = ['draftFile' => $file, 'role' => $role, 'finalFilename' => $finalFilename, 'alt' => trim($alt), 'view' => $view, 'confidence' => $confidence];
+    }
+    if ($mainCount > 1) throw new RuntimeException('Wynik Codexa wskazuje więcej niż jedno zdjęcie główne.');
+
+    $allowedManualFields = ['grossPrice', 'catalogPrice', 'material', 'dimensions', 'height', 'width', 'depth', 'weight', 'sku', 'shippingProfileIds', 'packageDimensions', 'packageWeight', 'packageLengthCm', 'packageWidthCm', 'packageHeightCm', 'leadTime', 'producerAvailability'];
+    $manualFieldsRequired = [];
+    foreach ((array)($data['manualFieldsRequired'] ?? []) as $field) {
+        if (!is_string($field) || !in_array($field, $allowedManualFields, true)) continue;
+        $manualFieldsRequired[] = $field;
+    }
+    return ['product' => $product, 'images' => array_values($images), 'manualFieldsRequired' => array_values(array_unique($manualFieldsRequired))];
+}
+
+function imported_codex_product_draft(array $draft): ?array
+{
+    $analysis = $draft['analysis'] ?? null;
+    return is_array($analysis) && ($analysis['status'] ?? '') === 'codex_prepared' ? $analysis : null;
+}
+
+function remove_product_image_draft(string $id): void
+{
+    $path = product_image_draft_path($id);
+    if ($path === '' || !is_dir($path)) return;
+    foreach (glob($path . '/*') ?: [] as $file) {
+        if (is_file($file)) @unlink($file);
+    }
+    @rmdir($path);
+}
+
+function cleanup_product_image_drafts(): void
+{
+    foreach (glob(PRODUCT_IMAGE_DRAFT_DIR . '/*', GLOB_ONLYDIR) ?: [] as $path) {
+        $id = basename($path);
+        $draft = load_product_image_draft($id);
+        $createdAt = (int)($draft['createdAt'] ?? 0);
+        if ($createdAt > 0 && $createdAt < time() - PRODUCT_IMAGE_DRAFT_TTL) remove_product_image_draft($id);
+    }
+}
+
+function copy_to_unique_upload(string $source, string $suggestedName): string
+{
+    $suggestedName = basename($suggestedName);
+    $base = clean_filename(pathinfo($suggestedName, PATHINFO_FILENAME));
+    $number = 1;
+    while ($number < 1000) {
+        $name = $base . ($number === 1 ? '' : '-' . $number) . '.webp';
+        $target = UPLOAD_DIR . '/' . $name;
+        $output = @fopen($target, 'x+b');
+        if ($output === false) {
+            $number++;
+            continue;
+        }
+        $input = @fopen($source, 'rb');
+        if ($input === false) {
+            fclose($output);
+            @unlink($target);
+            throw new RuntimeException('Nie udało się odczytać przygotowanego zdjęcia.');
+        }
+        $copied = stream_copy_to_stream($input, $output);
+        fclose($input);
+        fclose($output);
+        if ($copied === false) {
+            @unlink($target);
+            throw new RuntimeException('Nie udało się przenieść przygotowanego zdjęcia do katalogu produktów.');
+        }
+        @chmod($target, 0644);
+        return '/uploads/' . $name;
+    }
+    throw new RuntimeException('Nie udało się utworzyć unikalnej nazwy zdjęcia.');
+}
+
+/** @return array{main:string,gallery:array<int,string>,created:array<int,string>} */
+function publish_product_image_draft(string $id, string $mainFile, array $galleryFiles, string $productName): array
+{
+    $draft = load_product_image_draft($id);
+    $path = product_image_draft_path($id);
+    if (!$draft || $path === '') throw new RuntimeException('Wersja robocza zdjęć nie istnieje lub wygasła.');
+    $allowed = [];
+    foreach ((array)($draft['images'] ?? []) as $image) {
+        if (is_array($image) && isset($image['prepared'])) $allowed[(string)$image['prepared']] = true;
+    }
+    $proposedNames = [];
+    foreach ((array)(imported_codex_product_draft($draft)['images'] ?? []) as $image) {
+        if (is_array($image) && isset($image['draftFile'], $image['finalFilename']) && valid_codex_final_filename((string)$image['finalFilename'])) {
+            $proposedNames[(string)$image['draftFile']] = (string)$image['finalFilename'];
+        }
+    }
+    $requested = array_values(array_unique(array_merge([$mainFile], $galleryFiles)));
+    if ($mainFile === '' || !isset($allowed[$mainFile])) throw new RuntimeException('Wybierz zdjęcie główne z przygotowanej wersji roboczej.');
+    foreach ($requested as $file) if (!isset($allowed[$file])) throw new RuntimeException('Nieprawidłowe zdjęcie wersji roboczej.');
+
+    $published = [];
+    try {
+        foreach ($requested as $requestedIndex => $file) {
+            $source = $path . '/' . $file;
+            if (!is_file($source)) throw new RuntimeException('Brakuje przygotowanego pliku zdjęcia.');
+            $suggested = $proposedNames[$file] ?? (clean_filename($productName) . ($file === $mainFile ? '' : '-ujecie-' . ($requestedIndex + 1)) . '.webp');
+            $published[$file] = copy_to_unique_upload($source, $suggested);
+        }
+    } catch (Throwable $exception) {
+        foreach ($published as $publicPath) @unlink(SITE_ROOT . $publicPath);
+        throw $exception;
+    }
+    $gallery = [];
+    foreach ($galleryFiles as $file) if ($file !== $mainFile && isset($published[$file])) $gallery[] = $published[$file];
+    return ['main' => $published[$mainFile], 'gallery' => array_values(array_unique($gallery)), 'created' => array_values($published)];
 }
 
 function optimize_image(string $sourcePath, string $mime, string $targetPath): bool
@@ -1653,6 +1890,45 @@ function normalize_gallery_files(array $files): array
         ];
     }
     return $result;
+}
+
+/** @return array{id:string,images:array<int,array{prepared:string,original:string}>} */
+function create_product_image_draft(array $files, string $productName): array
+{
+    $files = normalize_gallery_files($files);
+    $files = array_values(array_filter($files, static fn(array $file): bool => (int)($file['error'] ?? UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_NO_FILE));
+    if (!$files) throw new RuntimeException('Dodaj co najmniej jedno zdjęcie figury.');
+    if (count($files) > MAX_DRAFT_IMAGES) throw new RuntimeException('Możesz przygotować maksymalnie ' . MAX_DRAFT_IMAGES . ' zdjęć jednocześnie.');
+
+    $id = bin2hex(random_bytes(16));
+    $path = product_image_draft_path($id);
+    if ($path === '' || !@mkdir($path, 0750, true)) throw new RuntimeException('Nie udało się utworzyć bezpiecznego katalogu roboczego zdjęć.');
+    $base = clean_filename($productName);
+    $images = [];
+    try {
+        foreach ($files as $index => $file) {
+            $error = (int)($file['error'] ?? UPLOAD_ERR_NO_FILE);
+            if ($error !== UPLOAD_ERR_OK) throw new RuntimeException('Nie udało się przesłać zdjęcia. Kod błędu: ' . $error);
+            if ((int)($file['size'] ?? 0) > MAX_UPLOAD_BYTES) throw new RuntimeException('Zdjęcie jest za duże. Maksymalny rozmiar to 12 MB.');
+            [$tmp, $mime, $extension] = validated_uploaded_image($file);
+            $position = $index + 1;
+            $original = 'oryginal-' . str_pad((string)$position, 2, '0', STR_PAD_LEFT) . '.' . $extension;
+            if (!move_uploaded_file($tmp, $path . '/' . $original)) throw new RuntimeException('Serwer nie mógł zapisać oryginału zdjęcia.');
+            @chmod($path . '/' . $original, 0640);
+            $prepared = $position === 1 ? $base . '.webp' : $base . '-ujecie-' . $position . '.webp';
+            if (!optimize_image($path . '/' . $original, $mime, $path . '/' . $prepared)) {
+                throw new RuntimeException('Serwer nie ma bezpiecznie dostępnej konwersji do WebP dla tego zdjęcia.');
+            }
+            @chmod($path . '/' . $prepared, 0640);
+            $images[] = ['original' => $original, 'prepared' => $prepared];
+        }
+        $draft = ['id' => $id, 'createdAt' => time(), 'productName' => trim($productName), 'images' => $images];
+        save_product_image_draft($draft);
+        return $draft;
+    } catch (Throwable $exception) {
+        remove_product_image_draft($id);
+        throw $exception;
+    }
 }
 
 function safe_image_path(string $path): string

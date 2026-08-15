@@ -337,6 +337,44 @@ try {
             redirect_admin();
         }
 
+        if ($action === 'prepare_figure_images') {
+            $name = post_text('draft_name');
+            if ($name === '') throw new RuntimeException('Podaj roboczą nazwę figury. Posłuży do przygotowania opisowych nazw plików.');
+            $draft = create_product_image_draft((array)($_FILES['draft_images'] ?? []), $name);
+            flash('success', 'Zdjęcia przygotowano jako WebP w prywatnym katalogu roboczym. Sprawdź dane i zapisz produkt dopiero po akceptacji.');
+            redirect_admin('new=1&type=garden_figure&draft=' . rawurlencode((string)$draft['id']));
+        }
+
+        if ($action === 'cancel_figure_draft') {
+            remove_product_image_draft(post_text('draft_id'));
+            flash('success', 'Anulowano przygotowanie i usunięto prywatne pliki robocze.');
+            redirect_admin('figures=1');
+        }
+
+        if ($action === 'import_codex_draft') {
+            $draftId = product_image_draft_id(post_text('draft_id'));
+            $draft = $draftId === '' ? null : load_product_image_draft($draftId);
+            if (!$draft) throw new RuntimeException('Nie znaleziono aktywnego draftu do importu.');
+            $file = $_FILES['product_draft_json'] ?? null;
+            if (!is_array($file) || (int)($file['error'] ?? UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_OK) {
+                throw new RuntimeException('Wskaż poprawny plik product-draft.json.');
+            }
+            if ((int)($file['size'] ?? 0) > MAX_PRODUCT_DRAFT_JSON_BYTES || !is_uploaded_file((string)($file['tmp_name'] ?? ''))) {
+                throw new RuntimeException('Plik product-draft.json przekracza limit 256 KB albo nie jest poprawnym uploadem.');
+            }
+            $json = file_get_contents((string)$file['tmp_name']);
+            if ($json === false) throw new RuntimeException('Nie udało się odczytać pliku product-draft.json.');
+            try {
+                $analysis = validate_codex_product_draft($json, $draft);
+            } catch (JsonException $exception) {
+                throw new RuntimeException('Plik product-draft.json nie zawiera poprawnego JSON.');
+            }
+            $draft['analysis'] = array_merge($analysis, ['status' => 'codex_prepared', 'importedAt' => time()]);
+            save_product_image_draft($draft);
+            flash('success', 'Dane z Codexa zostały wczytane. Sprawdź formularz przed zapisaniem produktu.');
+            redirect_admin('new=1&type=garden_figure&draft=' . rawurlencode($draftId));
+        }
+
         if ($action === 'save_product') {
             $catalog = load_catalog();
             $indexRaw = post_text('index');
@@ -396,25 +434,32 @@ try {
                 $product['googleStatus'] = 'Dodane ręcznie';
             }
 
-            if (isset($_FILES['main_image']) && (int)($_FILES['main_image']['error'] ?? UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_NO_FILE) {
-                $product['image'] = uploaded_file($_FILES['main_image'], $name);
-            }
-            if (empty($product['image'])) {
-                throw new RuntimeException('Dodaj zdjęcie główne produktu.');
-            }
+            $draftId = product_image_draft_id(post_text('draft_id'));
+            $draftPublished = [];
+            if ($draftId !== '') {
+                $published = publish_product_image_draft($draftId, basename(post_text('draft_main')), array_map('basename', (array)($_POST['draft_gallery'] ?? [])), $name);
+                $product['image'] = $published['main'];
+                $product['gallery'] = $published['gallery'];
+                $draftPublished = $published['created'];
+            } else {
+                if (isset($_FILES['main_image']) && (int)($_FILES['main_image']['error'] ?? UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_NO_FILE) {
+                    $product['image'] = uploaded_file($_FILES['main_image'], $name);
+                }
+                if (empty($product['image'])) {
+                    throw new RuntimeException('Dodaj zdjęcie główne produktu.');
+                }
 
-            $gallery = gallery_paths($product);
-            $removeGallery = array_map('intval', (array)($_POST['remove_gallery'] ?? []));
-            $gallery = array_values(array_filter($gallery, static fn($path, $galleryIndex) => !in_array($galleryIndex, $removeGallery, true), ARRAY_FILTER_USE_BOTH));
-            if (isset($_FILES['gallery_images'])) {
-                foreach (normalize_gallery_files($_FILES['gallery_images']) as $file) {
-                    $newPath = uploaded_file($file, $name);
-                    if ($newPath !== '') {
-                        $gallery[] = $newPath;
+                $gallery = gallery_paths($product);
+                $removeGallery = array_map('intval', (array)($_POST['remove_gallery'] ?? []));
+                $gallery = array_values(array_filter($gallery, static fn($path, $galleryIndex) => !in_array($galleryIndex, $removeGallery, true), ARRAY_FILTER_USE_BOTH));
+                if (isset($_FILES['gallery_images'])) {
+                    foreach (normalize_gallery_files($_FILES['gallery_images']) as $file) {
+                        $newPath = uploaded_file($file, $name);
+                        if ($newPath !== '') $gallery[] = $newPath;
                     }
                 }
+                $product['gallery'] = array_values(array_unique($gallery));
             }
-            $product['gallery'] = array_values(array_unique($gallery));
 
             if ($isEdit) {
                 $catalog['products'][$index] = $product;
@@ -422,7 +467,13 @@ try {
                 array_unshift($catalog['products'], $product);
                 $index = 0;
             }
-            save_catalog($catalog);
+            try {
+                save_catalog($catalog);
+            } catch (Throwable $exception) {
+                foreach ($draftPublished as $publicPath) @unlink(SITE_ROOT . $publicPath);
+                throw $exception;
+            }
+            if ($draftId !== '') remove_product_image_draft($draftId);
             $previewPath = (($product['saleType'] ?? 'showroom') === 'garden_figure') ? '/sklep/figury-ogrodowe/produkt/' . $product['slug'] : '/produkt/' . $product['slug'];
             flash('success', ($isEdit ? 'Produkt został zaktualizowany.' : 'Nowy produkt został dodany.') . ' Podgląd: ' . $previewPath);
             redirect_admin('edit=' . $index);
@@ -498,6 +549,7 @@ if ($setupRequired || !is_logged_in()) {
     exit;
 }
 
+cleanup_product_image_drafts();
 $catalog = load_catalog();
 $products = $catalog['products'];
 $editRaw = (string)($_GET['edit'] ?? '');
@@ -514,6 +566,9 @@ $showShipping = isset($_GET['shipping']);
 $showGoogleConfig = isset($_GET['google_config']);
 $editIndex = $editing ? (int)$editRaw : null;
 $product = $editing ? array_merge(product_defaults(), $products[$editIndex]) : product_defaults();
+$draftId = product_image_draft_id((string)($_GET['draft'] ?? ''));
+$imageDraft = (!$editing && $draftId !== '') ? load_product_image_draft($draftId) : null;
+$codexAnalysis = $imageDraft ? imported_codex_product_draft($imageDraft) : null;
 if (!$editing && $newProduct) {
     $product['saleType'] = $newSaleType;
     if ($newSaleType === 'garden_figure') {
@@ -528,6 +583,27 @@ if (!$editing && $newProduct) {
         $product['leadTime'] = '2-5 dni roboczych';
     }
 }
+if ($imageDraft) {
+    $product['name'] = (string)($imageDraft['productName'] ?? '');
+    if ($codexAnalysis) {
+        foreach ((array)($codexAnalysis['product'] ?? []) as $field => $value) {
+            if (array_key_exists($field, $product) && is_string($value) && $value !== '') $product[$field] = $value;
+        }
+    } else {
+        $product['imageAlt'] = $product['name'] !== '' ? $product['name'] . ' – figura ogrodowa' : '';
+        $product['description'] = $product['name'] !== '' ? $product['name'] . '. Produkt dostępny w Home & Garden Outlet.' : '';
+        $product['longDescription'] = $product['name'] !== '' ? 'Figura ogrodowa „' . $product['name'] . '”. Przed zakupem sprawdź wymiary, materiał, dostępność i sposób dostawy.' : '';
+        $product['seoTitle'] = $product['name'] !== '' ? $product['name'] . ' | Home & Garden Outlet' : '';
+        $product['seoDescription'] = $product['name'] !== '' ? $product['name'] . ' – sprawdź dostępność, wymiary i dostawę w Home & Garden Outlet.' : '';
+        $product['slug'] = clean_filename($product['name']);
+    }
+}
+$codexImageMap = [];
+foreach ((array)($codexAnalysis['images'] ?? []) as $image) {
+    if (is_array($image) && isset($image['draftFile'])) $codexImageMap[(string)$image['draftFile']] = $image;
+}
+$codexMainFile = '';
+foreach ($codexImageMap as $file => $image) if (($image['role'] ?? '') === 'main') $codexMainFile = $file;
 $googleTextPreview = trim((string)($product['googleText'] ?? '')) !== ''
     ? (string)$product['googleText']
     : google_business_description($product);
@@ -1154,10 +1230,36 @@ if ($showStats) {
         <div><p class="muted">Katalog produktów</p><h1><?= $editing ? 'Edytuj produkt' : 'Dodaj nowy produkt' ?></h1></div>
         <a class="btn btn-secondary" href="/admin/">Wróć do listy</a>
       </div>
+      <?php if ($newProduct && $newSaleType === 'garden_figure' && !$imageDraft): ?>
+        <form method="post" enctype="multipart/form-data" class="card form-grid">
+          <input type="hidden" name="csrf" value="<?= e(csrf_token()) ?>"><input type="hidden" name="action" value="prepare_figure_images">
+          <div class="section-title">1. Przygotuj zdjęcia figury</div>
+          <div class="field field-full"><label for="draft-name">Robocza nazwa figury</label><input id="draft-name" name="draft_name" required placeholder="np. smok ogrodowy szaro-czarny"><small>Serwer nie analizuje obrazów przez AI. Nazwa służy tylko do przygotowania czytelnych nazw WebP; po przygotowaniu możesz poprawić wszystkie pola.</small></div>
+          <div class="field field-full upload-field"><label for="draft-images">Zdjęcia produktu</label><input id="draft-images" type="file" name="draft_images[]" accept="image/jpeg,image/png,image/webp" multiple required><small>JPG, PNG lub WebP, maks. <?= MAX_DRAFT_IMAGES ?> plików po 12 MB. Oryginały trafią do prywatnego katalogu roboczego.</small><div class="upload-preview"></div></div>
+          <div class="form-actions"><button class="btn" type="submit">Przygotuj produkt</button><a class="btn btn-secondary" href="/admin/?figures=1">Anuluj</a></div>
+        </form>
+      <?php else: ?>
+      <?php if ($imageDraft): ?>
+        <section class="card form-grid">
+          <div class="section-title">Analiza lokalna przez Codex</div>
+          <div class="field field-full"><p>Eksport zawiera wyłącznie manifest i przygotowane WebP tego draftu. Nie zapisuje ani nie publikuje produktu.</p></div>
+          <form method="post" action="/admin/draft-export.php" class="form-actions">
+            <input type="hidden" name="csrf" value="<?= e(csrf_token()) ?>"><input type="hidden" name="draft_id" value="<?= e((string)$imageDraft['id']) ?>">
+            <button class="btn btn-secondary" type="submit">Eksportuj draft dla Codexa</button>
+          </form>
+          <form method="post" enctype="multipart/form-data" class="form-grid">
+            <input type="hidden" name="csrf" value="<?= e(csrf_token()) ?>"><input type="hidden" name="action" value="import_codex_draft"><input type="hidden" name="draft_id" value="<?= e((string)$imageDraft['id']) ?>">
+            <div class="field"><label for="product-draft-json">Wynik analizy Codexa</label><input id="product-draft-json" type="file" name="product_draft_json" accept="application/json,.json" required><small>Wybierz product-draft.json dla tego samego draftu.</small></div>
+            <div class="form-actions"><button class="btn btn-secondary" type="submit">Importuj wynik Codexa</button></div>
+          </form>
+          <?php if ($codexAnalysis): ?><div class="field field-full"><small>Wczytano wynik Codexa. Zmień dowolne pole poniżej przed zapisem.</small></div><?php endif; ?>
+        </section>
+      <?php endif; ?>
       <form method="post" enctype="multipart/form-data" class="card">
         <input type="hidden" name="csrf" value="<?= e(csrf_token()) ?>">
         <input type="hidden" name="action" value="save_product">
         <input type="hidden" name="index" value="<?= $editing ? e((string)$editIndex) : '' ?>">
+        <?php if ($imageDraft): ?><input type="hidden" name="draft_id" value="<?= e((string)$imageDraft['id']) ?>"><?php endif; ?>
         <div class="form-grid">
           <div class="section-title">Podstawowe informacje</div>
           <div class="field field-full"><label for="name">Nazwa produktu</label><input id="name" name="name" required value="<?= e($product['name']) ?>"></div>
@@ -1219,6 +1321,15 @@ if ($showStats) {
           </div>
 
           <div class="section-title">Zdjęcia z telefonu</div>
+          <?php if ($imageDraft): ?>
+            <div class="field field-full"><p><strong>2. Wybierz zdjęcie główne.</strong> Pozostałe zaznaczone zdjęcia trafią do galerii. Pliki są nadal prywatną wersją roboczą.</p><?php if ($codexAnalysis && $codexMainFile === ''): ?><small>Codex nie wskazał zdjęcia głównego — wybierz je ręcznie przed zapisaniem.</small><?php endif; ?>
+              <div class="gallery-current">
+                <?php foreach ((array)$imageDraft['images'] as $draftImageIndex => $draftImage): $prepared = (string)($draftImage['prepared'] ?? ''); if ($prepared === '') continue; $imageAnalysis = $codexImageMap[$prepared] ?? []; $isMain = $codexAnalysis ? $codexMainFile === $prepared : $draftImageIndex === 0; $isGallery = $codexAnalysis ? (($imageAnalysis['role'] ?? '') === 'gallery') : $draftImageIndex !== 0; ?>
+                  <div class="gallery-item"><img src="/admin/draft-image.php?id=<?= e((string)$imageDraft['id']) ?>&amp;file=<?= rawurlencode($prepared) ?>" alt=""><label class="check-line"><input type="radio" name="draft_main" value="<?= e($prepared) ?>"<?= $isMain ? ' checked' : '' ?>> Zdjęcie główne</label><label class="check-line"><input type="checkbox" name="draft_gallery[]" value="<?= e($prepared) ?>"<?= $isGallery ? ' checked' : '' ?>> Galeria</label><small><?= e((string)($imageAnalysis['finalFilename'] ?? $prepared)) ?><?= !empty($imageAnalysis['alt']) ? ' · ALT: ' . e((string)$imageAnalysis['alt']) : '' ?></small></div>
+                <?php endforeach; ?>
+              </div>
+            </div>
+          <?php else: ?>
           <div class="field field-full upload-field">
             <label for="main-image"><?= $editing ? 'Zmień zdjęcie główne' : 'Zdjęcie główne' ?></label>
             <input id="main-image" type="file" name="main_image" accept="image/jpeg,image/png,image/webp"<?= $editing ? '' : ' required' ?>>
@@ -1239,6 +1350,7 @@ if ($showStats) {
               </div>
             <?php endif; ?>
           </div>
+          <?php endif; ?>
           <div class="field field-full"><label for="imageAlt">Opis zdjęcia dla Google</label><input id="imageAlt" name="imageAlt" value="<?= e($product['imageAlt']) ?>" placeholder="Naturalny opis produktu na zdjęciu"></div>
 
           <div class="section-title">Opis produktu</div>
@@ -1279,8 +1391,9 @@ if ($showStats) {
             <div class="google-api-result" data-google-result hidden></div>
           </div>
         </div>
-        <div class="form-actions"><button class="btn" type="submit">Zapisz produkt</button><a class="btn btn-secondary" href="<?= (($product['saleType'] ?? 'showroom') === 'garden_figure') ? '/admin/?figures=1' : '/admin/' ?>">Anuluj</a></div>
+        <div class="form-actions"><button class="btn" type="submit">Zapisz produkt</button><?php if ($imageDraft): ?><button class="btn btn-secondary" type="submit" formmethod="post" formaction="/admin/" name="action" value="cancel_figure_draft">Anuluj przygotowanie</button><?php else: ?><a class="btn btn-secondary" href="<?= (($product['saleType'] ?? 'showroom') === 'garden_figure') ? '/admin/?figures=1' : '/admin/' ?>">Anuluj</a><?php endif; ?></div>
       </form>
+      <?php endif; ?>
     <?php elseif ($showPassword): ?>
       <div class="page-heading"><div><p class="muted">Bezpieczeństwo</p><h1>Zmień hasło</h1></div><a class="btn btn-secondary" href="/admin/">Wróć</a></div>
       <form method="post" class="card form-grid">
