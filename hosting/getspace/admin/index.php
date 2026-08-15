@@ -557,6 +557,7 @@ $editing = $editRaw !== '' && ctype_digit($editRaw) && isset($products[(int)$edi
 $newProduct = isset($_GET['new']);
 $newType = (string)($_GET['type'] ?? '');
 $newSaleType = in_array($newType, ['showroom', 'garden_figure'], true) ? $newType : 'showroom';
+$newFigureMethod = in_array((string)($_GET['method'] ?? ''), ['manual', 'codex'], true) ? (string)$_GET['method'] : '';
 $showPassword = isset($_GET['password']);
 $showImport = isset($_GET['import']);
 $showStats = isset($_GET['stats']);
@@ -1230,7 +1231,24 @@ if ($showStats) {
         <div><p class="muted">Katalog produktów</p><h1><?= $editing ? 'Edytuj produkt' : 'Dodaj nowy produkt' ?></h1></div>
         <a class="btn btn-secondary" href="/admin/">Wróć do listy</a>
       </div>
-      <?php if ($newProduct && $newSaleType === 'garden_figure' && !$imageDraft): ?>
+      <?php if ($newProduct && $newSaleType === 'garden_figure' && !$imageDraft && $newFigureMethod === ''): ?>
+        <section class="card">
+          <div class="section-title">Wybierz sposób dodania figury</div>
+          <div class="form-grid">
+            <div class="field">
+              <h2>Dodaj ręcznie</h2>
+              <p>Samodzielnie uzupełnij wszystkie dane produktu i zdjęcia.</p>
+              <a class="btn" href="/admin/?new=1&amp;type=garden_figure&amp;method=manual">Dodaj ręcznie</a>
+            </div>
+            <div class="field">
+              <h2>Przygotuj z Codexem</h2>
+              <p>Wgraj zdjęcia, przygotuj draft i wykorzystaj Codexa do stworzenia nazw, opisów, SEO i danych zdjęć.</p>
+              <a class="btn btn-secondary" href="/admin/?new=1&amp;type=garden_figure&amp;method=codex">Przygotuj z Codexem</a>
+            </div>
+          </div>
+          <div class="form-actions"><a class="btn btn-secondary" href="/admin/?figures=1">Wróć do figur</a></div>
+        </section>
+      <?php elseif ($newProduct && $newSaleType === 'garden_figure' && !$imageDraft && $newFigureMethod === 'codex'): ?>
         <form method="post" enctype="multipart/form-data" class="card form-grid">
           <input type="hidden" name="csrf" value="<?= e(csrf_token()) ?>"><input type="hidden" name="action" value="prepare_figure_images">
           <div class="section-title">1. Przygotuj zdjęcia figury</div>
