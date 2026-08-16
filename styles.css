@@ -497,6 +497,39 @@ h3 {
   gap: 12px;
 }
 
+.figure-shop-promo {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 28px;
+  padding-top: 30px;
+  padding-bottom: 30px;
+  border: 1px solid var(--line);
+  border-radius: 20px;
+  background: var(--green-soft);
+}
+
+.figure-shop-promo-copy {
+  max-width: 700px;
+}
+
+.figure-shop-promo .eyebrow {
+  margin-bottom: 8px;
+}
+
+.figure-shop-promo h2 {
+  margin-bottom: 8px;
+}
+
+.figure-shop-promo p:not(.eyebrow) {
+  color: var(--muted);
+  margin: 0;
+}
+
+.figure-shop-promo .btn {
+  flex: 0 0 auto;
+}
+
 .quick-choice-section {
   padding-top: 58px;
   padding-bottom: 58px;
@@ -2644,6 +2677,18 @@ body.gallery-open {
   .product-detail,
   .product-detail-local {
     grid-template-columns: 1fr;
+  }
+
+  .figure-shop-promo {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 18px;
+    padding: 24px;
+  }
+
+  .figure-shop-promo .btn {
+    width: 100%;
+    justify-content: center;
   }
 
   .guide-grid {

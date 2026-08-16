@@ -37,6 +37,18 @@ function garden_is_sold(array $product): bool
     return in_array(catalog_normalize(garden_display_status($product)), ['sprzedany', 'sprzedane'], true);
 }
 
+// Kept in sync with shop_test_is_figure() without coupling the public garden
+// page to the shop bootstrap. Only products actively offered in the figure shop
+// are excluded; older showroom figures remain visible on /ogrod.
+function garden_is_active_figure_shop_product(array $product): bool
+{
+    return ($product['saleType'] ?? '') === 'garden_figure'
+        && !empty($product['shopVisible'])
+        && ($product['shopStatus'] ?? '') === 'Dostępny'
+        && !in_array((string)($product['productStatus'] ?? ''), ['Sprzedany', 'Ukryty'], true)
+        && !in_array((string)($product['status'] ?? ''), ['Sprzedane', 'Sprzedany'], true);
+}
+
 function garden_images(array $product): array
 {
     $gallery = is_array($product['gallery'] ?? null) ? $product['gallery'] : [];
@@ -164,7 +176,8 @@ $gardenProducts = $catalogIsAvailable ? catalog_products_with_slugs() : [];
 $gardenProducts = array_values(array_filter($gardenProducts, static function (array $product): bool {
     return catalog_is_public($product)
         && !garden_is_sold($product)
-        && in_array(catalog_normalize((string)($product['category'] ?? '')), ['wyposazenie ogrodu', 'ogrod'], true);
+        && in_array(catalog_normalize((string)($product['category'] ?? '')), ['wyposazenie ogrodu', 'ogrod'], true)
+        && !garden_is_active_figure_shop_product($product);
 }));
 
 usort($gardenProducts, static function (array $left, array $right): int {

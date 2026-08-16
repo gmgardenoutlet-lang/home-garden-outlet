@@ -86,6 +86,15 @@ const displayStatus = (product) => {
 
 const isSold = (product) => ["sprzedany", "sprzedane"].includes(normalize(displayStatus(product)));
 
+// Keep the outlet catalogue separate from the active online figure shop. This
+// mirrors hosting/getspace/shop-test/lib.php::shop_test_is_figure(), so older
+// showroom figures that are not active shop products remain on /ogrod.
+const isActiveFigureShopProduct = (product) => product.saleType === "garden_figure"
+  && Boolean(product.shopVisible)
+  && product.shopStatus === "Dostępny"
+  && !["sprzedany", "ukryty"].includes(normalize(product.productStatus))
+  && !["sprzedane", "sprzedany"].includes(normalize(product.status));
+
 const matchesCategory = (productCategory, pageCategory) => {
   const category = normalize(productCategory);
   const page = normalize(pageCategory);
@@ -225,13 +234,16 @@ async function updatePage(file, pageProducts) {
       </div>`;
   const markerPattern = /<div id="produkty" class="product-grid" aria-live="polite">[\s\S]*?<!-- STATIC_PRODUCTS_END -->\s*<\/div>/;
   const emptyPattern = /<div id="produkty" class="product-grid" aria-live="polite"><\/div>/;
-  const next = markerPattern.test(html)
-    ? html.replace(markerPattern, grid)
-    : html.replace(emptyPattern, grid);
+  const hasProductGrid = markerPattern.test(html) || emptyPattern.test(html);
+  if (!hasProductGrid) {
+    throw new Error(`Nie znaleziono siatki produktów w ${file}`);
+  }
+
+  const next = html.replace(markerPattern, grid).replace(emptyPattern, grid);
   const cleaned = next.replace(/[ \t]+$/gm, "");
 
   if (cleaned === html) {
-    throw new Error(`Nie znaleziono siatki produktów w ${file}`);
+    return;
   }
 
   await writeFile(fullPath, cleaned, "utf8");
@@ -239,6 +251,10 @@ async function updatePage(file, pageProducts) {
 
 await updatePage("index.html", homepageProducts());
 await updatePage("dom.html", products.filter(isPublic).filter((product) => !isSold(product)).filter((product) => matchesCategory(product.category, "Wyposażenie domu")));
-await updatePage("ogrod.html", products.filter(isPublic).filter((product) => !isSold(product)).filter((product) => matchesCategory(product.category, "Wyposażenie ogrodu")));
+await updatePage("ogrod.html", products
+  .filter(isPublic)
+  .filter((product) => !isSold(product))
+  .filter((product) => matchesCategory(product.category, "Wyposażenie ogrodu"))
+  .filter((product) => !isActiveFigureShopProduct(product)));
 
 console.log(`Wygenerowano statyczny katalog z ${products.length} produktów.`);
