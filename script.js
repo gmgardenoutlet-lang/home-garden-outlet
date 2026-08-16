@@ -330,6 +330,23 @@ function isSoldProduct(product) {
   return ["sprzedany", "sprzedane"].includes(normalizeText(getProductDisplayStatus(product)));
 }
 
+function isActiveFigureShopProduct(product) {
+  return product.saleType === "garden_figure"
+    && Boolean(product.shopVisible)
+    && product.shopStatus === "Dostępny"
+    && !["Sprzedany", "Ukryty"].includes(String(product.productStatus || ""))
+    && !["Sprzedane", "Sprzedany"].includes(String(product.status || ""));
+}
+
+function isLegacyDecorativeSculpture(product) {
+  return normalizeText(product.productType) === "rzezba ogrodowa"
+    || product._publicSlug === "figurki-ogrodowe-dekoracyjne-styl-kamienny";
+}
+
+function isExcludedFromGardenListing(product) {
+  return isActiveFigureShopProduct(product) || isLegacyDecorativeSculpture(product);
+}
+
 function escapeHtml(value) {
   return String(value || "")
     .replace(/&/g, "&amp;")
@@ -910,7 +927,11 @@ function renderProducts(filter = "all") {
     ? publicProducts.filter((product) => matchesCategory(product.category, pageCategory))
     : publicProducts;
 
-  const filteredProducts = applyDiscoveryFilters(categoryProducts, filters);
+  const gardenProducts = isCategoryPage && normalizeText(pageCategory) === "wyposazenie ogrodu"
+    ? categoryProducts.filter((product) => !isExcludedFromGardenListing(product))
+    : categoryProducts;
+
+  const filteredProducts = applyDiscoveryFilters(gardenProducts, filters);
   const productsToRender = !isCategoryPage && !hasActiveDiscoveryFilters(filters)
     ? pickHomepageProducts(filteredProducts, getHomepageSelectedSlugs())
     : sortProducts(filteredProducts);
