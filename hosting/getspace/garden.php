@@ -49,6 +49,21 @@ function garden_is_active_figure_shop_product(array $product): bool
         && !in_array((string)($product['status'] ?? ''), ['Sprzedane', 'Sprzedany'], true);
 }
 
+function garden_is_legacy_decorative_sculpture(array $product): bool
+{
+    if (catalog_normalize((string)($product['productType'] ?? '')) === 'rzezba ogrodowa') {
+        return true;
+    }
+
+    // Legacy product without a structural sculpture type. Keep this exception
+    // explicit so ordinary garden decorations and equipment stay in the listing.
+    $legacyDecorativeSculptureSlugs = [
+        'figurki-ogrodowe-dekoracyjne-styl-kamienny',
+    ];
+
+    return in_array((string)($product['_publicSlug'] ?? ''), $legacyDecorativeSculptureSlugs, true);
+}
+
 function garden_images(array $product): array
 {
     $gallery = is_array($product['gallery'] ?? null) ? $product['gallery'] : [];
@@ -177,7 +192,8 @@ $gardenProducts = array_values(array_filter($gardenProducts, static function (ar
     return catalog_is_public($product)
         && !garden_is_sold($product)
         && in_array(catalog_normalize((string)($product['category'] ?? '')), ['wyposazenie ogrodu', 'ogrod'], true)
-        && !garden_is_active_figure_shop_product($product);
+        && !garden_is_active_figure_shop_product($product)
+        && !garden_is_legacy_decorative_sculpture($product);
 }));
 
 usort($gardenProducts, static function (array $left, array $right): int {
