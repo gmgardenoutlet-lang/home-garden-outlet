@@ -121,6 +121,10 @@ const imagePath = (product) => {
 const readableCategory = (productCategory) => {
   const category = normalize(productCategory);
 
+  if (category === "figury i dekoracje ogrodowe") {
+    return "Figury i dekoracje ogrodowe";
+  }
+
   if (category.includes("ogrod")) {
     return "Meble ogrodowe";
   }
@@ -134,6 +138,9 @@ const readableCategory = (productCategory) => {
 
 const productCategoryLinks = (product) => {
   const category = normalize(product.category);
+  if (category === "figury i dekoracje ogrodowe") {
+    return "";
+  }
   const links = category.includes("ogrod")
     ? [
       { href: "/ogrod", label: "Więcej mebli ogrodowych" },

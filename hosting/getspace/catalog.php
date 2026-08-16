@@ -185,7 +185,23 @@ function catalog_seo(array $product): array
     ];
 }
 
+function catalog_is_figure_decorations_category($value): bool
+{
+    return catalog_normalize((string)$value) === 'figury i dekoracje ogrodowe';
+}
+
+function catalog_is_garden_equipment_category($value): bool
+{
+    return in_array(catalog_normalize((string)$value), ['wyposazenie ogrodu', 'ogrod'], true);
+}
+
 function catalog_category_url(array $product): string
 {
-    return strpos(catalog_normalize((string)($product['category'] ?? '')), 'ogrod') !== false ? '/ogrod' : '/dom';
+    $category = $product['category'] ?? '';
+    if (catalog_is_figure_decorations_category($category)) {
+        // There is no public thematic listing for this data category yet.
+        return '/';
+    }
+
+    return catalog_is_garden_equipment_category($category) ? '/ogrod' : '/dom';
 }

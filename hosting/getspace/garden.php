@@ -191,7 +191,7 @@ $gardenProducts = $catalogIsAvailable ? catalog_products_with_slugs() : [];
 $gardenProducts = array_values(array_filter($gardenProducts, static function (array $product): bool {
     return catalog_is_public($product)
         && !garden_is_sold($product)
-        && in_array(catalog_normalize((string)($product['category'] ?? '')), ['wyposazenie ogrodu', 'ogrod'], true)
+        && catalog_is_garden_equipment_category($product['category'] ?? '')
         && !garden_is_active_figure_shop_product($product)
         && !garden_is_legacy_decorative_sculpture($product);
 }));

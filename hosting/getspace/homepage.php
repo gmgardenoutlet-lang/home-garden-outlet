@@ -85,6 +85,10 @@ function homepage_readable_category($value): string
 {
     $normalized = catalog_normalize((string)$value);
 
+    if ($normalized === 'figury i dekoracje ogrodowe') {
+        return 'Figury i dekoracje ogrodowe';
+    }
+
     if (strpos($normalized, 'ogrod') !== false) {
         return 'Meble ogrodowe';
     }
@@ -99,6 +103,10 @@ function homepage_readable_category($value): string
 function homepage_category_links(array $product): string
 {
     $category = catalog_normalize((string)($product['category'] ?? ''));
+
+    if ($category === 'figury i dekoracje ogrodowe') {
+        return '';
+    }
 
     return strpos($category, 'ogrod') !== false
         ? '<a href="/ogrod">Więcej mebli ogrodowych</a><a href="/meble-ogrodowe-wroclaw/">Meble ogrodowe outlet Wrocław</a>'

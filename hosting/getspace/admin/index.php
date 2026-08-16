@@ -400,6 +400,9 @@ try {
                 $product[$field] = post_text($field);
             }
             $product['saleType'] = in_array($product['saleType'], ['showroom', 'garden_figure'], true) ? $product['saleType'] : 'showroom';
+            if (!in_array($product['category'], product_category_options(), true)) {
+                throw new RuntimeException('Wybierz obsługiwaną kategorię produktu.');
+            }
             $product['featured'] = isset($_POST['featured']);
             $product['visible'] = isset($_POST['visible']);
             $product['shopVisible'] = isset($_POST['shopVisible']);
@@ -573,7 +576,7 @@ $codexAnalysis = $imageDraft ? imported_codex_product_draft($imageDraft) : null;
 if (!$editing && $newProduct) {
     $product['saleType'] = $newSaleType;
     if ($newSaleType === 'garden_figure') {
-        $product['category'] = 'Wyposażenie ogrodu';
+        $product['category'] = 'Figury i dekoracje ogrodowe';
         $product['productType'] = 'figura ogrodowa';
         $product['shopVisible'] = true;
         $product['visible'] = false;
@@ -1289,7 +1292,7 @@ if ($showStats) {
             </select>
             <small>Tryb showroom działa jak obecnie. Tryb figury pokazuje dodatkowe pola sklepu testowego.</small>
           </div>
-          <div class="field"><label for="category">Kategoria</label><select id="category" name="category"><?php foreach (['Wyposażenie domu','Wyposażenie ogrodu','Dekoracje','Oświetlenie','Inne'] as $option): ?><option<?= $product['category'] === $option ? ' selected' : '' ?>><?= e($option) ?></option><?php endforeach; ?></select></div>
+          <div class="field"><label for="category">Kategoria</label><select id="category" name="category"><?php foreach (product_category_options() as $option): ?><option<?= $product['category'] === $option ? ' selected' : '' ?>><?= e($option) ?></option><?php endforeach; ?></select></div>
           <div class="field"><label for="productType">Krótki typ produktu</label><input id="productType" name="productType" value="<?= e($product['productType']) ?>" placeholder="np. sofa, stół, donica"></div>
           <div class="field"><label class="check-line"><input type="checkbox" name="visible"<?= $product['visible'] ? ' checked' : '' ?>> Widoczny na stronie</label></div>
           <div class="field"><label class="check-line"><input type="checkbox" name="featured"<?= $product['featured'] ? ' checked' : '' ?>> Polecany na stronie głównej</label></div>

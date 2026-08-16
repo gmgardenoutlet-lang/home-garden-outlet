@@ -34,7 +34,7 @@ if ($product === null) {
 $mainImage = $images[0];
 $absoluteImage = catalog_absolute_url($mainImage);
 $categoryUrl = $product ? catalog_category_url($product) : '/';
-$isGardenProduct = $product && strpos(catalog_normalize((string)($product['category'] ?? '')), 'ogrod') !== false;
+$isGardenProduct = $product && catalog_is_garden_equipment_category($product['category'] ?? '');
 $seoCategoryUrl = $isGardenProduct ? '/meble-ogrodowe-wroclaw/' : '/outlet-meblowy-wroclaw/';
 $seoCategoryLabel = $isGardenProduct ? 'Meble ogrodowe outlet Wrocław' : 'Outlet meblowy pod Wrocławiem';
 $category = $product && catalog_has_value($product['category'] ?? '') ? (string)$product['category'] : 'Aktualny katalog';

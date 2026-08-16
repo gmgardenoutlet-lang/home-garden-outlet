@@ -293,6 +293,10 @@ function matchesCategory(productCategory, filter) {
 function getReadableCategory(productCategory) {
   const normalizedCategory = normalizeText(productCategory);
 
+  if (normalizedCategory === "figury i dekoracje ogrodowe") {
+    return "Figury i dekoracje ogrodowe";
+  }
+
   if (normalizedCategory.includes("ogrod")) {
     return "Meble ogrodowe";
   }
@@ -344,7 +348,9 @@ function isLegacyDecorativeSculpture(product) {
 }
 
 function isExcludedFromGardenListing(product) {
-  return isActiveFigureShopProduct(product) || isLegacyDecorativeSculpture(product);
+  return normalizeText(product.category) === "figury i dekoracje ogrodowe"
+    || isActiveFigureShopProduct(product)
+    || isLegacyDecorativeSculpture(product);
 }
 
 function escapeHtml(value) {
@@ -608,6 +614,9 @@ function getProductImages(product) {
 
 function productCategoryLinks(product) {
   const category = normalizeText(product.category);
+  if (category === "figury i dekoracje ogrodowe") {
+    return "";
+  }
   const isGarden = category.includes("ogrod");
   const links = isGarden
     ? [

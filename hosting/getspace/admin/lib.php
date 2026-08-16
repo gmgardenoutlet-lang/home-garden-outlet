@@ -1478,6 +1478,18 @@ function product_defaults(): array
     ];
 }
 
+function product_category_options(): array
+{
+    return [
+        'Wyposażenie domu',
+        'Wyposażenie ogrodu',
+        'Figury i dekoracje ogrodowe',
+        'Dekoracje',
+        'Oświetlenie',
+        'Inne',
+    ];
+}
+
 function google_business_description(array $product): string
 {
     $name = trim((string)($product['name'] ?? 'Produkt z oferty'));
@@ -1679,7 +1691,7 @@ function validate_codex_product_draft(string $json, array $draft): array
     if (isset($data['product']['saleType']) && $data['product']['saleType'] !== 'garden_figure') {
         throw new RuntimeException('Wynik Codexa może dotyczyć wyłącznie typu garden_figure.');
     }
-    $categories = ['Wyposażenie domu', 'Wyposażenie ogrodu', 'Dekoracje', 'Oświetlenie', 'Inne'];
+    $categories = product_category_options();
     if (isset($product['category']) && $product['category'] !== '' && !in_array($product['category'], $categories, true)) {
         throw new RuntimeException('Wynik Codexa zawiera nieobsługiwaną kategorię.');
     }
