@@ -208,6 +208,27 @@ ob_start();
 require __DIR__ . '/ogrod.html';
 $page = (string)ob_get_clean();
 
+$scriptHash = is_file(__DIR__ . '/script.js')
+    ? @hash_file('sha256', __DIR__ . '/script.js')
+    : false;
+$scriptVersion = is_string($scriptHash) ? substr($scriptHash, 0, 12) : 'garden-php';
+$stylesHash = is_file(__DIR__ . '/styles.css')
+    ? @hash_file('sha256', __DIR__ . '/styles.css')
+    : false;
+$stylesVersion = is_string($stylesHash) ? substr($stylesHash, 0, 12) : 'garden-php';
+$page = preg_replace(
+    '/href="\/styles\.css\?v=[^"]*"/',
+    'href="/styles.css?v=' . catalog_e($stylesVersion) . '"',
+    $page,
+    1
+);
+$page = preg_replace(
+    '/src="\/script\.js\?v=[^"]*"/',
+    'src="/script.js?v=' . catalog_e($scriptVersion) . '"',
+    $page,
+    1
+);
+
 if (!$catalogIsAvailable) {
     $page = str_replace(' class="product-count" data-product-count', ' class="product-count"', $page);
     $page = str_replace(' class="empty-products" data-product-empty hidden', ' class="empty-products" data-product-empty', $page);
