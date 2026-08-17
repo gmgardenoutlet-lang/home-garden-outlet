@@ -63,7 +63,7 @@ if (!$order) {
             <?php if ($paynowRedirectUrl !== null): ?>
               <a class="btn" href="<?= e($paynowRedirectUrl) ?>" rel="noreferrer">Opłać zamówienie</a>
             <?php else: ?>
-              <form method="post" action="/sklep/paynow-create-payment"><input type="hidden" name="csrf" value="<?= e(csrf_token()) ?>"><input type="hidden" name="order_id" value="<?= e($order['orderId'] ?? '') ?>"><input type="hidden" name="confirmation_token" value="<?= e($confirmationToken) ?>"><button class="btn" type="submit">Przygotuj płatność Paynow</button></form>
+              <form method="post" action="/sklep/paynow/create-payment"><input type="hidden" name="csrf" value="<?= e(csrf_token()) ?>"><input type="hidden" name="order_id" value="<?= e($order['orderId'] ?? '') ?>"><input type="hidden" name="confirmation_token" value="<?= e($confirmationToken) ?>"><button class="btn" type="submit">Przygotuj płatność Paynow</button></form>
             <?php endif; ?>
           </section>
         <?php endif; ?>
