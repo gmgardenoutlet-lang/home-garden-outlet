@@ -41,7 +41,6 @@ function shop_public_confirmation_order(string $orderId, string $token): ?array
 function shop_test_boot(): void
 {
     boot_admin();
-    header('X-Robots-Tag: index, follow');
 }
 
 function shop_sales_enabled(): bool

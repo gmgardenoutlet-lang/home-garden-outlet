@@ -5,6 +5,7 @@ require __DIR__ . '/lib.php';
 require __DIR__ . '/paynow.php';
 shop_test_boot();
 shop_test_require_sales();
+header('X-Robots-Tag: noindex, follow, noarchive');
 
 $error = '';
 
@@ -142,7 +143,7 @@ try {
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="robots" content="noindex, nofollow">
+  <meta name="robots" content="noindex, follow">
   <title>Nie zapisano zamówienia | Home & Garden Outlet</title>
   <?php shop_test_stylesheets(); ?>
 </head>

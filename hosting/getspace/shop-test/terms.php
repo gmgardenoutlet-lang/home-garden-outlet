@@ -9,7 +9,7 @@ shop_test_boot();
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="robots" content="noindex, nofollow">
+  <meta name="robots" content="noindex, follow">
   <title>Regulamin sklepu internetowego | Home & Garden Outlet</title>
   <?php shop_test_stylesheets(); ?>
 </head>

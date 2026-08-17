@@ -12,7 +12,7 @@ $order = shop_public_confirmation_order($orderId, $confirmationToken);
 $paynowRedirectUrl = is_array($order) ? paynow_redirect_url((string)($order['paymentRedirectUrl'] ?? '')) : null;
 header('Cache-Control: private, no-store, max-age=0');
 header('Referrer-Policy: no-referrer');
-header('X-Robots-Tag: noindex, nofollow, noarchive');
+header('X-Robots-Tag: noindex, follow, noarchive');
 if (!$order) {
     http_response_code(404);
 }
@@ -22,7 +22,7 @@ if (!$order) {
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="robots" content="noindex, nofollow">
+  <meta name="robots" content="noindex, follow">
   <title>Potwierdzenie zamówienia | Home & Garden Outlet</title>
   <?php shop_test_stylesheets(); ?>
 </head>
