@@ -13,6 +13,13 @@ if ($slug === $oldMatinoSlug && catalog_find_product($newMatinoSlug) !== null) {
     exit;
 }
 
+$oldTulareSlug = 'stolik-kawowy-tulare-jasnobrazowy';
+$newTulareSlug = 'stolik-kawowy-tulare-jasnobrazowy-2';
+if ($slug === $oldTulareSlug && catalog_find_product($newTulareSlug) !== null) {
+    header('Location: ' . CATALOG_SITE_URL . '/produkt/' . $newTulareSlug, true, 301);
+    exit;
+}
+
 if ($product === null) {
     http_response_code(404);
     header('X-Robots-Tag: noindex, follow');
