@@ -40,7 +40,7 @@ function shop_public_confirmation_order(string $orderId, string $token): ?array
 
 function shop_test_boot(): void
 {
-    boot_admin();
+    boot_admin(false);
 }
 
 function shop_sales_enabled(): bool

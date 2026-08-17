@@ -39,7 +39,7 @@ if (!function_exists('str_starts_with')) {
     }
 }
 
-function boot_admin(): void
+function boot_admin(bool $sendRobotsHeader = true): void
 {
     $host = strtolower((string)preg_replace('/:\\d+$/', '', (string)($_SERVER['HTTP_HOST'] ?? '')));
     if ($host === 'www.mgoutlet.pl') {
@@ -76,7 +76,9 @@ function boot_admin(): void
     session_name('hgo_admin');
     session_start();
 
-    header('X-Robots-Tag: noindex, nofollow, noarchive');
+    if ($sendRobotsHeader) {
+        header('X-Robots-Tag: noindex, nofollow, noarchive');
+    }
     header('Cache-Control: no-store, max-age=0');
 }
 
