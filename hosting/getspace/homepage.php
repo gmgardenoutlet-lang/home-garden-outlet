@@ -133,7 +133,9 @@ function homepage_card(array $product): string
     $status = homepage_display_status($product);
     $images = homepage_images($product);
     $slug = (string)($product['_publicSlug'] ?? catalog_slugify($name));
-    $detailUrl = '/produkt/' . rawurlencode($slug);
+    $detailUrl = catalog_is_figure_shop_product($product)
+        ? catalog_figure_shop_product_url($product)
+        : '/produkt/' . rawurlencode($slug);
     $imageAlt = homepage_image_alt($product, $name);
     $galleryData = catalog_e((string)json_encode($images, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
     $badgeClass = $status === 'Rezerwacja' ? 'reserved' : (in_array($status, ['Sprzedane', 'Sprzedany'], true) ? 'sold' : '');

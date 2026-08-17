@@ -335,11 +335,24 @@ function isSoldProduct(product) {
 }
 
 function isActiveFigureShopProduct(product) {
-  return product.saleType === "garden_figure"
+  return isFigureShopProduct(product)
     && Boolean(product.shopVisible)
     && product.shopStatus === "Dostępny"
     && !["Sprzedany", "Ukryty"].includes(String(product.productStatus || ""))
     && !["Sprzedane", "Sprzedany"].includes(String(product.status || ""));
+}
+
+function isFigureShopProduct(product) {
+  return product.saleType === "garden_figure";
+}
+
+function productDetailUrl(product, slug) {
+  if (!isFigureShopProduct(product)) {
+    return `/produkt/${encodeURIComponent(slug)}`;
+  }
+
+  const shopSlug = createProductSlug(hasDisplayValue(product.slug) ? product.slug : product.name);
+  return `/sklep/figury-ogrodowe/produkt/${encodeURIComponent(shopSlug)}`;
 }
 
 function isLegacyDecorativeSculpture(product) {
@@ -641,7 +654,7 @@ function productTemplate(product) {
   const status = getProductDisplayStatus(product);
   const images = getProductImages(product);
   const seo = getProductSeo(product);
-  const detailUrl = `/produkt/${encodeURIComponent(seo.slug)}`;
+  const detailUrl = productDetailUrl(product, seo.slug);
   const image = images[0];
   const galleryData = escapeHtml(JSON.stringify(images));
   const galleryCount = images.length > 1

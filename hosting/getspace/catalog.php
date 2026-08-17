@@ -61,6 +61,37 @@ function catalog_is_public(array $product): bool
         && catalog_normalize((string)($product['productStatus'] ?? '')) !== 'ukryty';
 }
 
+function catalog_is_figure_shop_product(array $product): bool
+{
+    return ($product['saleType'] ?? '') === 'garden_figure';
+}
+
+function catalog_is_active_figure_shop_product(array $product): bool
+{
+    return catalog_is_figure_shop_product($product)
+        && !empty($product['shopVisible'])
+        && ($product['shopStatus'] ?? '') === 'Dostępny'
+        && !in_array((string)($product['productStatus'] ?? ''), ['Sprzedany', 'Ukryty'], true)
+        && !in_array((string)($product['status'] ?? ''), ['Sprzedane', 'Sprzedany'], true);
+}
+
+function catalog_is_indexable_figure_shop_product(array $product): bool
+{
+    return catalog_is_figure_shop_product($product)
+        && !empty($product['shopVisible'])
+        && ($product['shopStatus'] ?? '') === 'Dostępny'
+        && catalog_normalize((string)($product['productStatus'] ?? '')) !== 'ukryty';
+}
+
+function catalog_figure_shop_product_url(array $product): string
+{
+    $source = catalog_has_value($product['slug'] ?? '')
+        ? (string)$product['slug']
+        : (string)($product['name'] ?? 'produkt');
+
+    return '/sklep/figury-ogrodowe/produkt/' . rawurlencode(catalog_slugify($source));
+}
+
 function catalog_display_status(array $product): string
 {
     $managementStatus = catalog_normalize((string)($product['productStatus'] ?? ''));
@@ -94,9 +125,16 @@ function catalog_products_with_slugs(): array
 
 function catalog_find_product(string $slug): ?array
 {
+    $product = catalog_find_product_record($slug);
+
+    return $product !== null && catalog_is_public($product) ? $product : null;
+}
+
+function catalog_find_product_record(string $slug): ?array
+{
     $slug = catalog_slugify($slug);
     foreach (catalog_products_with_slugs() as $product) {
-        if (catalog_is_public($product) && ($product['_publicSlug'] ?? '') === $slug) {
+        if (($product['_publicSlug'] ?? '') === $slug) {
             return $product;
         }
     }

@@ -95,6 +95,8 @@ const isActiveFigureShopProduct = (product) => product.saleType === "garden_figu
   && !["sprzedany", "ukryty"].includes(normalize(product.productStatus))
   && !["sprzedane", "sprzedany"].includes(normalize(product.status));
 
+const isFigureShopProduct = (product) => product.saleType === "garden_figure";
+
 const matchesCategory = (productCategory, pageCategory) => {
   const category = normalize(productCategory);
   const page = normalize(pageCategory);
@@ -186,7 +188,9 @@ const productCard = (product) => {
   const productDescription = String(product.description || "Produkt dostępny do obejrzenia na miejscu.")
     .replace(/\s+/g, " ")
     .trim();
-  const detailUrl = `/produkt/${encodeURIComponent(product._publicSlug)}`;
+  const detailUrl = isFigureShopProduct(product)
+    ? `/sklep/figury-ogrodowe/produkt/${encodeURIComponent(slugify(hasValue(product.slug) ? product.slug : product.name))}`
+    : `/produkt/${encodeURIComponent(product._publicSlug)}`;
 
   return `
         <article class="product-card product-card-static">

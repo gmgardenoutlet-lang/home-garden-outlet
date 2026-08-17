@@ -3,6 +3,7 @@ declare(strict_types=1);
 
 require_once __DIR__ . '/config.php';
 require_once __DIR__ . '/../admin/lib.php';
+require_once __DIR__ . '/../catalog.php';
 
 function shop_new_confirmation_token(): string
 {
@@ -173,11 +174,7 @@ function shop_test_cents_to_price(int $cents): float
 function shop_test_is_figure(array $product): bool
 {
     $merged = array_merge(product_defaults(), $product);
-    return ($merged['saleType'] ?? '') === 'garden_figure'
-        && !empty($merged['shopVisible'])
-        && ($merged['shopStatus'] ?? '') === 'Dostępny'
-        && !in_array((string)($merged['productStatus'] ?? ''), ['Sprzedany', 'Ukryty'], true)
-        && !in_array((string)($merged['status'] ?? ''), ['Sprzedane', 'Sprzedany'], true);
+    return catalog_is_active_figure_shop_product($merged);
 }
 
 function shop_test_products(): array
@@ -219,6 +216,27 @@ function shop_test_find_product(string $slug): ?array
     $slug = clean_filename($slug);
     $products = shop_test_product_map();
     return $products[$slug] ?? null;
+}
+
+function shop_test_find_figure_product(string $slug): ?array
+{
+    $slug = clean_filename($slug);
+    foreach ((load_catalog()['products'] ?? []) as $index => $product) {
+        if (!is_array($product)) {
+            continue;
+        }
+
+        $product = array_merge(product_defaults(), $product);
+        if (!catalog_is_figure_shop_product($product) || shop_test_slug($product) !== $slug) {
+            continue;
+        }
+
+        $product['_shopIndex'] = $index;
+        $product['_shopSlug'] = $slug;
+        return $product;
+    }
+
+    return null;
 }
 
 function shop_test_delivery_methods(array $product): array
@@ -275,7 +293,7 @@ function shop_test_public_product(array $product): array
         'sku' => trim((string)($product['sku'] ?? '')),
         'price' => $price,
         'priceLabel' => shop_test_price_label($price),
-        'canBuy' => $price !== null,
+        'canBuy' => shop_test_is_figure($product) && $price !== null,
         'image' => $images[0],
         'alt' => trim((string)($product['imageAlt'] ?? '')) !== ''
             ? trim((string)$product['imageAlt'])

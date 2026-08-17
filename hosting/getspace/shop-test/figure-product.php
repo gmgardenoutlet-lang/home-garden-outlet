@@ -5,9 +5,20 @@ require __DIR__ . '/lib.php';
 shop_test_boot();
 
 $slug = (string)($_GET['slug'] ?? '');
-$product = shop_test_find_product($slug);
-if (!$product) {
+$product = shop_test_find_figure_product($slug);
+$isHidden = $product !== null && catalog_normalize((string)($product['productStatus'] ?? '')) === 'ukryty';
+$isSold = $product !== null && (
+    catalog_normalize((string)($product['productStatus'] ?? '')) === 'sprzedany'
+    || in_array(catalog_normalize((string)($product['status'] ?? '')), ['sprzedane', 'sprzedany'], true)
+);
+$isAvailable = $product !== null && shop_test_is_figure($product);
+$isTemporarilyUnavailable = $product !== null && !$isAvailable && !$isSold && !$isHidden;
+$showProduct = $product !== null && !$isHidden;
+if ($product === null) {
     http_response_code(404);
+} elseif ($isHidden) {
+    http_response_code(404);
+    header('X-Robots-Tag: noindex, follow');
 }
 $view = $product ? shop_test_public_product($product) : null;
 $publicProducts = shop_test_public_products();
@@ -42,16 +53,16 @@ $details = $product ? array_filter([
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="robots" content="<?= $view ? 'index, follow' : 'noindex, nofollow' ?>">
-  <?php if ($view): ?><link rel="canonical" href="https://mgoutlet.pl<?= e(shop_test_product_url($view['slug'])) ?>"><?php endif; ?>
-  <title><?= $view ? e($view['name']) : 'Figura niedostępna' ?> | Home & Garden Outlet</title>
+  <meta name="robots" content="<?= $showProduct && !$isTemporarilyUnavailable ? 'index, follow' : 'noindex, follow' ?>">
+  <?php if ($showProduct && $view): ?><link rel="canonical" href="https://mgoutlet.pl<?= e(shop_test_product_url($view['slug'])) ?>"><?php endif; ?>
+  <title><?= $showProduct && $view ? e($view['name']) : 'Figura niedostępna' ?> | Home & Garden Outlet</title>
   <?php shop_test_stylesheets(); ?>
 </head>
 <body>
   <?php shop_test_header('figures'); ?>
 
   <main>
-    <?php if (!$product || !$view): ?>
+    <?php if (!$showProduct || !$view): ?>
       <section class="empty"><h1>Nie znaleziono figury</h1><p>Produkt nie jest widoczny w sklepie albo został ukryty.</p><a class="btn" href="<?= e(shop_catalog_url()) ?>">Wróć</a></section>
     <?php else: ?>
       <article class="product-test">
@@ -81,7 +92,13 @@ $details = $product ? array_filter([
           <p class="eyebrow">Figura ogrodowa</p>
           <h1><?= e($view['name']) ?></h1>
           <div class="product-status-grid">
-            <span>Wysyłka <?= e($view['leadTime']) ?></span>
+            <?php if ($isSold): ?>
+              <span>Produkt sprzedany — obecnie niedostępny</span>
+            <?php elseif ($isTemporarilyUnavailable): ?>
+              <span>Produkt obecnie niedostępny w sprzedaży online</span>
+            <?php else: ?>
+              <span>Wysyłka <?= e($view['leadTime']) ?></span>
+            <?php endif; ?>
             <?php if (!empty($product['handPainted'])): ?><span>Ręcznie malowane</span><?php endif; ?>
           </div>
           <strong class="product-price"><?= e($view['priceLabel']) ?></strong>
@@ -92,7 +109,7 @@ $details = $product ? array_filter([
             <div class="shop-note">Figury są malowane ręcznie, dlatego poszczególne egzemplarze mogą nieznacznie różnić się od siebie oraz od produktu prezentowanego na zdjęciach, w szczególności odcieniem, intensywnością barw i detalami wykończenia. Takie niewielkie różnice są naturalną cechą ręcznego wykonania.</div>
           <?php endif; ?>
 
-          <p><a href="/sklep/figury-ogrodowe/dostawa-i-platnosci">Dostawa i płatności</a> · <a href="/sklep/figury-ogrodowe/zwroty-i-reklamacje">Zwroty i reklamacje</a> · <a href="/sklep/figury-ogrodowe/formularz-odstapienia">Formularz odstąpienia</a></p>
+          <?php if ($isAvailable): ?><p><a href="/sklep/figury-ogrodowe/dostawa-i-platnosci">Dostawa i płatności</a> · <a href="/sklep/figury-ogrodowe/zwroty-i-reklamacje">Zwroty i reklamacje</a> · <a href="/sklep/figury-ogrodowe/formularz-odstapienia">Formularz odstąpienia</a></p><?php endif; ?>
 
           <div class="shop-actions">
             <?php if (shop_sales_enabled() && $view['canBuy']): ?>
@@ -107,7 +124,7 @@ $details = $product ? array_filter([
             </dl>
           <?php endif; ?>
 
-          <section class="delivery-box">
+          <?php if ($isAvailable): ?><section class="delivery-box">
             <h2>Dostępne formy dostawy</h2>
             <p class="delivery-note">Dostępne formy dostawy zależą od wagi, wymiarów i rodzaju produktu.</p>
             <?php foreach (shop_test_delivery_methods($product) as $method): ?>
@@ -120,8 +137,8 @@ $details = $product ? array_filter([
                 <?php if (!empty($method['requiresConfirmation'])): ?><small>Koszt i możliwość wysyłki potwierdzimy przed realizacją.</small><?php endif; ?>
               </article>
             <?php endforeach; ?>
-          </section>
-          <?php if (shop_test_has_shipping_method($product)): ?>
+          </section><?php endif; ?>
+          <?php if ($isAvailable && shop_test_has_shipping_method($product)): ?>
             <aside class="shipment-check-note">
               <strong>Ważne przy odbiorze przesyłki</strong>
               <p>Zalecamy sprawdzenie stanu przesyłki przy odbiorze, najlepiej w obecności kuriera. W przypadku widocznych uszkodzeń opakowania lub produktu prosimy, jeśli to możliwe, o sporządzenie z kurierem protokołu szkody oraz wykonanie zdjęć. Ułatwi to sprawne rozpatrzenie zgłoszenia.</p>

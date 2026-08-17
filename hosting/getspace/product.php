@@ -5,6 +5,7 @@ require __DIR__ . '/catalog.php';
 
 $slug = (string)($_GET['slug'] ?? '');
 $product = $slug !== '' ? catalog_find_product($slug) : null;
+$productRecord = $slug !== '' ? catalog_find_product_record($slug) : null;
 
 $oldMatinoSlug = 'lawka-schowek-matino-z-drewna-akacjowego-w-brazowym-kolorze-praktyczne-siedzisko-schowek-i-polki-do-ogrodu-na-taras-lub-balkon';
 $newMatinoSlug = 'lawka-schowek-matino';
@@ -17,6 +18,11 @@ $oldTulareSlug = 'stolik-kawowy-tulare-jasnobrazowy';
 $newTulareSlug = 'stolik-kawowy-tulare-jasnobrazowy-2';
 if ($slug === $oldTulareSlug && catalog_find_product($newTulareSlug) !== null) {
     header('Location: ' . CATALOG_SITE_URL . '/produkt/' . $newTulareSlug, true, 301);
+    exit;
+}
+
+if ($productRecord !== null && catalog_is_figure_shop_product($productRecord)) {
+    header('Location: ' . CATALOG_SITE_URL . catalog_figure_shop_product_url($productRecord), true, 301);
     exit;
 }
 
