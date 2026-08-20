@@ -140,7 +140,9 @@ try {
 
         if ($action === 'toggle_stats_browser_exclusion') {
             $exclude = post_text('exclude') === '1';
-            set_stats_browser_excluded($exclude);
+            if (!set_stats_browser_excluded($exclude)) {
+                throw new RuntimeException('Nie udało się zapisać ustawienia przeglądarki przed wysłaniem odpowiedzi. Odśwież panel i spróbuj ponownie.');
+            }
             flash('success', $exclude ? 'Ta przeglądarka została wykluczona ze statystyk.' : 'Ta przeglądarka będzie ponownie liczona w statystykach.');
             redirect_admin('stats=1&stats_tab=' . rawurlencode((string)($_POST['stats_tab'] ?? 'general')) . '&range=' . rawurlencode((string)($_POST['range'] ?? 'today')));
         }

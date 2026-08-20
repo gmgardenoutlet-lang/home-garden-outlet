@@ -61,7 +61,7 @@ location_stats_assert(stats_browser_is_excluded(), 'Cookie wykluczenia powinno z
 $_SERVER['HTTP_HOST'] = 'mgoutlet.pl';
 $_SERVER['HTTPS'] = 'on';
 $cookieOptions = stats_exclusion_cookie_options(time() + HGO_STATS_EXCLUSION_TTL);
-location_stats_assert(($cookieOptions['domain'] ?? '') === 'mgoutlet.pl' && $cookieOptions['path'] === '/' && $cookieOptions['secure'] && $cookieOptions['httponly'] && $cookieOptions['samesite'] === 'Lax', 'Cookie wykluczenia ma nieprawidłowe parametry bezpieczeństwa.');
+location_stats_assert(!isset($cookieOptions['domain']) && $cookieOptions['path'] === '/' && $cookieOptions['secure'] && $cookieOptions['httponly'] && $cookieOptions['samesite'] === 'Lax', 'Cookie wykluczenia ma nieprawidłowe parametry bezpieczeństwa.');
 
 $tracker = (string)file_get_contents(__DIR__ . '/../hosting/getspace/stats/track.php');
 $guard = strpos($tracker, 'if (stats_browser_is_excluded())');
