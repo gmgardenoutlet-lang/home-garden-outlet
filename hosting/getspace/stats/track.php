@@ -2,6 +2,7 @@
 declare(strict_types=1);
 
 require_once __DIR__ . '/../lib/geoip.php';
+require_once __DIR__ . '/../lib/stats-exclusion.php';
 
 const HGO_STATS_SITE_ROOT = __DIR__ . '/..';
 const HGO_STATS_STORAGE_DIR = HGO_STATS_SITE_ROOT . '/admin/storage/stats';
@@ -299,6 +300,11 @@ function stats_increment(string $event, string $pagePath, string $productSlug, ?
 
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     stats_finish(405);
+}
+
+// This must precede payload parsing, storage access and the GeoIP lookup.
+if (stats_browser_is_excluded()) {
+    stats_finish(204);
 }
 
 if (!stats_request_origin_allowed()) {

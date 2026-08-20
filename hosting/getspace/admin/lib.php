@@ -24,6 +24,7 @@ const PRODUCT_IMAGE_DRAFT_TTL = 7 * 24 * 60 * 60;
 const MAX_PRODUCT_DRAFT_JSON_BYTES = 256 * 1024;
 
 require_once SITE_ROOT . '/lib/geoip.php';
+require_once SITE_ROOT . '/lib/stats-exclusion.php';
 
 if (!function_exists('str_contains')) {
     function str_contains(string $haystack, string $needle): bool
@@ -672,25 +673,99 @@ function stats_location_row(array $row, array $fields): array
     return $result;
 }
 
+function stats_region_code_key(string $regionCode): string
+{
+    $regionCode = strtoupper(trim($regionCode));
+    return preg_replace('/^PL-/', '', $regionCode) ?: $regionCode;
+}
+
+function stats_polish_voivodeship(string $countryCode, string $regionCode, string $name): string
+{
+    $byCode = [
+        'DS' => 'Dolnośląskie', '02' => 'Dolnośląskie',
+        'KP' => 'Kujawsko-Pomorskie', '04' => 'Kujawsko-Pomorskie',
+        'LU' => 'Lubelskie', '06' => 'Lubelskie', 'LB' => 'Lubuskie', '08' => 'Lubuskie',
+        'LD' => 'Łódzkie', '10' => 'Łódzkie', 'MA' => 'Małopolskie', '12' => 'Małopolskie',
+        'MZ' => 'Mazowieckie', '14' => 'Mazowieckie', 'OP' => 'Opolskie', '16' => 'Opolskie',
+        'PK' => 'Podkarpackie', '18' => 'Podkarpackie', 'PD' => 'Podlaskie', '20' => 'Podlaskie',
+        'PM' => 'Pomorskie', '22' => 'Pomorskie', 'SL' => 'Śląskie', '24' => 'Śląskie',
+        'SK' => 'Świętokrzyskie', '26' => 'Świętokrzyskie', 'WN' => 'Warmińsko-Mazurskie', '28' => 'Warmińsko-Mazurskie',
+        'WP' => 'Wielkopolskie', '30' => 'Wielkopolskie', 'ZP' => 'Zachodniopomorskie', '32' => 'Zachodniopomorskie',
+    ];
+    $code = stats_region_code_key($regionCode);
+    $normalizedCountryCode = strtoupper(trim($countryCode));
+    if (($normalizedCountryCode === '' || $normalizedCountryCode === 'PL') && isset($byCode[$code])) {
+        return $byCode[$code];
+    }
+
+    $byName = [
+        'lower-silesian-voivodeship' => 'Dolnośląskie', 'lower-silesia' => 'Dolnośląskie', 'dolnoslaskie' => 'Dolnośląskie',
+        'kujawsko-pomorskie' => 'Kujawsko-Pomorskie', 'kuyavian-pomeranian-voivodeship' => 'Kujawsko-Pomorskie',
+        'lubelskie' => 'Lubelskie', 'lublin-voivodeship' => 'Lubelskie', 'lubuskie' => 'Lubuskie', 'lubusz-voivodeship' => 'Lubuskie',
+        'lodzkie' => 'Łódzkie', 'lodz-voivodeship' => 'Łódzkie', 'malopolskie' => 'Małopolskie', 'lesser-poland-voivodeship' => 'Małopolskie',
+        'mazowieckie' => 'Mazowieckie', 'masovian-voivodeship' => 'Mazowieckie', 'opolskie' => 'Opolskie', 'opole-voivodeship' => 'Opolskie',
+        'podkarpackie' => 'Podkarpackie', 'subcarpathian-voivodeship' => 'Podkarpackie', 'podlaskie' => 'Podlaskie', 'podlaskie-voivodeship' => 'Podlaskie',
+        'pomorskie' => 'Pomorskie', 'pomeranian-voivodeship' => 'Pomorskie', 'slaskie' => 'Śląskie', 'silesian-voivodeship' => 'Śląskie',
+        'swietokrzyskie' => 'Świętokrzyskie', 'holy-cross-voivodeship' => 'Świętokrzyskie',
+        'warminsko-mazurskie' => 'Warmińsko-Mazurskie', 'warmian-masurian-voivodeship' => 'Warmińsko-Mazurskie',
+        'wielkopolskie' => 'Wielkopolskie', 'greater-poland-voivodeship' => 'Wielkopolskie',
+        'zachodniopomorskie' => 'Zachodniopomorskie', 'west-pomeranian-voivodeship' => 'Zachodniopomorskie',
+    ];
+    return $byName[geoip_safe_key($name)] ?? '';
+}
+
 function stats_is_lower_silesia(string $countryCode, string $regionCode): bool
 {
-    return $countryCode === 'PL' && in_array(strtoupper($regionCode), ['DS', '02'], true);
+    return strtoupper(trim($countryCode)) === 'PL' && in_array(stats_region_code_key($regionCode), ['DS', '02'], true);
+}
+
+function stats_location_display_country(string $countryCode, string $name): string
+{
+    $byCode = [
+        'PL' => 'Polska', 'DE' => 'Niemcy', 'US' => 'Stany Zjednoczone', 'CZ' => 'Czechy', 'NL' => 'Holandia',
+        'GB' => 'Wielka Brytania', 'FR' => 'Francja', 'ES' => 'Hiszpania', 'IT' => 'Włochy', 'AT' => 'Austria',
+        'BE' => 'Belgia', 'CH' => 'Szwajcaria', 'DK' => 'Dania', 'SE' => 'Szwecja', 'NO' => 'Norwegia',
+        'FI' => 'Finlandia', 'IE' => 'Irlandia', 'UA' => 'Ukraina', 'SK' => 'Słowacja', 'LT' => 'Litwa',
+        'LV' => 'Łotwa', 'EE' => 'Estonia',
+    ];
+    $code = strtoupper(trim($countryCode));
+    if (isset($byCode[$code])) {
+        return $byCode[$code];
+    }
+    $byName = ['germany' => 'Niemcy', 'united-states' => 'Stany Zjednoczone', 'usa' => 'Stany Zjednoczone', 'czechia' => 'Czechy', 'czech-republic' => 'Czechy', 'netherlands' => 'Holandia', 'united-kingdom' => 'Wielka Brytania'];
+    $original = $name !== '' ? $name : $countryCode;
+    return $byName[geoip_safe_key($original)] ?? ($original !== '' ? $original : 'Nieznana lokalizacja');
 }
 
 function stats_location_display_region(string $countryCode, string $regionCode, string $name): string
 {
-    if (stats_is_lower_silesia($countryCode, $regionCode)) {
-        return 'Dolnośląskie';
-    }
+    $voivodeship = stats_polish_voivodeship($countryCode, $regionCode, $name);
+    if ($voivodeship !== '') return $voivodeship;
     return $name !== '' ? $name : 'Nieznana lokalizacja';
 }
 
 function stats_location_display_city(string $countryCode, string $regionCode, string $name): string
 {
-    if (stats_is_lower_silesia($countryCode, $regionCode) && geoip_safe_key($name) === 'wroclaw') {
-        return 'Wrocław';
-    }
+    $cities = ['wroclaw' => 'Wrocław', 'krakow' => 'Kraków', 'poznan' => 'Poznań', 'lodz' => 'Łódź', 'warszawa' => 'Warszawa', 'warsaw' => 'Warszawa'];
+    $key = geoip_safe_key($name);
+    if (isset($cities[$key])) return $cities[$key];
     return $name !== '' ? $name : 'Nieznana lokalizacja';
+}
+
+function stats_localize_location_row(array $row, string $level): array
+{
+    // Work on a copy: rows read from historical JSON files remain untouched.
+    if ($level === 'country') {
+        $row['name'] = stats_location_display_country((string)($row['code'] ?? ''), (string)($row['name'] ?? ''));
+    } elseif ($level === 'region') {
+        $row['name'] = stats_location_display_region((string)($row['country_code'] ?? ''), (string)($row['code'] ?? ''), (string)($row['name'] ?? ''));
+    } elseif ($level === 'city') {
+        $countryCode = (string)($row['country_code'] ?? '');
+        $regionCode = (string)($row['region_code'] ?? '');
+        $row['region_name'] = stats_location_display_region($countryCode, $regionCode, (string)($row['region_name'] ?? ''));
+        $row['name'] = stats_location_display_city($countryCode, $regionCode, (string)($row['name'] ?? ''));
+    }
+    return $row;
 }
 
 function stats_local_breakdown(array $countries, array $regions, array $cities): array
@@ -774,13 +849,16 @@ function load_location_summary(string $range): array
         }
     }
 
+    foreach ($countries as &$row) {
+        $row = stats_localize_location_row($row, 'country');
+    }
+    unset($row);
     foreach ($regions as &$row) {
-        $row['name'] = stats_location_display_region((string)$row['country_code'], strtoupper((string)$row['code']), (string)$row['name']);
+        $row = stats_localize_location_row($row, 'region');
     }
     unset($row);
     foreach ($cities as &$row) {
-        $row['region_name'] = stats_location_display_region((string)$row['country_code'], strtoupper((string)$row['region_code']), (string)$row['region_name']);
-        $row['name'] = stats_location_display_city((string)$row['country_code'], strtoupper((string)$row['region_code']), (string)$row['name']);
+        $row = stats_localize_location_row($row, 'city');
     }
     unset($row);
     $summary['local'] = stats_local_breakdown($countries, $regions, $cities);

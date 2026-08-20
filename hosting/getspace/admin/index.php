@@ -138,6 +138,13 @@ try {
 
         require_login();
 
+        if ($action === 'toggle_stats_browser_exclusion') {
+            $exclude = post_text('exclude') === '1';
+            set_stats_browser_excluded($exclude);
+            flash('success', $exclude ? 'Ta przeglądarka została wykluczona ze statystyk.' : 'Ta przeglądarka będzie ponownie liczona w statystykach.');
+            redirect_admin('stats=1&stats_tab=' . rawurlencode((string)($_POST['stats_tab'] ?? 'general')) . '&range=' . rawurlencode((string)($_POST['range'] ?? 'today')));
+        }
+
         if ($action === 'logout') {
             $_SESSION = [];
             session_destroy();
@@ -869,6 +876,19 @@ if ($showStats) {
           <a class="<?= $statsRange === $rangeKey ? 'active' : '' ?>" href="/admin/?stats=1&amp;stats_tab=<?= e($statsTab) ?>&amp;range=<?= e($rangeKey) ?>&amp;product_limit=<?= e((string)$statsProductLimit) ?>"><?= e($rangeLabel) ?></a>
         <?php endforeach; ?>
       </nav>
+
+      <section class="card stats-section">
+        <div class="section-head"><div><p class="muted">Moja przeglądarka</p><h2><?= stats_browser_is_excluded() ? 'Ta przeglądarka jest wykluczona ze statystyk' : 'Ta przeglądarka jest liczona w statystykach' ?></h2></div></div>
+        <p class="muted">Ustawienie dotyczy wyłącznie tej przeglądarki i przyszłych wejść na stronę.</p>
+        <form method="post" class="form-actions stats-browser-exclusion">
+          <input type="hidden" name="csrf" value="<?= e(csrf_token()) ?>">
+          <input type="hidden" name="action" value="toggle_stats_browser_exclusion">
+          <input type="hidden" name="exclude" value="<?= stats_browser_is_excluded() ? '0' : '1' ?>">
+          <input type="hidden" name="stats_tab" value="<?= e($statsTab) ?>">
+          <input type="hidden" name="range" value="<?= e($statsRange) ?>">
+          <button class="btn <?= stats_browser_is_excluded() ? 'btn-secondary' : '' ?>" type="submit"><?= stats_browser_is_excluded() ? 'Ponownie licz tę przeglądarkę' : 'Wyklucz tę przeglądarkę ze statystyk' ?></button>
+        </form>
+      </section>
 
       <?php if ($statsTab === 'general'): ?>
       <section class="stats-grid">
