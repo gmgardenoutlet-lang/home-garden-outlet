@@ -158,6 +158,31 @@ const productCategoryLinks = (product) => {
     .join("")}</div>`;
 };
 
+const isOutletHomeOrGardenProduct = (product) => {
+  const category = String(product.category || "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .trim();
+  return category === "wyposazenie domu" || category === "wyposazenie ogrodu";
+};
+
+const productDeliveryInfo = (product) => {
+  if (!isOutletHomeOrGardenProduct(product)) {
+    return "";
+  }
+
+  return `
+            <section class="product-delivery-info" aria-label="Informacja o dostawie">
+              <strong>Nie możesz przyjechać? Zapytaj o dostawę</strong>
+              <p>Możemy zorganizować transport na terenie całej Polski. Przed zakupem możemy również przesłać dodatkowe zdjęcia konkretnego egzemplarza i pokazać jego rzeczywisty stan. Koszt transportu wyceniamy indywidualnie.</p>
+              <div class="product-delivery-actions">
+                <span class="btn btn-whatsapp is-disabled" aria-disabled="true" title="WhatsApp będzie dostępny po potwierdzeniu numeru firmowego">Napisz na WhatsApp</span>
+                <a href="/poradnik/zakup-produktu-outletowego-z-dostawa/">Jak wygląda zakup z dostawą?</a>
+              </div>
+            </section>`;
+};
+
 const productCard = (product) => {
   const name = hasValue(product.name) ? product.name : "Produkt outletowy";
   const category = readableCategory(product.category);
@@ -211,6 +236,7 @@ const productCard = (product) => {
             ${condition}
             ${dimensions}
             ${productCategoryLinks(product)}
+            ${productDeliveryInfo(product)}
             <div class="product-actions">
               <a class="btn btn-primary" href="${escapeHtml(detailUrl)}">Zobacz produkt</a>
               <a class="btn btn-outline" href="tel:+48577210777">Zapytaj o dostępność</a>

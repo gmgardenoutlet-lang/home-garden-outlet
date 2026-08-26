@@ -85,6 +85,9 @@ const statusClasses = {
 };
 
 const productGrid = document.querySelector("#produkty");
+// Ustaw potwierdzony numer firmowego WhatsApp w formacie międzynarodowym, bez znaku +.
+// Pole pozostaje puste, dopóki jego obsługa przez firmę nie zostanie potwierdzona.
+const whatsappPhone = "48577210777";
 const filterButtons = document.querySelectorAll(".filter-btn");
 const productSearchInput = document.querySelector("[data-product-search]");
 const productFilterInputs = document.querySelectorAll("[data-product-filter]");
@@ -648,6 +651,39 @@ function productCategoryLinks(product) {
       `;
 }
 
+function isOutletHomeOrGardenProduct(product) {
+  const category = normalizeText(product.category);
+  return category === "wyposazenie domu" || category === "wyposazenie ogrodu";
+}
+
+function productWhatsappAction(product, detailUrl) {
+  if (!whatsappPhone) {
+    return '<span class="btn btn-whatsapp is-disabled" aria-disabled="true" title="WhatsApp będzie dostępny po potwierdzeniu numeru firmowego">Napisz na WhatsApp</span>';
+  }
+
+  const name = product.name || "Produkt outletowy";
+  const message = `Dzień dobry, interesuje mnie produkt: ${name}. Proszę o informację dotyczącą możliwości dostawy. Link: https://mgoutlet.pl${detailUrl}`;
+  const href = `https://wa.me/${whatsappPhone}?text=${encodeURIComponent(message)}`;
+  return `<a class="btn btn-whatsapp" href="${escapeHtml(href)}" target="_blank" rel="noopener">Napisz na WhatsApp</a>`;
+}
+
+function productDeliveryInfo(product, detailUrl) {
+  if (!isOutletHomeOrGardenProduct(product)) {
+    return "";
+  }
+
+  return `
+        <section class="product-delivery-info" aria-label="Informacja o dostawie">
+          <strong>Nie możesz przyjechać? Zapytaj o dostawę</strong>
+          <p>Możemy zorganizować transport na terenie całej Polski. Przed zakupem możemy również przesłać dodatkowe zdjęcia konkretnego egzemplarza i pokazać jego rzeczywisty stan. Koszt transportu wyceniamy indywidualnie.</p>
+          <div class="product-delivery-actions">
+            ${productWhatsappAction(product, detailUrl)}
+            <a href="/poradnik/zakup-produktu-outletowego-z-dostawa/">Jak wygląda zakup z dostawą?</a>
+          </div>
+        </section>
+      `;
+}
+
 function productTemplate(product) {
   const name = product.name || "Produkt outletowy";
   const category = getReadableCategory(product.category || "Wyposażenie ogrodu");
@@ -705,6 +741,7 @@ function productTemplate(product) {
         ${condition}
         ${dimensions}
         ${productCategoryLinks(product)}
+        ${productDeliveryInfo(product, detailUrl)}
         <div class="product-actions">
           <a class="btn btn-primary" href="${escapeHtml(detailUrl)}">Zobacz produkt</a>
           <a class="btn btn-outline" href="tel:+48577210777">Zapytaj o dostępność</a>
@@ -838,6 +875,10 @@ function getHomepageStaticCardSlugs() {
 }
 
 function canKeepHomepageStaticCards() {
+  if (whatsappPhone) {
+    return false;
+  }
+
   const selectedSlugs = getHomepageSelectedSlugs();
   const cardSlugs = getHomepageStaticCardSlugs();
 

@@ -1130,6 +1130,65 @@ body.gallery-open {
   text-decoration: underline;
 }
 
+.product-delivery-info {
+  margin-top: 16px;
+  padding: 16px;
+  border: 1px solid rgba(63, 111, 69, 0.2);
+  border-radius: 16px;
+  background: var(--green-soft);
+}
+
+.product-delivery-info strong {
+  display: block;
+  color: var(--heading-deep);
+  font-size: 15px;
+}
+
+.product-delivery-info p {
+  margin: 8px 0 0;
+  color: var(--muted);
+  font-size: 14px;
+  line-height: 1.55;
+}
+
+.product-delivery-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px 14px;
+  margin-top: 13px;
+}
+
+.product-delivery-actions a:not(.btn) {
+  color: var(--green-800);
+  font-size: 13px;
+  font-weight: 800;
+  text-decoration: none;
+}
+
+.product-delivery-actions a:not(.btn):hover {
+  text-decoration: underline;
+}
+
+.btn-whatsapp {
+  min-height: 40px;
+  padding: 8px 12px;
+  border: 1px solid #1f8f53;
+  border-radius: 12px;
+  background: #1f8f53;
+  color: var(--white);
+  font-size: 13px;
+  font-weight: 800;
+  text-decoration: none;
+}
+
+.btn-whatsapp.is-disabled {
+  cursor: not-allowed;
+  border-color: rgba(63, 111, 69, 0.22);
+  background: rgba(63, 111, 69, 0.16);
+  color: var(--green-800);
+}
+
 .product-detail-page {
   min-height: 70vh;
 }
@@ -2812,6 +2871,16 @@ body.gallery-open {
   .featured-catalog-actions {
     grid-template-columns: 1fr;
     width: 100%;
+  }
+
+  .btn-whatsapp {
+    min-height: 44px;
+  }
+
+  .product-delivery-actions a:not(.btn) {
+    min-height: 44px;
+    display: inline-flex;
+    align-items: center;
   }
 
   .featured-catalog-actions {
