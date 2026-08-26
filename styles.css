@@ -2459,6 +2459,35 @@ body.gallery-open {
   font-weight: 900;
 }
 
+.guide-card-delivery {
+  grid-column: 1 / -1;
+  background: linear-gradient(115deg, var(--green-soft), var(--white));
+}
+
+.guide-card-delivery .guide-card-body {
+  max-width: 860px;
+  padding: 30px;
+}
+
+.guide-card-delivery .eyebrow {
+  margin-bottom: 8px;
+}
+
+.guide-card-delivery h2 {
+  max-width: 680px;
+  font-size: clamp(29px, 3vw, 40px);
+}
+
+.guide-card-delivery p:not(.eyebrow) {
+  max-width: 800px;
+}
+
+.guide-card-delivery-note {
+  margin-top: 14px;
+  color: var(--heading-deep) !important;
+  font-weight: 800;
+}
+
 .article-hero {
   padding: 54px 6vw 34px;
   background: var(--sand-100);
