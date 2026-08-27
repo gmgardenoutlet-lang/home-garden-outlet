@@ -50,6 +50,7 @@ $urls = [
     sitemap_url(CATALOG_SITE_URL . '/poradnik/meble-ogrodowe-z-outletu-na-co-zwrocic-uwage/'),
     sitemap_url(CATALOG_SITE_URL . '/poradnik/dlaczego-warto-ogladac-meble-na-zywo/'),
     sitemap_url(CATALOG_SITE_URL . '/poradnik/meble-z-ekspozycji-czy-warto/'),
+    sitemap_url(CATALOG_SITE_URL . '/poradnik/zakup-produktu-outletowego-z-dostawa/'),
     sitemap_url(CATALOG_SITE_URL . '/outlet-meblowy-wroclaw/'),
     sitemap_url(CATALOG_SITE_URL . '/meble-ogrodowe-wroclaw/'),
     sitemap_url(CATALOG_SITE_URL . '/sklep/figury-ogrodowe', $lastModified),

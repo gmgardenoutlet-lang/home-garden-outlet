@@ -684,6 +684,21 @@ function productDeliveryInfo(product, detailUrl) {
       `;
 }
 
+function hydrateProductDetailDelivery() {
+  const deliveryInfo = document.querySelector("[data-product-delivery-info]");
+  if (!deliveryInfo) {
+    return;
+  }
+
+  const name = deliveryInfo.dataset.productName || "Produkt outletowy";
+  const detailUrl = deliveryInfo.dataset.productUrl || window.location.pathname;
+  const whatsappPlaceholder = deliveryInfo.querySelector("[data-product-whatsapp]");
+
+  if (whatsappPlaceholder) {
+    whatsappPlaceholder.outerHTML = productWhatsappAction({ name }, detailUrl);
+  }
+}
+
 function productTemplate(product) {
   const name = product.name || "Produkt outletowy";
   const category = getReadableCategory(product.category || "Wyposażenie ogrodu");
@@ -1207,6 +1222,7 @@ if (document.body.dataset.productSlug) {
 
 initializeGoogleReviewLinks();
 loadGoogleReviews();
+hydrateProductDetailDelivery();
 
 if (productGrid) {
   initializeDescriptionToggles();
