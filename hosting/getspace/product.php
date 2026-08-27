@@ -70,6 +70,10 @@ $saving = $catalogValue !== null && $outletValue !== null && $catalogValue > $ou
     ? round($catalogValue - $outletValue)
     : null;
 $isSold = in_array(catalog_normalize($status), ['sprzedane', 'sprzedany'], true);
+$stylesHash = is_file(__DIR__ . '/styles.css') ? @hash_file('sha256', __DIR__ . '/styles.css') : false;
+$stylesVersion = is_string($stylesHash) ? substr($stylesHash, 0, 12) : 'product-php';
+$scriptHash = is_file(__DIR__ . '/script.js') ? @hash_file('sha256', __DIR__ . '/script.js') : false;
+$scriptVersion = is_string($scriptHash) ? substr($scriptHash, 0, 12) : 'product-php';
 
 $hasOutletOffer = $outletValue !== null && $outletValue > 0;
 $productSchema = null;
@@ -128,7 +132,7 @@ $breadcrumbs = [
   <link rel="apple-touch-icon" href="/apple-touch-icon.png">
   <link rel="manifest" href="/site.webmanifest">
   <meta name="theme-color" content="#539730">
-  <link rel="stylesheet" href="/styles.css?v=20260811-footer1">
+  <link rel="stylesheet" href="/styles.css?v=<?= catalog_e($stylesVersion) ?>">
   <?php if ($productSchema !== null): ?><script type="application/ld+json"><?= json_encode($productSchema, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?></script><?php endif; ?>
   <script type="application/ld+json"><?= json_encode($breadcrumbs, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?></script>
 </head>
@@ -289,6 +293,6 @@ $breadcrumbs = [
   </footer>
 
   <nav class="mobile-sticky-cta" aria-label="Szybki kontakt"><a href="tel:+48577210777">Zadzwoń</a><a href="https://maps.app.goo.gl/SJ9LvQcub6rzQKAs5" target="_blank" rel="noopener" data-stat-event="navigation_click">Jak dojechać</a><a href="https://www.facebook.com/mgoutletpl/?locale=pl_PL" target="_blank" rel="noopener">Facebook</a></nav>
-  <script src="/script.js?v=20260627-seo1"></script>
+  <script src="/script.js?v=<?= catalog_e($scriptVersion) ?>"></script>
 </body>
 </html>
