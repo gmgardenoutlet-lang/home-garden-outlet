@@ -46,6 +46,7 @@ $urls = [
     sitemap_url(CATALOG_SITE_URL . '/ogrod', $lastModified),
     sitemap_url(CATALOG_SITE_URL . '/dom', $lastModified),
     sitemap_url(CATALOG_SITE_URL . '/poradnik/'),
+    sitemap_url(CATALOG_SITE_URL . '/poradnik/figury-i-dekoracje-w-ogrodzie-jak-je-dobrac/'),
     sitemap_url(CATALOG_SITE_URL . '/poradnik/czym-jest-outlet-meblowy/'),
     sitemap_url(CATALOG_SITE_URL . '/poradnik/meble-ogrodowe-z-outletu-na-co-zwrocic-uwage/'),
     sitemap_url(CATALOG_SITE_URL . '/poradnik/dlaczego-warto-ogladac-meble-na-zywo/'),
