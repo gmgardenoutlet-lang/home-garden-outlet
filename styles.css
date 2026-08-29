@@ -2489,7 +2489,8 @@ body.gallery-open {
 }
 
 .guide-card-media-contain img {
-  object-fit: contain;
+  object-fit: cover;
+  object-position: center top;
 }
 
 .guide-card img {
