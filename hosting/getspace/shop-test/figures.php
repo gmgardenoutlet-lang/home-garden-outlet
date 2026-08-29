@@ -113,7 +113,7 @@ $catalogBreadcrumbs = ['@context' => 'https://schema.org', '@type' => 'Breadcrum
       <p>Dekoracyjne donice ogrodowe łączą miejsce na rośliny z nietypową formą ozdoby. Uzupełniają je kule ogrodowe z ornamentem, które dobrze wyglądają przy rabatach, donicach i wejściu. Te dekoracje ogrodowe pozwalają zestawiać rośliny z rzeźbiarskimi detalami bez tworzenia osobnych, przypadkowych elementów w przestrzeni. Można wykorzystać je jako pojedynczy detal albo połączyć kilka elementów w jedną spójną aranżację.</p>
 
       <h2>Jak wybrać figurę ogrodową do swojej przestrzeni</h2>
-      <p>Warto zacząć od miejsca ekspozycji i skali otoczenia. Duża rzeźba twarzy może podkreślić otwartą część ogrodu lub taras, a mniejsze ozdoby do ogrodu sprawdzą się między roślinami albo przy wejściu. Wybierając ręcznie malowane figury ogrodowe, warto również zwrócić uwagę na ich formę i kolorystykę, aby pasowały do istniejącej aranżacji. Przed wyborem dobrze jest zestawić proporcje dekoracji z wolną przestrzenią wokół niej, tak aby całość pozostała czytelna i harmonijna.</p>
+      <p>Warto zacząć od miejsca ekspozycji i skali otoczenia. Duża rzeźba twarzy może podkreślić otwartą część ogrodu lub taras, a mniejsze ozdoby do ogrodu sprawdzą się między roślinami albo przy wejściu. Wybierając ręcznie malowane figury ogrodowe, warto również zwrócić uwagę na ich formę i kolorystykę, aby pasowały do istniejącej aranżacji. Przed wyborem dobrze jest zestawić proporcje dekoracji z wolną przestrzenią wokół niej, tak aby całość pozostała czytelna i harmonijna. Dzięki temu dekoracja będzie dobrze widoczna bez przytłaczania pozostałych elementów.</p>
     </section>
   </main>
 
