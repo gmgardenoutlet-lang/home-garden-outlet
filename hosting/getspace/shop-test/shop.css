@@ -118,6 +118,24 @@ main {
 
 .admin-ribbon-inline { margin-bottom: 6px; }
 
+.shop-breadcrumbs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  margin: 0 0 18px;
+  color: #657166;
+  font-size: 14px;
+}
+
+.shop-breadcrumbs a {
+  color: var(--green-800);
+  font-weight: 800;
+  text-decoration: none;
+}
+
+.shop-breadcrumbs a:hover { text-decoration: underline; }
+
 .shop-hero,
 .empty,
 .success-box {
@@ -305,6 +323,35 @@ main {
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 20px;
   align-items: stretch;
+}
+
+.catalogue-seo-content {
+  display: grid;
+  gap: 12px;
+  margin-top: 40px;
+  padding: clamp(26px, 4vw, 48px);
+  border: 1px solid var(--line);
+  border-radius: 28px;
+  background: rgba(255, 255, 255, .94);
+  box-shadow: var(--soft-shadow);
+}
+
+.catalogue-seo-content h2 {
+  margin: 14px 0 0;
+  color: var(--green-900);
+  font-family: "Cormorant Garamond", Georgia, serif;
+  font-size: clamp(28px, 4vw, 42px);
+  line-height: 1;
+}
+
+.catalogue-seo-content h2:first-child { margin-top: 0; }
+
+.catalogue-seo-content p {
+  max-width: 900px;
+  margin: 0;
+  color: #4f5f52;
+  font-size: 16px;
+  line-height: 1.7;
 }
 
 .shop-card {

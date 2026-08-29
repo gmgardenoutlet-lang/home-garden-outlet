@@ -24,6 +24,25 @@ $view = $product ? shop_test_public_product($product) : null;
 $publicProducts = shop_test_public_products();
 $images = $product ? shop_test_gallery($product) : ['/product-table.jpeg'];
 $galleryJson = json_encode($images, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+$productUrl = $showProduct && $view ? 'https://mgoutlet.pl' . shop_test_product_url($view['slug']) : '';
+$metaDescription = $product !== null && catalog_has_value($product['seoDescription'] ?? '') ? trim((string)$product['seoDescription']) : '';
+$mainImageUrl = preg_match('#^https?://#i', (string)$images[0]) ? (string)$images[0] : 'https://mgoutlet.pl' . shop_test_image_url((string)$images[0]);
+$productBreadcrumbs = null;
+$productSchema = null;
+if ($showProduct && $view) {
+    $productBreadcrumbs = ['@context' => 'https://schema.org', '@type' => 'BreadcrumbList', 'itemListElement' => [
+        ['@type' => 'ListItem', 'position' => 1, 'name' => 'Home', 'item' => 'https://mgoutlet.pl/'],
+        ['@type' => 'ListItem', 'position' => 2, 'name' => 'Figury ogrodowe', 'item' => 'https://mgoutlet.pl' . shop_catalog_url()],
+        ['@type' => 'ListItem', 'position' => 3, 'name' => $view['name'], 'item' => $productUrl],
+    ]];
+    if ($isAvailable && $view['canBuy'] && $view['price'] !== null) {
+        $productSchema = ['@context' => 'https://schema.org', '@type' => 'Product', 'name' => $view['name'],
+            'image' => array_map(static fn(string $image): string => preg_match('#^https?://#i', $image) ? $image : 'https://mgoutlet.pl' . shop_test_image_url($image), $images),
+            'description' => $view['shortDescription'], 'url' => $productUrl,
+            'offers' => ['@type' => 'Offer', 'url' => $productUrl, 'price' => number_format((float)$view['price'], 2, '.', ''), 'priceCurrency' => 'PLN', 'availability' => 'https://schema.org/InStock']];
+        if ($view['sku'] !== '') { $productSchema['sku'] = $view['sku']; }
+    }
+}
 $details = $product ? array_filter([
     'SKU' => $product['sku'] ?? '',
     'Materiał' => $product['material'] ?? '',
@@ -54,8 +73,17 @@ $details = $product ? array_filter([
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="robots" content="<?= $showProduct && !$isTemporarilyUnavailable ? 'index, follow' : 'noindex, follow' ?>">
-  <?php if ($showProduct && $view): ?><link rel="canonical" href="https://mgoutlet.pl<?= e(shop_test_product_url($view['slug'])) ?>"><?php endif; ?>
+  <?php if ($showProduct && $view): ?><link rel="canonical" href="<?= e($productUrl) ?>"><?php endif; ?>
   <title><?= $showProduct && $view ? e($view['name']) : 'Figura niedostępna' ?> | Home & Garden Outlet</title>
+  <?php if ($metaDescription !== ''): ?><meta name="description" content="<?= e($metaDescription) ?>"><?php endif; ?>
+  <?php if ($showProduct && $view): ?>
+    <meta property="og:title" content="<?= e($view['name']) ?> | Home &amp; Garden Outlet">
+    <meta property="og:description" content="<?= e($metaDescription !== '' ? $metaDescription : $view['shortDescription']) ?>">
+    <meta property="og:url" content="<?= e($productUrl) ?>">
+    <meta property="og:image" content="<?= e($mainImageUrl) ?>">
+    <?php if ($productSchema !== null): ?><script type="application/ld+json"><?= json_encode($productSchema, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?></script><?php endif; ?>
+    <?php if ($productBreadcrumbs !== null): ?><script type="application/ld+json"><?= json_encode($productBreadcrumbs, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?></script><?php endif; ?>
+  <?php endif; ?>
   <?php shop_test_stylesheets(); ?>
 </head>
 <body>
@@ -65,6 +93,9 @@ $details = $product ? array_filter([
     <?php if (!$showProduct || !$view): ?>
       <section class="empty"><h1>Nie znaleziono figury</h1><p>Produkt nie jest widoczny w sklepie albo został ukryty.</p><a class="btn" href="<?= e(shop_catalog_url()) ?>">Wróć</a></section>
     <?php else: ?>
+      <nav class="shop-breadcrumbs" aria-label="Okruszki">
+        <a href="/">Home</a><span aria-hidden="true">›</span><a href="<?= e(shop_catalog_url()) ?>">Figury ogrodowe</a><span aria-hidden="true">›</span><span aria-current="page"><?= e($view['name']) ?></span>
+      </nav>
       <article class="product-test">
         <section class="product-test-gallery">
           <button
