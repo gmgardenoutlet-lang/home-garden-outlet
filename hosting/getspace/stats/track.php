@@ -6,6 +6,8 @@ require_once __DIR__ . '/../lib/stats-exclusion.php';
 
 const HGO_STATS_SITE_ROOT = __DIR__ . '/..';
 const HGO_STATS_STORAGE_DIR = HGO_STATS_SITE_ROOT . '/admin/storage/stats';
+const HGO_STATS_EVENT_DIR = HGO_STATS_SITE_ROOT . '/admin/storage/events';
+const HGO_STATS_EVENT_RETENTION_DAYS = 30;
 const HGO_STATS_PRODUCTS_FILE = HGO_STATS_SITE_ROOT . '/data/products.json';
 const HGO_STATS_TIMEZONE = 'Europe/Warsaw';
 const HGO_STATS_MAX_BODY_BYTES = 2048;
@@ -91,19 +93,65 @@ function stats_request_origin_allowed(): bool
 function stats_ensure_storage(): void
 {
     $adminStorage = dirname(HGO_STATS_STORAGE_DIR);
-    foreach ([$adminStorage, HGO_STATS_STORAGE_DIR] as $directory) {
+    foreach ([$adminStorage, HGO_STATS_STORAGE_DIR, HGO_STATS_EVENT_DIR] as $directory) {
         if (!is_dir($directory)) {
             @mkdir($directory, 0750, true);
         }
     }
 
     $deny = "Options -Indexes\nRequire all denied\n";
-    foreach ([$adminStorage . '/.htaccess', HGO_STATS_STORAGE_DIR . '/.htaccess'] as $file) {
+    foreach ([$adminStorage . '/.htaccess', HGO_STATS_STORAGE_DIR . '/.htaccess', HGO_STATS_EVENT_DIR . '/.htaccess'] as $file) {
         if (!is_file($file)) {
             @file_put_contents($file, $deny, LOCK_EX);
             @chmod($file, 0640);
         }
     }
+}
+
+function stats_device_class(string $userAgent): string
+{
+    if ($userAgent === '') return 'unknown';
+    if (preg_match('/bot|crawler|spider|slurp|facebookexternalhit|bingpreview/i', $userAgent)) return 'bot';
+    if (preg_match('/ipad|tablet|kindle|silk\//i', $userAgent)) return 'tablet';
+    if (preg_match('/mobi|android|iphone|ipod/i', $userAgent)) return 'mobile';
+    return preg_match('/mozilla|chrome|safari|firefox|edg\//i', $userAgent) ? 'desktop' : 'unknown';
+}
+
+function stats_client_class(string $userAgent): string
+{
+    if ($userAgent === '') return 'unknown';
+    if (preg_match('/googlebot|bingbot|duckduckbot|yandexbot|baiduspider|facebookexternalhit/i', $userAgent)) return 'known_bot';
+    if (preg_match('/curl|wget|python-requests|axios|okhttp|postman|headless/i', $userAgent)) return 'suspected_automation';
+    return preg_match('/mozilla|chrome|safari|firefox|edg\//i', $userAgent) ? 'browser' : 'unknown';
+}
+
+function stats_event_location(?array $location): array
+{
+    return ['country' => (string)($location['country_name'] ?? 'Nieznana lokalizacja'), 'region' => (string)($location['region_name'] ?? 'Nieznana lokalizacja'), 'city' => (string)($location['city_name'] ?? 'Nieznana lokalizacja')];
+}
+
+function stats_cleanup_event_logs(): void
+{
+    $marker = HGO_STATS_EVENT_DIR . '/.cleanup-at';
+    $now = time();
+    if (is_file($marker) && $now - (int)@file_get_contents($marker) < 21600) return;
+    foreach ((array)glob(HGO_STATS_EVENT_DIR . '/*.jsonl') as $file) {
+        $name = basename($file, '.jsonl');
+        $date = DateTimeImmutable::createFromFormat('!Y-m-d', $name, new DateTimeZone(HGO_STATS_TIMEZONE));
+        if ($date && $date < stats_now()->modify('-' . HGO_STATS_EVENT_RETENTION_DAYS . ' days')->setTime(0, 0)) @unlink($file);
+    }
+    @file_put_contents($marker, (string)$now, LOCK_EX);
+    @chmod($marker, 0640);
+}
+
+function stats_append_event(string $event, string $pagePath, ?array $location): void
+{
+    $now = stats_now();
+    $record = array_merge(['timestamp' => $now->format(DateTimeInterface::ATOM), 'event_type' => $event, 'path' => $pagePath], stats_event_location($location), ['device_class' => stats_device_class((string)($_SERVER['HTTP_USER_AGENT'] ?? '')), 'client_class' => stats_client_class((string)($_SERVER['HTTP_USER_AGENT'] ?? ''))]);
+    $file = HGO_STATS_EVENT_DIR . '/' . $now->format('Y-m-d') . '.jsonl';
+    $line = json_encode($record, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+    if ($line !== false) { @file_put_contents($file, $line . PHP_EOL, FILE_APPEND | LOCK_EX); @chmod($file, 0640); }
+    stats_cleanup_event_logs();
 }
 
 function stats_normalize_path(string $path): string
@@ -358,6 +406,6 @@ if (!stats_global_rate_allowed()) {
     stats_finish(204);
 }
 
-$location = $event === 'page_view' ? geoip_lookup((string)($_SERVER['REMOTE_ADDR'] ?? '')) : null;
-stats_increment($event, $pagePath, $productSlug, $location);
+$location = geoip_lookup((string)($_SERVER['REMOTE_ADDR'] ?? ''));
+if (stats_increment($event, $pagePath, $productSlug, $event === 'page_view' ? $location : null)) stats_append_event($event, $pagePath, $location);
 stats_finish(204);

@@ -645,11 +645,19 @@ $missingFilter = trim((string)($_GET['missing'] ?? ''));
 $statsRange = normalize_stats_range((string)($_GET['range'] ?? 'today'));
 $statsTab = (string)($_GET['stats_tab'] ?? 'general') === 'locations' ? 'locations' : 'general';
 $statsProductLimit = normalize_stats_product_limit($_GET['product_limit'] ?? 10);
+$diagnosticRange = in_array((string)($_GET['event_range'] ?? 'today'), ['today', '7', '30'], true) ? (string)($_GET['event_range'] ?? 'today') : 'today';
+$diagnosticFilters = [
+    'type' => stats_event_filter((string)($_GET['event_type'] ?? ''), ['', 'page_view', 'product_view', 'other']),
+    'country' => substr(trim((string)($_GET['event_country'] ?? '')), 0, 80),
+    'city' => substr(trim((string)($_GET['event_city'] ?? '')), 0, 80),
+    'client' => stats_event_filter((string)($_GET['event_client'] ?? ''), ['', 'browser', 'known_bot', 'suspected_automation', 'unknown']),
+    'device' => stats_event_filter((string)($_GET['event_device'] ?? ''), ['', 'mobile', 'desktop', 'tablet', 'bot', 'unknown']),
+];
 $trafficChartRange = normalize_traffic_chart_range((string)($_GET['traffic_range'] ?? '28'));
 $trafficChartRangeLabels = ['7' => '7 dni', '28' => '28 dni', '90' => '3 miesiące'];
 $statsRangeLabels = ['today' => 'Dzisiaj', '7' => 'Ostatnie 7 dni', '30' => 'Ostatnie 30 dni', '90' => 'Ostatnie 90 dni'];
 $statsProductLimitLabels = [10 => 'Top 10', 25 => 'Top 25', 50 => 'Top 50'];
-$statsToday = $stats7 = $stats30 = $stats90 = $statsSelected = $statsLocations = null;
+$statsToday = $stats7 = $stats30 = $stats90 = $statsSelected = $statsLocations = $diagnosticEvents = null;
 $statsCards = [];
 $statsTopProducts = [];
 $trafficChart = $trafficChartPrevious = $trafficChartComparison = null;
@@ -737,6 +745,7 @@ if ($showStats) {
     $statsSelected = $statsRange === 'today' ? $statsToday : ($statsRange === '7' ? $stats7 : ($statsRange === '30' ? $stats30 : $stats90));
     $statsLocations = load_location_summary($statsRange);
     $statsTopProducts = array_slice($statsSelected['topProducts'] ?? [], 0, $statsProductLimit);
+    $diagnosticEvents = load_diagnostic_events($diagnosticRange, $diagnosticFilters);
     $statsCards = [
         ['label' => 'Odsłony dzisiaj', 'value' => $statsToday['totals']['page_view'] ?? 0],
         ['label' => 'Odsłony 7 dni', 'value' => $stats7['totals']['page_view'] ?? 0],
@@ -924,6 +933,7 @@ if ($showStats) {
           <script type="application/json" data-traffic-chart-data><?= json_encode(['rows' => $trafficChart['rows'], 'today' => stats_today()->format('Y-m-d')], JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_UNESCAPED_UNICODE) ?></script>
         </section>
       <?php endif; ?>
+      <details class="card stats-section traffic-data-details"><summary>Ostatnie zdarzenia diagnostyczne</summary><p class="muted">Szczegółowe dane są dostępne od momentu wdrożenia, przechowywane prywatnie maksymalnie 30 dni. Brak sesji: strona nie ma zgody analitycznej na identyfikator sesji.</p><form method="get" class="admin-filter-grid"><input type="hidden" name="stats" value="1"><input type="hidden" name="stats_tab" value="general"><select name="event_range"><option value="today" <?= $diagnosticRange === 'today' ? 'selected' : '' ?>>Dziś</option><option value="7" <?= $diagnosticRange === '7' ? 'selected' : '' ?>>7 dni</option><option value="30" <?= $diagnosticRange === '30' ? 'selected' : '' ?>>30 dni</option></select><select name="event_type"><option value="">Wszystkie typy</option><option value="page_view" <?= $diagnosticFilters['type'] === 'page_view' ? 'selected' : '' ?>>page_view</option><option value="product_view" <?= $diagnosticFilters['type'] === 'product_view' ? 'selected' : '' ?>>product_view</option><option value="other" <?= $diagnosticFilters['type'] === 'other' ? 'selected' : '' ?>>Pozostałe</option></select><input name="event_country" value="<?= e($diagnosticFilters['country']) ?>" placeholder="Kraj"><input name="event_city" value="<?= e($diagnosticFilters['city']) ?>" placeholder="Miasto"><select name="event_client"><option value="">Każdy klient</option><?php foreach (['browser', 'known_bot', 'suspected_automation', 'unknown'] as $value): ?><option value="<?= e($value) ?>" <?= $diagnosticFilters['client'] === $value ? 'selected' : '' ?>><?= e($value) ?></option><?php endforeach; ?></select><select name="event_device"><option value="">Każde urządzenie</option><?php foreach (['mobile', 'desktop', 'tablet', 'bot', 'unknown'] as $value): ?><option value="<?= e($value) ?>" <?= $diagnosticFilters['device'] === $value ? 'selected' : '' ?>><?= e($value) ?></option><?php endforeach; ?></select><button class="btn btn-small" type="submit">Filtruj</button></form><div class="table-wrap"><table class="stats-table"><thead><tr><th>Czas</th><th>Typ</th><th>Ścieżka</th><th>Kraj</th><th>Region</th><th>Miasto</th><th>Urządzenie</th><th>Klient</th><th>Sesja</th></tr></thead><tbody><?php foreach (($diagnosticEvents ?: []) as $event): ?><tr><td><?= e(date('d.m.Y H:i:s', strtotime((string)$event['timestamp']))) ?></td><td><code><?= e((string)$event['event_type']) ?></code></td><td><code><?= e((string)$event['path']) ?></code></td><td><?= e((string)$event['country']) ?></td><td><?= e((string)$event['region']) ?></td><td><?= e((string)$event['city']) ?></td><td><?= e((string)$event['device_class']) ?></td><td><?= e((string)$event['client_class']) ?></td><td>—</td></tr><?php endforeach; ?><?php if (empty($diagnosticEvents)): ?><tr><td colspan="9">Brak szczegółowych zdarzeń dla wybranych filtrów.</td></tr><?php endif; ?></tbody></table></div><p class="muted">Klasyfikacja klienta i urządzenia jest orientacyjna; nie stanowi pewnego rozpoznania automatyzacji.</p></details>
       <section class="stats-grid">
         <?php foreach ($statsCards as $card): ?>
           <article class="stat-card">

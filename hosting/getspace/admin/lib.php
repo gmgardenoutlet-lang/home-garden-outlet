@@ -9,6 +9,7 @@ define('STORAGE_DIR', getenv('HGO_STORAGE_DIR') ?: __DIR__ . '/storage');
 define('PRODUCT_IMAGE_DRAFT_DIR', STORAGE_DIR . '/product-image-drafts');
 define('BACKUP_DIR', STORAGE_DIR . '/backups');
 define('STATS_DIR', STORAGE_DIR . '/stats');
+define('STATS_EVENT_DIR', STORAGE_DIR . '/events');
 define('ORDERS_DIR', STORAGE_DIR . '/orders');
 const STATS_TIMEZONE = 'Europe/Warsaw';
 const CREDENTIALS_FILE = __DIR__ . '/.credentials.php';
@@ -989,6 +990,34 @@ function traffic_chart_comparison(array $current, array $previous): array
         ];
     }
     return $result;
+}
+
+function stats_event_filter(string $value, array $allowed): string
+{
+    return in_array($value, $allowed, true) ? $value : '';
+}
+
+function load_diagnostic_events(string $range, array $filters = []): array
+{
+    $days = $range === '30' ? 30 : ($range === '7' ? 7 : 1);
+    $today = stats_today(); $events = [];
+    for ($offset = 0; $offset < $days; $offset++) {
+        $file = STATS_EVENT_DIR . '/' . $today->modify('-' . $offset . ' days')->format('Y-m-d') . '.jsonl';
+        if (!is_file($file)) continue;
+        foreach (file($file, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES) ?: [] as $line) {
+            $row = json_decode($line, true);
+            if (!is_array($row) || !preg_match('/^\d{4}-\d{2}-\d{2}T/', (string)($row['timestamp'] ?? ''))) continue;
+            $match = true;
+            foreach (['event_type' => 'type', 'country' => 'country', 'city' => 'city', 'client_class' => 'client', 'device_class' => 'device'] as $field => $filter) {
+                $wanted = (string)($filters[$filter] ?? ''); $actual = (string)($row[$field] ?? '');
+                if ($filter === 'type' && $wanted === 'other') { if (in_array($actual, ['page_view', 'product_view'], true)) $match = false; }
+                elseif ($wanted !== '' && $actual !== $wanted) $match = false;
+            }
+            if ($match) $events[] = $row;
+        }
+    }
+    usort($events, static fn(array $a, array $b): int => strcmp((string)$b['timestamp'], (string)$a['timestamp']));
+    return array_slice($events, 0, 200);
 }
 
 function load_stats_summary(string $range, array $catalog): array
