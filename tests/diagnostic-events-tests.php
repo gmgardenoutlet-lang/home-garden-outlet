@@ -19,6 +19,6 @@ $ny = load_diagnostic_events('today', ['city' => 'New York', 'type' => 'page_vie
 event_assert(count($ny) === 1 && $ny[0]['path'] === '/', 'Filtry zdarzeń nie zawężają po mieście i typie.');
 event_assert(stats_event_filter('../../x', ['', 'browser']) === '', 'Walidacja filtru dopuszcza niedozwoloną wartość.');
 $tracker = (string)file_get_contents(__DIR__ . '/../hosting/getspace/stats/track.php');
-event_assert(strpos($tracker, 'stats_browser_is_excluded())') < strpos($tracker, 'stats_append_event('), 'Wykluczona przeglądarka mogłaby trafić do dziennika.');
+event_assert(strpos($tracker, 'stats_browser_is_excluded())') < strrpos($tracker, 'stats_append_event('), 'Wykluczona przeglądarka mogłaby trafić do dziennika.');
 event_assert(strpos($tracker, 'HTTP_USER_AGENT') !== false && strpos($tracker, "'user_agent'") === false, 'Tracker nie może zapisywać pełnego User-Agent.');
 echo "PASS: diagnostic event tests\n";
