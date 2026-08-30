@@ -921,6 +921,76 @@ function stats_today(): DateTimeImmutable
     return new DateTimeImmutable('today', new DateTimeZone(STATS_TIMEZONE));
 }
 
+function normalize_traffic_chart_range(string $range): string
+{
+    return in_array($range, ['7', '28', '90'], true) ? $range : '28';
+}
+
+function traffic_chart_range_days(string $range): int
+{
+    return (int)normalize_traffic_chart_range($range);
+}
+
+/**
+ * Returns daily, private statistics for the authenticated admin view only.
+ * A missing file remains unavailable (null values); a valid file with no
+ * events is represented as zero. This deliberately never alters storage.
+ */
+function load_daily_traffic(string $range, ?DateTimeImmutable $endDate = null): array
+{
+    $range = normalize_traffic_chart_range($range);
+    $days = traffic_chart_range_days($range);
+    $endDate = $endDate ?: stats_today();
+    $rows = [];
+    $totals = ['page_view' => 0, 'product_view' => 0];
+    $daysWithData = 0;
+
+    for ($offset = $days - 1; $offset >= 0; $offset--) {
+        $date = $endDate->modify('-' . $offset . ' days')->format('Y-m-d');
+        $file = STATS_DIR . '/' . $date . '.json';
+        $row = ['date' => $date, 'page_view' => null, 'product_view' => null, 'available' => false];
+        if (is_file($file)) {
+            $day = json_decode((string)file_get_contents($file), true);
+            if (is_array($day) && ($day['date'] ?? $date) === $date) {
+                $row['page_view'] = safe_stat_int($day['totals']['page_view'] ?? 0);
+                $row['product_view'] = safe_stat_int($day['totals']['product_view'] ?? 0);
+                $row['available'] = true;
+                $daysWithData++;
+                $totals['page_view'] += $row['page_view'];
+                $totals['product_view'] += $row['product_view'];
+            }
+        }
+        $rows[] = $row;
+    }
+
+    return [
+        'range' => $range,
+        'days' => $days,
+        'daysWithData' => $daysWithData,
+        'complete' => $daysWithData === $days,
+        'totals' => $totals,
+        'rows' => $rows,
+    ];
+}
+
+function traffic_chart_comparison(array $current, array $previous): array
+{
+    $result = [];
+    foreach (['page_view', 'product_view'] as $metric) {
+        $currentValue = safe_stat_int($current['totals'][$metric] ?? 0);
+        $previousValue = safe_stat_int($previous['totals'][$metric] ?? 0);
+        $available = !empty($current['complete']) && !empty($previous['complete']);
+        $result[$metric] = [
+            'available' => $available,
+            'previous' => $previousValue,
+            'changePercent' => $available && $previousValue > 0
+                ? round((($currentValue - $previousValue) / $previousValue) * 100, 1)
+                : null,
+        ];
+    }
+    return $result;
+}
+
 function load_stats_summary(string $range, array $catalog): array
 {
     $range = normalize_stats_range($range);

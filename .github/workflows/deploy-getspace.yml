@@ -51,6 +51,7 @@ jobs:
           php tests/admin-figure-entry-tests.php
           php tests/location-stats-tests.php
           php tests/stats-browser-exclusion-http-tests.php
+          php tests/traffic-chart-stats-tests.php
           php -m | grep -qi '^zip$'
 
       - name: Przygotuj paczkę Getspace

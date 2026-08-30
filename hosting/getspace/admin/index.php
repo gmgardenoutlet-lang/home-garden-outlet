@@ -645,11 +645,14 @@ $missingFilter = trim((string)($_GET['missing'] ?? ''));
 $statsRange = normalize_stats_range((string)($_GET['range'] ?? 'today'));
 $statsTab = (string)($_GET['stats_tab'] ?? 'general') === 'locations' ? 'locations' : 'general';
 $statsProductLimit = normalize_stats_product_limit($_GET['product_limit'] ?? 10);
+$trafficChartRange = normalize_traffic_chart_range((string)($_GET['traffic_range'] ?? '28'));
+$trafficChartRangeLabels = ['7' => '7 dni', '28' => '28 dni', '90' => '3 miesiące'];
 $statsRangeLabels = ['today' => 'Dzisiaj', '7' => 'Ostatnie 7 dni', '30' => 'Ostatnie 30 dni', '90' => 'Ostatnie 90 dni'];
 $statsProductLimitLabels = [10 => 'Top 10', 25 => 'Top 25', 50 => 'Top 50'];
 $statsToday = $stats7 = $stats30 = $stats90 = $statsSelected = $statsLocations = null;
 $statsCards = [];
 $statsTopProducts = [];
+$trafficChart = $trafficChartPrevious = $trafficChartComparison = null;
 $googleConfig = load_google_business_config();
 $googleConfigStatus = google_business_config_status($googleConfig);
 $shopOrders = $showOrders ? shop_load_orders() : [];
@@ -744,6 +747,9 @@ if ($showStats) {
         ['label' => 'Nawigacja dzisiaj', 'value' => $statsToday['totals']['navigation_click'] ?? 0],
         ['label' => 'SMS dzisiaj', 'value' => $statsToday['totals']['sms_click'] ?? 0],
     ];
+    $trafficChart = load_daily_traffic($trafficChartRange);
+    $trafficChartPrevious = load_daily_traffic($trafficChartRange, stats_today()->modify('-' . traffic_chart_range_days($trafficChartRange) . ' days'));
+    $trafficChartComparison = traffic_chart_comparison($trafficChart, $trafficChartPrevious);
 }
 ?>
 <!DOCTYPE html>
@@ -893,6 +899,31 @@ if ($showStats) {
       </section>
 
       <?php if ($statsTab === 'general'): ?>
+      <?php if ($trafficChart !== null): ?>
+        <section class="card stats-section traffic-chart-card" data-traffic-chart>
+          <div class="section-head traffic-chart-head"><div><p class="muted">Rzeczywiste dane dzienne · <?= e($trafficChartRangeLabels[$trafficChartRange]) ?></p><h2>Ruch na stronie</h2></div></div>
+          <nav class="range-switch" aria-label="Zakres wykresu ruchu">
+            <?php foreach ($trafficChartRangeLabels as $rangeKey => $rangeLabel): ?>
+              <a class="<?= $trafficChartRange === $rangeKey ? 'active' : '' ?>" href="/admin/?stats=1&amp;stats_tab=general&amp;range=<?= e($statsRange) ?>&amp;product_limit=<?= e((string)$statsProductLimit) ?>&amp;traffic_range=<?= e($rangeKey) ?>"><?= e($rangeLabel) ?></a>
+            <?php endforeach; ?>
+          </nav>
+          <div class="traffic-summary-grid">
+            <?php foreach (['page_view' => 'Odsłony stron', 'product_view' => 'Wyświetlenia produktów'] as $metric => $label): $comparison = $trafficChartComparison[$metric]; ?>
+              <article><span><?= e($label) ?></span><strong><?= e(number_format((int)$trafficChart['totals'][$metric], 0, ',', ' ')) ?></strong><small><?= $comparison['available'] && $comparison['changePercent'] !== null ? e(($comparison['changePercent'] > 0 ? '+' : '') . number_format($comparison['changePercent'], 1, ',', ' ') . '% vs poprzedni okres') : 'Brak danych do porównania' ?></small></article>
+            <?php endforeach; ?>
+            <article><span>Średnio dziennie</span><strong><?= $trafficChart['daysWithData'] > 0 ? e(number_format($trafficChart['totals']['page_view'] / $trafficChart['daysWithData'], 1, ',', ' ')) : '—' ?></strong><small>Odsłony stron</small></article>
+          </div>
+          <p class="muted stats-note">Odsłony stron oznaczają zarejestrowane zdarzenia <code>page_view</code>. Nie są to unikalni użytkownicy ani sesje.</p>
+          <div class="traffic-controls" aria-label="Serie wykresu">
+            <label><input type="checkbox" data-traffic-series="page_view" checked> Odsłony stron</label>
+            <label><input type="checkbox" data-traffic-series="product_view"> Wyświetlenia produktów</label>
+            <label><input type="checkbox" data-traffic-average> Średnia 7-dniowa</label>
+          </div>
+          <div class="traffic-chart-wrap"><svg class="traffic-chart" viewBox="0 0 900 320" role="img" aria-label="Wykres dzienny ruchu"></svg><div class="traffic-tooltip" hidden></div></div>
+          <details class="traffic-data-details"><summary>Pokaż dane dzienne</summary><div class="table-wrap"><table class="stats-table"><thead><tr><th>Data</th><th>Odsłony stron</th><th>Wyświetlenia produktów</th></tr></thead><tbody><?php foreach ($trafficChart['rows'] as $row): ?><tr><td><?= e(date('d.m.Y', strtotime((string)$row['date']))) ?><?= $row['date'] === stats_today()->format('Y-m-d') ? ' · dziś — dzień w toku' : '' ?></td><td><?= $row['available'] ? e(number_format((int)$row['page_view'], 0, ',', ' ')) : 'Brak danych' ?></td><td><?= $row['available'] ? e(number_format((int)$row['product_view'], 0, ',', ' ')) : 'Brak danych' ?></td></tr><?php endforeach; ?></tbody></table></div></details>
+          <script type="application/json" data-traffic-chart-data><?= json_encode(['rows' => $trafficChart['rows'], 'today' => stats_today()->format('Y-m-d')], JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_UNESCAPED_UNICODE) ?></script>
+        </section>
+      <?php endif; ?>
       <section class="stats-grid">
         <?php foreach ($statsCards as $card): ?>
           <article class="stat-card">

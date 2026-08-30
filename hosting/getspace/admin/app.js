@@ -69,6 +69,54 @@ document.querySelectorAll("[data-copy-target]").forEach((button) => {
 })();
 
 (() => {
+  const root = document.querySelector("[data-traffic-chart]");
+  if (!root) return;
+  const source = root.querySelector("[data-traffic-chart-data]");
+  const svg = root.querySelector(".traffic-chart");
+  const tooltip = root.querySelector(".traffic-tooltip");
+  if (!(source instanceof HTMLScriptElement) || !(svg instanceof SVGElement) || !(tooltip instanceof HTMLElement)) return;
+  let data;
+  try { data = JSON.parse(source.textContent || "{}"); } catch (_) { return; }
+  const rows = Array.isArray(data.rows) ? data.rows : [];
+  const toggles = [...root.querySelectorAll("[data-traffic-series], [data-traffic-average]")];
+  const ns = "http://www.w3.org/2000/svg";
+  const chart = { width: 900, height: 320, left: 54, right: 18, top: 18, bottom: 42 };
+  const formatDate = (value) => value ? value.slice(8, 10) + "." + value.slice(5, 7) + "." + value.slice(0, 4) : "";
+  const element = (name, attrs = {}, text = "") => { const node = document.createElementNS(ns, name); Object.entries(attrs).forEach(([key, value]) => node.setAttribute(key, String(value))); node.textContent = text; return node; };
+  const movingAverage = () => rows.map((row, index) => {
+    const sample = rows.slice(Math.max(0, index - 6), index + 1).map((item) => item.page_view).filter((value) => Number.isFinite(value));
+    return sample.length ? sample.reduce((sum, value) => sum + value, 0) / sample.length : null;
+  });
+  const render = () => {
+    const pageEnabled = root.querySelector('[data-traffic-series="page_view"]')?.checked;
+    const productEnabled = root.querySelector('[data-traffic-series="product_view"]')?.checked;
+    const averageEnabled = root.querySelector('[data-traffic-average]')?.checked;
+    const average = movingAverage();
+    const visible = [];
+    if (pageEnabled) visible.push(...rows.map((row) => row.page_view));
+    if (productEnabled) visible.push(...rows.map((row) => row.product_view));
+    if (averageEnabled && pageEnabled) visible.push(...average);
+    const max = Math.max(1, ...visible.filter(Number.isFinite));
+    const top = Math.ceil(max / 5) * 5 || 1;
+    const plotWidth = chart.width - chart.left - chart.right, plotHeight = chart.height - chart.top - chart.bottom;
+    const x = (index) => chart.left + (rows.length < 2 ? plotWidth / 2 : (index / (rows.length - 1)) * plotWidth);
+    const y = (value) => chart.top + plotHeight - (value / top) * plotHeight;
+    svg.replaceChildren();
+    for (let step = 0; step <= 4; step++) { const value = Math.round((top / 4) * step); const pointY = y(value); svg.append(element("line", { x1: chart.left, x2: chart.width - chart.right, y1: pointY, y2: pointY, class: "grid" })); svg.append(element("text", { x: chart.left - 8, y: pointY + 4, "text-anchor": "end", class: "axis-label" }, value)); }
+    const labelEvery = rows.length <= 7 ? 1 : rows.length <= 28 ? 4 : 14;
+    rows.forEach((row, index) => { if (index % labelEvery === 0 || index === rows.length - 1) svg.append(element("text", { x: x(index), y: chart.height - 14, "text-anchor": index === rows.length - 1 ? "end" : "middle", class: "axis-label" }, row.date ? row.date.slice(8, 10) + "." + row.date.slice(5, 7) : "—")); });
+    const drawSeries = (values, className, points) => { let segment = []; const flush = () => { if (segment.length > 1) svg.append(element("polyline", { points: segment.map((point) => point.join(",")).join(" "), class: className })); segment = []; }; values.forEach((value, index) => { if (!Number.isFinite(value)) { flush(); return; } segment.push([x(index), y(value)]); if (points) svg.append(element("circle", { cx: x(index), cy: y(value), r: 3.8, class: "point", fill: points })); }); flush(); };
+    if (pageEnabled) drawSeries(rows.map((row) => row.page_view), "line-page", "#1e6b45");
+    if (productEnabled) drawSeries(rows.map((row) => row.product_view), "line-product", "#c27724");
+    if (averageEnabled && pageEnabled) drawSeries(average, "line-average");
+    const show = (event) => { const bounds = svg.getBoundingClientRect(); const index = Math.max(0, Math.min(rows.length - 1, Math.round(((event.clientX - bounds.left) / bounds.width) * Math.max(rows.length - 1, 0)))); const row = rows[index]; if (!row) return; const lines = [formatDate(row.date) + (row.date === data.today ? " · dzisiaj — dzień w toku" : "")]; if (pageEnabled) lines.push("Odsłony stron: " + (Number.isFinite(row.page_view) ? row.page_view : "brak danych")); if (productEnabled) lines.push("Wyświetlenia produktów: " + (Number.isFinite(row.product_view) ? row.product_view : "brak danych")); tooltip.innerHTML = lines.map((line) => "<div>" + line + "</div>").join(""); tooltip.hidden = false; tooltip.style.left = Math.min(root.clientWidth - 238, Math.max(8, event.clientX - bounds.left + 12)) + "px"; tooltip.style.top = "16px"; };
+    svg.onpointermove = show; svg.onpointerleave = () => { tooltip.hidden = true; };
+  };
+  toggles.forEach((toggle) => toggle.addEventListener("change", render));
+  render();
+})();
+
+(() => {
   const googleText = document.getElementById("googleText");
   if (!(googleText instanceof HTMLTextAreaElement)) return;
 
