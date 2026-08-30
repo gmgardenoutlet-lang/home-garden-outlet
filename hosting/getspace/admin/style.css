@@ -321,7 +321,8 @@ input:focus, textarea:focus, select:focus { outline: 3px solid rgba(63, 111, 69,
 .traffic-chart .line-page { fill: none; stroke: #1e6b45; stroke-width: 3; stroke-linejoin: round; stroke-linecap: round; }
 .traffic-chart .line-product { fill: none; stroke: #c27724; stroke-width: 3; stroke-linejoin: round; stroke-linecap: round; }
 .traffic-chart .line-average { fill: none; stroke: #547b9c; stroke-width: 2; stroke-dasharray: 6 5; }
-.traffic-chart .point { stroke: #fff; stroke-width: 2; }
+.traffic-chart .point { stroke: #fff; stroke-width: 2.5; filter: drop-shadow(0 1px 1px rgba(23, 61, 42, .28)); }
+.traffic-chart .hover-guide { stroke: #547b9c; stroke-width: 1.5; stroke-dasharray: 4 4; pointer-events: none; }
 .traffic-tooltip { position: absolute; z-index: 2; max-width: 230px; padding: 10px 12px; border-radius: 10px; background: #173d2a; color: #fff; box-shadow: var(--shadow); font-size: 13px; line-height: 1.45; pointer-events: none; }
 .traffic-data-details { margin-top: 14px; }
 .traffic-data-details summary { cursor: pointer; color: var(--green-900); font-weight: 800; }
