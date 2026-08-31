@@ -506,6 +506,11 @@ if (!$setupRequired && is_logged_in() && ($_GET['download'] ?? '') === 'products
     exit;
 }
 
+if (!$setupRequired && is_logged_in() && ($_GET['export_events'] ?? '') === '1') {
+    require __DIR__ . '/export-events.php';
+    exit;
+}
+
 $flashes = pull_flashes();
 
 if ($setupRequired || !is_logged_in()) {
