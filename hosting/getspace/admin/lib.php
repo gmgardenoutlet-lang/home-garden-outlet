@@ -1319,6 +1319,15 @@ function shop_producer_whatsapp_message(array $order, ?array $catalog = null): a
     return ['message' => implode("\n\n", $lines), 'warnings' => $warnings];
 }
 
+function shop_producer_whatsapp_message_url(string $number, string $message): ?string
+{
+    $number = shop_producer_whatsapp_number($number);
+    if ($number === '') {
+        return null;
+    }
+    return 'https://wa.me/' . $number . '?text=' . rawurlencode($message);
+}
+
 function shop_producer_whatsapp_url(array $order, string $recipientKey): ?string
 {
     $recipient = shop_producer_whatsapp_recipients()[$recipientKey] ?? null;
@@ -1326,7 +1335,7 @@ function shop_producer_whatsapp_url(array $order, string $recipientKey): ?string
         return null;
     }
     $payload = shop_producer_whatsapp_message($order);
-    return 'https://wa.me/' . $recipient['number'] . '?text=' . rawurlencode($payload['message']);
+    return shop_producer_whatsapp_message_url($recipient['number'], $payload['message']);
 }
 
 function shop_mark_producer_handed_off(string $orderId, string $recipientKey, string $administrator): void

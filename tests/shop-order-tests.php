@@ -442,6 +442,9 @@ foreach (['Jan', 'Kowalski', 'jan@example.test', 'Testowa 1', '00-001', 'Warszaw
     test_assert(!str_contains($producerMessage, $forbidden), 'Wiadomość producenta ujawnia dane klienta lub cenę: ' . $forbidden);
 }
 test_assert(str_contains(rawurlencode($producerMessage), '%C3%97') && str_contains(rawurlencode('Żółć i spacja'), '%C5%BB%C3%B3%C5%82%C4%87%20i%20spacja'), 'Kodowanie UTF-8 dla WhatsApp jest nieprawidłowe.');
+$producerWhatsAppUrl = shop_producer_whatsapp_message_url('48600402939', $producerMessage);
+test_assert($producerWhatsAppUrl === 'https://wa.me/48600402939?text=' . rawurlencode($producerMessage), 'Link WhatsApp producenta nie używa poprawnego numeru i zakodowanej wiadomości.');
+test_assert(shop_producer_whatsapp_message_url('nieprawidlowy', $producerMessage) === null, 'Nieprawidłowy numer producenta wygenerował link WhatsApp.');
 $missingProducerProduct = $producerOrder;
 $missingProducerProduct['items'][0]['productId'] = 'usuniety-produkt';
 test_throws(static fn() => shop_producer_whatsapp_message($missingProducerProduct, $producerCatalog), 'Produkt bez publicznego URL wygenerował zmyślony link.');

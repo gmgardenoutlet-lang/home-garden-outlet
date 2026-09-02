@@ -1148,7 +1148,14 @@ if ($showStats) {
                     $producerRecipients = shop_producer_whatsapp_recipients();
                     $producerMessage = null;
                     $producerMessageError = '';
-                    try { $producerMessage = shop_producer_whatsapp_message($order); }
+                    try {
+                      $producerMessage = shop_producer_whatsapp_message($order);
+                      foreach ($producerRecipients as $recipientKey => $recipient) {
+                        $producerRecipients[$recipientKey]['url'] = $recipient['number'] === ''
+                          ? null
+                          : shop_producer_whatsapp_message_url($recipient['number'], $producerMessage['message']);
+                      }
+                    }
                     catch (Throwable $exception) { $producerMessageError = $exception->getMessage(); }
                     $producerHandoff = is_array($order['producerHandoff'] ?? null) ? $order['producerHandoff'] : [];
                   ?>
@@ -1165,7 +1172,7 @@ if ($showStats) {
                           <?php if ($recipient['number'] === ''): ?>
                             <p class="muted">Numer nie jest jeszcze skonfigurowany.</p>
                           <?php else: ?>
-                            <a class="btn btn-small" href="<?= e(shop_producer_whatsapp_url($order, $recipientKey) ?? '#') ?>" target="_blank" rel="noopener">Otwórz WhatsApp</a>
+                            <a class="btn btn-small" href="<?= e((string)($recipient['url'] ?? '#')) ?>" target="_blank" rel="noopener">Otwórz WhatsApp</a>
                           <?php endif; ?>
                           <?php if (!empty($handoff['handedOffAt'])): ?>
                             <p class="producer-status">Przekazano ręcznie: <?= e(admin_order_date_label((string)$handoff['handedOffAt'])) ?></p>
