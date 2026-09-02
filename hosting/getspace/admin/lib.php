@@ -26,6 +26,8 @@ const MAX_PRODUCT_DRAFT_JSON_BYTES = 256 * 1024;
 
 require_once SITE_ROOT . '/lib/geoip.php';
 require_once SITE_ROOT . '/lib/stats-exclusion.php';
+require_once SITE_ROOT . '/catalog.php';
+require_once __DIR__ . '/../shop-test/config.php';
 
 if (!function_exists('str_contains')) {
     function str_contains(string $haystack, string $needle): bool
@@ -1234,6 +1236,121 @@ function shop_send_order_emails(array $order, ?callable $mailer = null): array
         $result['admin'] = $mailer('biuro@mgoutlet.pl', 'Nowe zamówienie ' . ($order['orderId'] ?? ''), $body, $headers);
     }
     return $result;
+}
+
+function shop_producer_whatsapp_recipients(): array
+{
+    return [
+        '1' => ['label' => 'Numer 1', 'number' => shop_producer_whatsapp_number(HGO_WHATSAPP_PRODUCER_1)],
+        '2' => ['label' => 'Numer 2', 'number' => shop_producer_whatsapp_number(HGO_WHATSAPP_PRODUCER_2)],
+    ];
+}
+
+function shop_order_is_paid(array $order): bool
+{
+    return in_array((string)($order['paymentStatus'] ?? ''), ['confirmed', 'paid'], true)
+        || in_array((string)($order['orderStatus'] ?? $order['status'] ?? ''), ['paid', 'Opłacone'], true);
+}
+
+function shop_producer_whatsapp_number(string $number): string
+{
+    $number = preg_replace('/[^0-9]/', '', $number) ?: '';
+    return preg_match('/^[1-9][0-9]{6,14}$/', $number) === 1 ? $number : '';
+}
+
+function shop_figure_product_url(string $slug): string
+{
+    return '/sklep/figury-ogrodowe/produkt/' . rawurlencode(clean_filename($slug));
+}
+
+function shop_producer_product_url(array $item, ?array $catalog = null): ?string
+{
+    $productId = clean_filename((string)($item['productId'] ?? $item['slug'] ?? ''));
+    if ($productId === '' || $productId === 'produkt') {
+        return null;
+    }
+
+    $catalog ??= load_catalog();
+    foreach (($catalog['products'] ?? []) as $product) {
+        if (!is_array($product)) {
+            continue;
+        }
+        $product = array_merge(product_defaults(), $product);
+        $storedSlug = (string)($product['slug'] ?? '');
+        $productSlug = clean_filename($storedSlug !== '' ? $storedSlug : (string)$product['name']);
+        if ($productSlug !== $productId || !catalog_is_figure_shop_product($product)) {
+            continue;
+        }
+        if (catalog_normalize((string)($product['productStatus'] ?? '')) === 'ukryty') {
+            return null;
+        }
+        return 'https://mgoutlet.pl' . shop_figure_product_url($productSlug);
+    }
+    return null;
+}
+
+function shop_producer_whatsapp_message(array $order, ?array $catalog = null): array
+{
+    $orderId = shop_safe_order_id((string)($order['orderId'] ?? ''));
+    if ($orderId === '') {
+        throw new RuntimeException('Zamówienie nie ma prawidłowego numeru.');
+    }
+
+    $lines = ['ZAMÓWIENIE ' . $orderId];
+    $warnings = [];
+    foreach ((array)($order['items'] ?? []) as $item) {
+        if (!is_array($item)) {
+            $warnings[] = 'Nie można odczytać jednej z pozycji zamówienia.';
+            continue;
+        }
+        $name = trim((string)($item['name'] ?? 'Produkt'));
+        $quantity = filter_var($item['quantity'] ?? null, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]);
+        $url = shop_producer_product_url($item, $catalog);
+        if ($quantity === false || $url === null) {
+            $warnings[] = 'Nie można ustalić publicznego linku dla produktu: ' . ($name !== '' ? $name : 'bez nazwy') . '.';
+            continue;
+        }
+        $lines[] = $quantity . ' × ' . ($name !== '' ? $name : 'Produkt') . "\n" . $url;
+    }
+
+    if (count($lines) === 1) {
+        throw new RuntimeException('Zamówienie nie zawiera pozycji z prawidłowym publicznym linkiem do produktu.');
+    }
+    return ['message' => implode("\n\n", $lines), 'warnings' => $warnings];
+}
+
+function shop_producer_whatsapp_url(array $order, string $recipientKey): ?string
+{
+    $recipient = shop_producer_whatsapp_recipients()[$recipientKey] ?? null;
+    if (!is_array($recipient) || $recipient['number'] === '') {
+        return null;
+    }
+    $payload = shop_producer_whatsapp_message($order);
+    return 'https://wa.me/' . $recipient['number'] . '?text=' . rawurlencode($payload['message']);
+}
+
+function shop_mark_producer_handed_off(string $orderId, string $recipientKey, string $administrator): void
+{
+    $order = shop_load_order($orderId);
+    if (!$order) {
+        throw new RuntimeException('Nie znaleziono zamówienia.');
+    }
+    if (!shop_order_is_paid($order)) {
+        throw new RuntimeException('Do producenta można przekazać wyłącznie opłacone zamówienie.');
+    }
+    $recipient = shop_producer_whatsapp_recipients()[$recipientKey] ?? null;
+    if (!is_array($recipient) || $recipient['number'] === '') {
+        throw new RuntimeException('Nieprawidłowy odbiorca producenta.');
+    }
+    shop_producer_whatsapp_message($order);
+    $now = (new DateTimeImmutable('now', new DateTimeZone(STATS_TIMEZONE)))->format(DATE_ATOM);
+    $order['producerHandoff'] ??= [];
+    $order['producerHandoff'][$recipientKey] = [
+        'handedOffAt' => $now,
+        'handedOffBy' => $administrator !== '' ? $administrator : 'administrator',
+    ];
+    $order['updatedAt'] = $now;
+    shop_save_order($order);
 }
 
 function shop_delivery_labels(): array

@@ -40,6 +40,10 @@ define('PAYNOW_ENABLED', filter_var(hgo_paynow_config('HGO_PAYNOW_ENABLED', 'fal
 define('PAYNOW_ENV', hgo_paynow_config('HGO_PAYNOW_ENV', 'sandbox'));
 define('PAYNOW_API_KEY', hgo_paynow_config('HGO_PAYNOW_API_KEY'));
 define('PAYNOW_SIGNATURE_KEY', hgo_paynow_config('HGO_PAYNOW_SIGNATURE_KEY'));
+// Numery producentów są opcjonalne. Ustaw je wyłącznie w zmiennych środowiskowych
+// albo w prywatnym pliku .hgo-private/paynow.php poza katalogiem publicznym.
+define('HGO_WHATSAPP_PRODUCER_1', hgo_paynow_config('HGO_WHATSAPP_PRODUCER_1'));
+define('HGO_WHATSAPP_PRODUCER_2', hgo_paynow_config('HGO_WHATSAPP_PRODUCER_2'));
 define('SHOP_ALLOWED_COUNTRIES', [
     'PL' => ['name' => 'Polska', 'callingCode' => '48'],
     'DE' => ['name' => 'Niemcy', 'callingCode' => '49'],

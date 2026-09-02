@@ -47,8 +47,7 @@ function admin_payment_status_label(string $status): string
 
 function admin_order_is_paid(array $order): bool
 {
-    return in_array((string)($order['paymentStatus'] ?? ''), ['confirmed', 'paid'], true)
-        || admin_order_status_key((string)($order['orderStatus'] ?? $order['status'] ?? '')) === 'paid';
+    return shop_order_is_paid($order) || admin_order_status_key((string)($order['orderStatus'] ?? $order['status'] ?? '')) === 'paid';
 }
 
 function admin_order_is_archived(array $order): bool
@@ -246,6 +245,11 @@ try {
         if ($action === 'mark_bank_transfer_paid') {
             $changed = shop_mark_bank_transfer_paid(post_text('order_id'), (string)($_SESSION['admin_username'] ?? 'administrator'));
             flash('success', $changed ? 'Płatność przelewem oznaczono jako otrzymaną.' : 'Płatność była już oznaczona jako otrzymana.');
+            redirect_admin('orders=1');
+        }
+        if ($action === 'mark_producer_handoff') {
+            shop_mark_producer_handed_off(post_text('order_id'), post_text('recipient'), (string)($_SESSION['admin_username'] ?? 'administrator'));
+            flash('success', 'Przekazanie zamówienia producentowi zostało oznaczone ręcznie.');
             redirect_admin('orders=1');
         }
         if ($action === 'set_item_shipping_quote') {
@@ -1134,6 +1138,55 @@ if ($showStats) {
                   </tbody>
                 </table>
               </div>
+
+              <section class="producer-handoff" aria-label="Przekazanie do producenta">
+                <h3>Producent</h3>
+                <?php if (!admin_order_is_paid($order)): ?>
+                  <p class="muted">Funkcja jest dostępna po potwierdzeniu płatności zamówienia.</p>
+                <?php else: ?>
+                  <?php
+                    $producerRecipients = shop_producer_whatsapp_recipients();
+                    $producerMessage = null;
+                    $producerMessageError = '';
+                    try { $producerMessage = shop_producer_whatsapp_message($order); }
+                    catch (Throwable $exception) { $producerMessageError = $exception->getMessage(); }
+                    $producerHandoff = is_array($order['producerHandoff'] ?? null) ? $order['producerHandoff'] : [];
+                  ?>
+                  <?php if ($producerMessageError !== ''): ?>
+                    <p class="producer-warning"><?= e($producerMessageError) ?></p>
+                  <?php else: ?>
+                    <?php foreach ($producerMessage['warnings'] as $warning): ?><p class="producer-warning"><?= e($warning) ?></p><?php endforeach; ?>
+                    <p class="muted">Otwórz WhatsApp, sprawdź przygotowaną wiadomość i wyślij ją ręcznie. Dopiero potem oznacz przekazanie w panelu.</p>
+                    <div class="producer-recipient-list">
+                      <?php foreach ($producerRecipients as $recipientKey => $recipient): ?>
+                        <?php $handoff = is_array($producerHandoff[$recipientKey] ?? null) ? $producerHandoff[$recipientKey] : []; ?>
+                        <div class="producer-recipient">
+                          <strong><?= e($recipient['label']) ?></strong>
+                          <?php if ($recipient['number'] === ''): ?>
+                            <p class="muted">Numer nie jest jeszcze skonfigurowany.</p>
+                          <?php else: ?>
+                            <a class="btn btn-small" href="<?= e(shop_producer_whatsapp_url($order, $recipientKey) ?? '#') ?>" target="_blank" rel="noopener">Otwórz WhatsApp</a>
+                          <?php endif; ?>
+                          <?php if (!empty($handoff['handedOffAt'])): ?>
+                            <p class="producer-status">Przekazano ręcznie: <?= e(admin_order_date_label((string)$handoff['handedOffAt'])) ?></p>
+                          <?php else: ?>
+                            <p class="muted">Nie oznaczono jako przekazane.</p>
+                          <?php endif; ?>
+                          <?php if ($recipient['number'] !== ''): ?>
+                            <form method="post" class="producer-handoff-form">
+                              <input type="hidden" name="csrf" value="<?= e(csrf_token()) ?>">
+                              <input type="hidden" name="action" value="mark_producer_handoff">
+                              <input type="hidden" name="order_id" value="<?= e((string)($order['orderId'] ?? '')) ?>">
+                              <input type="hidden" name="recipient" value="<?= e($recipientKey) ?>">
+                              <button class="btn btn-secondary btn-small" type="submit">Oznacz jako przekazane</button>
+                            </form>
+                          <?php endif; ?>
+                        </div>
+                      <?php endforeach; ?>
+                    </div>
+                  <?php endif; ?>
+                <?php endif; ?>
+              </section>
 
               <form method="post" class="form-grid order-admin-form">
                 <input type="hidden" name="csrf" value="<?= e(csrf_token()) ?>">

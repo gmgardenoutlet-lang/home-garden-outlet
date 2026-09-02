@@ -310,7 +310,7 @@ function shop_test_public_products(): array
 
 function shop_test_product_url(string $slug): string
 {
-    return shop_catalog_url() . '/produkt/' . rawurlencode(clean_filename($slug));
+    return shop_figure_product_url($slug);
 }
 
 function shop_test_stylesheets(): void

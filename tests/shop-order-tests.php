@@ -409,6 +409,44 @@ test_assert(str_contains(implode("\n", $foreignQuoteLines), 'Dostawa razem: kosz
 $quote = shop_test_individual_delivery();
 test_assert(($quote['pricingType'] ?? '') === 'quote_required' && ($quote['costNumber'] ?? null) === null, 'Dostawa indywidualna nie została oznaczona jako quote_required.');
 
+// Producent: wiadomość korzysta z trwałego productId/sluga, a nie z nazwy,
+// i nigdy nie zawiera danych klienta ani cen.
+$producerProduct = array_merge(product_defaults(), [
+    'slug' => 'figura-zolw-ogrodowy',
+    'name' => 'Figura Żółw ogrodowy',
+    'saleType' => 'garden_figure',
+    'productStatus' => 'Aktywny',
+]);
+$producerCatalog = ['products' => [$producerProduct]];
+$producerSlug = (string)$producerProduct['slug'];
+$producerOrder = [
+    'orderId' => 'HGO-20260902-0012',
+    'status' => 'paid',
+    'paymentStatus' => 'confirmed',
+    'customer' => ['firstName' => 'Jan', 'lastName' => 'Kowalski', 'email' => 'jan@example.test'],
+    'deliveryAddress' => ['street' => 'Testowa 1', 'postalCode' => '00-001', 'city' => 'Warszawa'],
+    'totalCents' => 123456,
+    'items' => [[
+        'productId' => $producerSlug,
+        'name' => (string)($producerProduct['name'] ?? 'Produkt testowy'),
+        'quantity' => 3,
+        'unitPriceCents' => 41152,
+    ]],
+];
+$producerPayload = shop_producer_whatsapp_message($producerOrder, $producerCatalog);
+$producerMessage = (string)$producerPayload['message'];
+test_assert(str_starts_with($producerMessage, 'ZAMÓWIENIE HGO-20260902-0012\n\n3 × '), 'Wiadomość producenta nie zaczyna się od numeru zamówienia i ilości.');
+test_assert(str_contains($producerMessage, 'https://mgoutlet.pl/sklep/figury-ogrodowe/produkt/' . rawurlencode($producerSlug)), 'Wiadomość producenta nie używa publicznego URL produktu.');
+foreach (['Jan', 'Kowalski', 'jan@example.test', 'Testowa 1', '00-001', 'Warszawa', '123456', '41152'] as $forbidden) {
+    test_assert(!str_contains($producerMessage, $forbidden), 'Wiadomość producenta ujawnia dane klienta lub cenę: ' . $forbidden);
+}
+test_assert(str_contains(rawurlencode($producerMessage), '%C3%97') && str_contains(rawurlencode('Żółć i spacja'), '%C5%BB%C3%B3%C5%82%C4%87%20i%20spacja'), 'Kodowanie UTF-8 dla WhatsApp jest nieprawidłowe.');
+$missingProducerProduct = $producerOrder;
+$missingProducerProduct['items'][0]['productId'] = 'usuniety-produkt';
+test_throws(static fn() => shop_producer_whatsapp_message($missingProducerProduct, $producerCatalog), 'Produkt bez publicznego URL wygenerował zmyślony link.');
+test_assert(shop_order_is_paid(['paymentStatus' => 'confirmed']) && !shop_order_is_paid(['paymentStatus' => 'awaiting']), 'Status opłacenia producenta nie rozróżnia płatności.');
+test_assert(!isset($producerOrder['producerHandoff']), 'Historyczne zamówienie wymaga nowych pól producenta.');
+
 $workers = [];
 for ($index = 0; $index < 6; $index++) {
     $workers[] = proc_open([PHP_BINARY, __DIR__ . '/shop-order-worker.php'], [1 => ['pipe', 'w'], 2 => ['pipe', 'w']], $pipes);

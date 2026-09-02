@@ -412,6 +412,15 @@ input:focus, textarea:focus, select:focus { outline: 3px solid rgba(63, 111, 69,
   padding-top: 14px;
   border-top: 1px solid var(--line);
 }
+.producer-handoff { padding: 18px; border: 1px solid var(--line); border-radius: 12px; background: #fbfdf9; }
+.producer-handoff h3 { margin: 0 0 8px; color: var(--green-900); }
+.producer-handoff > p { margin: 6px 0; }
+.producer-recipient-list { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; margin-top: 14px; }
+.producer-recipient { padding: 14px; border: 1px solid var(--line); border-radius: 10px; background: #fff; }
+.producer-recipient p { margin: 8px 0; }
+.producer-handoff-form { margin-top: 10px; }
+.producer-status { color: var(--green-900); font-weight: 800; }
+.producer-warning { color: #8a3b16; font-weight: 700; }
 
 .shipping-info {
   margin-bottom: 18px;
@@ -487,6 +496,7 @@ input:focus, textarea:focus, select:focus { outline: 3px solid rgba(63, 111, 69,
   .shipping-profile-form { position: static; }
   .shipping-profile-row { grid-template-columns: 1fr; }
   .order-grid { grid-template-columns: 1fr; }
+  .producer-recipient-list { grid-template-columns: 1fr; }
   .order-card-head { display: grid; padding: 17px; }
   .order-card-details { padding: 0 17px 17px; }
   .order-card .stats-table { min-width: 0; table-layout: fixed; font-size: 12px; }
