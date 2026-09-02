@@ -435,7 +435,8 @@ $producerOrder = [
 ];
 $producerPayload = shop_producer_whatsapp_message($producerOrder, $producerCatalog);
 $producerMessage = (string)$producerPayload['message'];
-test_assert(str_starts_with($producerMessage, 'ZAMÓWIENIE HGO-20260902-0012\n\n3 × '), 'Wiadomość producenta nie zaczyna się od numeru zamówienia i ilości.');
+$producerMessageNormalized = str_replace("\r\n", "\n", $producerMessage);
+test_assert(str_starts_with($producerMessageNormalized, "ZAMÓWIENIE HGO-20260902-0012\n\n3 × Figura Żółw ogrodowy\n"), 'Wiadomość producenta nie zaczyna się od numeru zamówienia, pustej linii, ilości i nazwy produktu.');
 test_assert(str_contains($producerMessage, 'https://mgoutlet.pl/sklep/figury-ogrodowe/produkt/' . rawurlencode($producerSlug)), 'Wiadomość producenta nie używa publicznego URL produktu.');
 foreach (['Jan', 'Kowalski', 'jan@example.test', 'Testowa 1', '00-001', 'Warszawa', '123456', '41152'] as $forbidden) {
     test_assert(!str_contains($producerMessage, $forbidden), 'Wiadomość producenta ujawnia dane klienta lub cenę: ' . $forbidden);
