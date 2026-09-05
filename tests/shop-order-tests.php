@@ -431,6 +431,14 @@ $legacyInvoiceLines = shop_order_document_lines($mailOrder + ['invoice' => ['req
 test_assert(str_contains(implode("\n", $legacyInvoiceLines), 'Adres: Stara 1') && str_contains(implode("\n", $legacyInvoiceLines), 'Kod pocztowy: 55-080'), 'Starsze zamówienie z invoice.address nie ma bezpiecznego fallbacku.');
 $adminOrderSource = (string)file_get_contents(__DIR__ . '/../hosting/getspace/admin/index.php');
 test_assert(str_contains($adminOrderSource, 'DOKUMENT SPRZEDAŻY:') && str_contains($adminOrderSource, 'Dane do faktury'), 'Panel administratora nie wyświetla dokumentu sprzedaży i danych do faktury.');
+$checkoutSource = (string)file_get_contents(__DIR__ . '/../hosting/getspace/shop-test/checkout.php');
+$shopJavaScript = (string)file_get_contents(__DIR__ . '/../hosting/getspace/shop-test/shop.js');
+test_assert(str_contains($checkoutSource, 'data-invoice-same-address') && str_contains($checkoutSource, 'data-invoice-address-fields') && str_contains($checkoutSource, 'shop.js?v=20260905-invoice-address1'), 'Checkout nie ładuje aktualnej obsługi niezależnego adresu faktury.');
+test_assert(str_contains($shopJavaScript, 'invoiceAddressFields.hidden = !requested || sameAddress') && str_contains($shopJavaScript, 'invoiceSameAddress.addEventListener("change", updateInvoiceFields)'), 'Przełącznik adresu faktury nie pokazuje i nie ukrywa pól bez przeładowania strony.');
+$paynowMailOrder = array_replace($mailOrder, ['paymentMethod' => 'paynow', 'paymentProvider' => 'paynow', 'paymentStatus' => 'not_started']);
+$paynowMailMessages = [];
+shop_send_order_emails($paynowMailOrder, static function (string $to, string $subject, string $body, string $headers) use (&$paynowMailMessages): bool { $paynowMailMessages[] = compact('to', 'subject', 'body', 'headers'); return true; });
+test_assert(($paynowMailMessages[1]['to'] ?? '') === 'biuro@mgoutlet.pl' && str_contains((string)($paynowMailMessages[1]['subject'] ?? ''), 'oczekuje na płatność') && str_contains((string)($paynowMailMessages[1]['body'] ?? ''), 'DOKUMENT SPRZEDAŻY: PARAGON'), 'Mail sklepu dla Paynow nie jest wysyłany po utworzeniu zamówienia.');
 $quoteMail = $mailOrder; $quoteMail['orderStatus'] = 'awaiting_shipping_quote';
 $quoteLines = shop_order_email_lines($quoteMail, false);
 test_assert(!str_contains(implode("\n", $quoteLines), 'Rachunek:') && !str_contains(implode("\n", $quoteLines), 'Razem:'), 'E-mail wyceny zawiera dane przelewu lub finalną kwotę.');
