@@ -1183,13 +1183,49 @@ function shop_bank_transfer_details(string $orderId = ''): array
     ];
 }
 
-function shop_order_email_lines(array $order, bool $includeTransfer): array
+function shop_order_document_lines(array $order): array
+{
+    $invoice = is_array($order['invoice'] ?? null) ? $order['invoice'] : [];
+    if (empty($invoice['requested'])) {
+        return ['DOKUMENT SPRZEDAŻY: PARAGON'];
+    }
+
+    $deliveryAddress = is_array($order['deliveryAddress'] ?? null) ? $order['deliveryAddress'] : [];
+    $address = trim((string)($invoice['address'] ?? '')) ?: trim((string)($deliveryAddress['street'] ?? ''));
+    $postalCode = trim((string)($deliveryAddress['postalCode'] ?? ''));
+    $city = trim((string)($deliveryAddress['city'] ?? ''));
+    $country = trim((string)($deliveryAddress['country'] ?? $order['countryCode'] ?? ''));
+    $lines = [
+        'DOKUMENT SPRZEDAŻY: FAKTURA',
+        '',
+        'Dane do faktury:',
+    ];
+    foreach ([
+        'Firma' => trim((string)($invoice['companyName'] ?? '')),
+        'NIP' => trim((string)($invoice['nip'] ?? '')),
+        'Adres' => $address,
+        'Kod i miasto' => trim($postalCode . ' ' . $city),
+        'Kraj' => $country,
+    ] as $label => $value) {
+        if ($value !== '') {
+            $lines[] = $label . ': ' . $value;
+        }
+    }
+    return $lines;
+}
+
+function shop_order_email_lines(array $order, bool $includeTransfer, bool $includeSalesDocument = false): array
 {
     $lines = [
         'Numer zamówienia: ' . ($order['orderId'] ?? ''),
         'Data: ' . ($order['createdAt'] ?? ''),
         'Zamówienie zostało przyjęte.',
     ];
+    if ($includeSalesDocument) {
+        $lines[] = '';
+        array_push($lines, ...shop_order_document_lines($order));
+        $lines[] = '';
+    }
     foreach ((array)($order['items'] ?? []) as $item) {
         $lines[] = sprintf('%s — %d szt. × %s PLN', (string)($item['name'] ?? ''), (int)($item['quantity'] ?? 0), number_format(((int)($item['unitPriceCents'] ?? 0)) / 100, 2, ',', ' '));
     }
@@ -1232,18 +1268,18 @@ function shop_send_order_emails(array $order, ?callable $mailer = null): array
     $mailer ??= static fn(string $to, string $subject, string $body, string $headers): bool => @mail($to, $subject, $body, $headers);
     $quote = ($order['orderStatus'] ?? '') === 'awaiting_shipping_quote';
     $headers = "From: Home & Garden Outlet <biuro@mgoutlet.pl>\r\nReply-To: biuro@mgoutlet.pl\r\nMIME-Version: 1.0\r\nContent-Type: text/plain; charset=UTF-8";
-    $lines = shop_order_email_lines($order, !$quote);
-    $body = implode("\n", $lines);
+    $customerBody = implode("\n", shop_order_email_lines($order, !$quote));
+    $adminBody = implode("\n", shop_order_email_lines($order, !$quote, true));
     $result = ['customer' => false, 'admin' => false];
     if (empty($order['emailNotifications']['customerCreatedAt'])) {
-        $result['customer'] = $mailer((string)($order['customer']['email'] ?? ''), 'Otrzymaliśmy zamówienie ' . ($order['orderId'] ?? '') . ' | Home & Garden Outlet', $body, $headers);
+        $result['customer'] = $mailer((string)($order['customer']['email'] ?? ''), 'Otrzymaliśmy zamówienie ' . ($order['orderId'] ?? '') . ' | Home & Garden Outlet', $customerBody, $headers);
     }
     if (empty($order['emailNotifications']['adminCreatedAt'])) {
         $adminSubject = 'Nowe zamówienie ' . ($order['orderId'] ?? '');
         if (!$quote && ($order['paymentMethod'] ?? '') === 'paynow') {
             $adminSubject .= ' – oczekuje na płatność';
         }
-        $result['admin'] = $mailer('biuro@mgoutlet.pl', $adminSubject, $body, $headers);
+        $result['admin'] = $mailer('biuro@mgoutlet.pl', $adminSubject, $adminBody, $headers);
     }
     return $result;
 }

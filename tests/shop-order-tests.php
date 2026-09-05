@@ -248,6 +248,15 @@ test_throws(static function () use ($slug, $invalidPriceProducts): void {
 $_POST = test_customer_post();
 $customer = shop_test_customer_from_post();
 test_assert($customer['customer']['email'] === 'jan.kowalski@example.test', 'Nie odczytano danych klienta.');
+test_assert(($customer['invoice']['requested'] ?? true) === false, 'Paragon nie został oznaczony jako domyślny dokument sprzedaży.');
+$_POST = test_customer_post([
+    'invoice_requested' => '1',
+    'invoice_company_name' => 'ABC Sp. z o.o.',
+    'invoice_nip' => '123-456-78-90',
+    'invoice_address' => 'Fakturowa 7',
+]);
+$invoiceCustomer = shop_test_customer_from_post();
+test_assert(($invoiceCustomer['invoice'] ?? []) === ['requested' => true, 'companyName' => 'ABC Sp. z o.o.', 'nip' => '1234567890', 'address' => 'Fakturowa 7'], 'Dane do faktury nie zostały prawidłowo zapisane w zamówieniu.');
 foreach ([
     ['customer_email' => ''],
     ['customer_email' => 'nie-e-mail'],
@@ -396,7 +405,18 @@ test_assert(($multiFinal['orderStatus'] ?? '') === 'awaiting_payment' && ($multi
 $mailOrder = $bankOrder + ['orderId' => 'HGO-20260809-0001', 'customer' => ['email' => 'client@example.test'], 'items' => [['name' => 'Figura', 'quantity' => 1, 'unitPriceCents' => 19999]], 'delivery' => ['label' => 'Kurier'], 'deliveryCostCents' => 2499, 'totalCents' => 22498];
 $sentMessages = [];
 $mailResult = shop_send_order_emails($mailOrder, static function (string $to, string $subject, string $body, string $headers) use (&$sentMessages): bool { $sentMessages[] = compact('to', 'subject', 'body', 'headers'); return true; });
-test_assert($mailResult['customer'] && $mailResult['admin'] && count($sentMessages) === 2 && str_contains($sentMessages[0]['body'], 'Razem: 224,98 PLN'), 'E-mail przelewu nie zawiera backendowej kwoty.');
+test_assert($mailResult['customer'] && $mailResult['admin'] && count($sentMessages) === 2 && str_contains($sentMessages[0]['body'], 'Razem: 224,98 PLN') && str_contains($sentMessages[1]['body'], 'DOKUMENT SPRZEDAŻY: PARAGON') && !str_contains($sentMessages[0]['body'], 'DOKUMENT SPRZEDAŻY:'), 'E-mail paragonu nie ma poprawnej kwoty lub dokumentu sprzedaży.');
+$receiptLines = shop_order_document_lines($mailOrder);
+test_assert($receiptLines === ['DOKUMENT SPRZEDAŻY: PARAGON'], 'E-mail sklepu nie rozróżnia paragonu.');
+$invoiceMailOrder = $mailOrder + [
+    'invoice' => ['requested' => true, 'companyName' => 'ABC Sp. z o.o.', 'nip' => '1234567890', 'address' => 'Fakturowa 7'],
+    'deliveryAddress' => ['street' => 'Dostawcza 1', 'postalCode' => '55-080', 'city' => 'Kębłowice', 'country' => 'PL'],
+];
+$invoiceMessages = [];
+shop_send_order_emails($invoiceMailOrder, static function (string $to, string $subject, string $body, string $headers) use (&$invoiceMessages): bool { $invoiceMessages[] = compact('to', 'subject', 'body', 'headers'); return true; });
+test_assert(str_contains($invoiceMessages[1]['body'] ?? '', "DOKUMENT SPRZEDAŻY: FAKTURA\n\nDane do faktury:\nFirma: ABC Sp. z o.o.\nNIP: 1234567890\nAdres: Fakturowa 7\nKod i miasto: 55-080 Kębłowice\nKraj: PL") && !str_contains($invoiceMessages[0]['body'] ?? '', 'Dane do faktury:'), 'E-mail sklepu nie zawiera poprawnych danych do faktury albo wysyła je klientowi.');
+$adminOrderSource = (string)file_get_contents(__DIR__ . '/../hosting/getspace/admin/index.php');
+test_assert(str_contains($adminOrderSource, 'DOKUMENT SPRZEDAŻY:') && str_contains($adminOrderSource, 'Dane do faktury'), 'Panel administratora nie wyświetla dokumentu sprzedaży i danych do faktury.');
 $quoteMail = $mailOrder; $quoteMail['orderStatus'] = 'awaiting_shipping_quote';
 $quoteLines = shop_order_email_lines($quoteMail, false);
 test_assert(!str_contains(implode("\n", $quoteLines), 'Rachunek:') && !str_contains(implode("\n", $quoteLines), 'Razem:'), 'E-mail wyceny zawiera dane przelewu lub finalną kwotę.');
