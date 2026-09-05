@@ -251,12 +251,24 @@ test_assert($customer['customer']['email'] === 'jan.kowalski@example.test', 'Nie
 test_assert(($customer['invoice']['requested'] ?? true) === false, 'Paragon nie został oznaczony jako domyślny dokument sprzedaży.');
 $_POST = test_customer_post([
     'invoice_requested' => '1',
+    'invoice_same_as_delivery' => '1',
     'invoice_company_name' => 'ABC Sp. z o.o.',
     'invoice_nip' => '123-456-78-90',
-    'invoice_address' => 'Fakturowa 7',
 ]);
 $invoiceCustomer = shop_test_customer_from_post();
-test_assert(($invoiceCustomer['invoice'] ?? []) === ['requested' => true, 'companyName' => 'ABC Sp. z o.o.', 'nip' => '1234567890', 'address' => 'Fakturowa 7'], 'Dane do faktury nie zostały prawidłowo zapisane w zamówieniu.');
+test_assert(($invoiceCustomer['invoice'] ?? []) === ['requested' => true, 'companyName' => 'ABC Sp. z o.o.', 'nip' => '1234567890', 'street' => 'Przykładowa 1', 'postalCode' => '00-001', 'city' => 'Warszawa', 'country' => 'PL'], 'Adres faktury taki jak dostawa nie został prawidłowo zapisany.');
+$_POST = test_customer_post([
+    'delivery_street' => 'Pogodna 4', 'delivery_postal_code' => '55-080', 'delivery_city' => 'Kębłowice',
+    'invoice_requested' => '1', 'invoice_company_name' => 'ABC Sp. z o.o.', 'invoice_nip' => '1234567890',
+    'invoice_street' => 'Fakturowa 7', 'invoice_postal_code' => '00-001', 'invoice_city' => 'Warszawa', 'invoice_country' => 'PL',
+]);
+$differentInvoiceCustomer = shop_test_customer_from_post();
+test_assert(($differentInvoiceCustomer['invoice'] ?? []) === ['requested' => true, 'companyName' => 'ABC Sp. z o.o.', 'nip' => '1234567890', 'street' => 'Fakturowa 7', 'postalCode' => '00-001', 'city' => 'Warszawa', 'country' => 'PL'], 'Niezależny adres faktury został pomieszany z adresem dostawy.');
+foreach (['invoice_nip', 'invoice_street', 'invoice_postal_code', 'invoice_city'] as $requiredInvoiceField) {
+    $invoiceInput = ['invoice_requested' => '1', 'invoice_company_name' => 'ABC Sp. z o.o.', 'invoice_nip' => '1234567890', 'invoice_street' => 'Fakturowa 7', 'invoice_postal_code' => '00-001', 'invoice_city' => 'Warszawa', 'invoice_country' => 'PL'];
+    $invoiceInput[$requiredInvoiceField] = '';
+    test_assert(isset(test_checkout_customer_errors($invoiceInput)[$requiredInvoiceField]), 'Brak pola faktury nie został odrzucony: ' . $requiredInvoiceField);
+}
 foreach ([
     ['customer_email' => ''],
     ['customer_email' => 'nie-e-mail'],
@@ -409,12 +421,14 @@ test_assert($mailResult['customer'] && $mailResult['admin'] && count($sentMessag
 $receiptLines = shop_order_document_lines($mailOrder);
 test_assert($receiptLines === ['DOKUMENT SPRZEDAŻY: PARAGON'], 'E-mail sklepu nie rozróżnia paragonu.');
 $invoiceMailOrder = $mailOrder + [
-    'invoice' => ['requested' => true, 'companyName' => 'ABC Sp. z o.o.', 'nip' => '1234567890', 'address' => 'Fakturowa 7'],
-    'deliveryAddress' => ['street' => 'Dostawcza 1', 'postalCode' => '55-080', 'city' => 'Kębłowice', 'country' => 'PL'],
+    'invoice' => ['requested' => true, 'companyName' => 'ABC Sp. z o.o.', 'nip' => '1234567890', 'street' => 'Fakturowa 7', 'postalCode' => '00-001', 'city' => 'Warszawa', 'country' => 'PL'],
+    'deliveryAddress' => ['street' => 'Pogodna 4', 'postalCode' => '55-080', 'city' => 'Kębłowice', 'country' => 'PL'],
 ];
 $invoiceMessages = [];
 shop_send_order_emails($invoiceMailOrder, static function (string $to, string $subject, string $body, string $headers) use (&$invoiceMessages): bool { $invoiceMessages[] = compact('to', 'subject', 'body', 'headers'); return true; });
-test_assert(str_contains($invoiceMessages[1]['body'] ?? '', "DOKUMENT SPRZEDAŻY: FAKTURA\n\nDane do faktury:\nFirma: ABC Sp. z o.o.\nNIP: 1234567890\nAdres: Fakturowa 7\nKod i miasto: 55-080 Kębłowice\nKraj: PL") && !str_contains($invoiceMessages[0]['body'] ?? '', 'Dane do faktury:'), 'E-mail sklepu nie zawiera poprawnych danych do faktury albo wysyła je klientowi.');
+test_assert(str_contains($invoiceMessages[1]['body'] ?? '', "DOKUMENT SPRZEDAŻY: FAKTURA\n\nDane do faktury:\nFirma: ABC Sp. z o.o.\nNIP: 1234567890\nAdres: Fakturowa 7\nKod pocztowy: 00-001\nMiasto: Warszawa\nKraj: PL") && !str_contains($invoiceMessages[1]['body'] ?? '', '55-080 Kębłowice') && !str_contains($invoiceMessages[0]['body'] ?? '', 'Dane do faktury:'), 'E-mail sklepu nie zawiera niezależnego adresu faktury albo miesza go z dostawą.');
+$legacyInvoiceLines = shop_order_document_lines($mailOrder + ['invoice' => ['requested' => true, 'companyName' => 'Stara firma', 'nip' => '1234567890', 'address' => 'Stara 1'], 'deliveryAddress' => ['postalCode' => '55-080', 'city' => 'Kębłowice', 'country' => 'PL']]);
+test_assert(str_contains(implode("\n", $legacyInvoiceLines), 'Adres: Stara 1') && str_contains(implode("\n", $legacyInvoiceLines), 'Kod pocztowy: 55-080'), 'Starsze zamówienie z invoice.address nie ma bezpiecznego fallbacku.');
 $adminOrderSource = (string)file_get_contents(__DIR__ . '/../hosting/getspace/admin/index.php');
 test_assert(str_contains($adminOrderSource, 'DOKUMENT SPRZEDAŻY:') && str_contains($adminOrderSource, 'Dane do faktury'), 'Panel administratora nie wyświetla dokumentu sprzedaży i danych do faktury.');
 $quoteMail = $mailOrder; $quoteMail['orderStatus'] = 'awaiting_shipping_quote';

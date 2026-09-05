@@ -15,6 +15,8 @@
   const form = document.querySelector("[data-checkout-form]");
   const invoiceToggle = document.querySelector("[data-invoice-toggle]");
   const invoiceFields = document.querySelector("[data-invoice-fields]");
+  const invoiceSameAddress = document.querySelector("[data-invoice-same-address]");
+  const invoiceAddressFields = document.querySelector("[data-invoice-address-fields]");
   const productGrid = document.querySelector("[data-shop-grid]");
   const sortSelect = document.querySelector("[data-shop-sort]");
   const cartToast = document.querySelector("[data-cart-toast]");
@@ -653,13 +655,17 @@
   const updateInvoiceFields = () => {
     if (!(invoiceToggle instanceof HTMLInputElement) || !invoiceFields) return;
     const requested = invoiceToggle.checked;
+    const sameAddress = invoiceSameAddress instanceof HTMLInputElement && invoiceSameAddress.checked;
     invoiceFields.hidden = !requested;
+    if (invoiceAddressFields) invoiceAddressFields.hidden = !requested || sameAddress;
     invoiceFields.querySelectorAll("input").forEach((field) => {
-      field.required = requested && (field.name === "invoice_company_name" || field.name === "invoice_nip");
+      field.required = requested && (field.name === "invoice_company_name" || field.name === "invoice_nip" || (!sameAddress && ["invoice_street", "invoice_postal_code", "invoice_city"].includes(field.name)));
     });
+    if (invoiceAddressFields) invoiceAddressFields.querySelectorAll("select").forEach((field) => { field.required = requested && !sameAddress; });
   };
   if (invoiceToggle) {
     invoiceToggle.addEventListener("change", updateInvoiceFields);
+    if (invoiceSameAddress) invoiceSameAddress.addEventListener("change", updateInvoiceFields);
     updateInvoiceFields();
   }
 

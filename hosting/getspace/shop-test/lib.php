@@ -517,11 +517,27 @@ function shop_test_customer_from_post(): array
         if (strlen($nip) !== 10) {
             throw new RuntimeException('Podaj poprawny 10-cyfrowy NIP.');
         }
-        $invoice += [
-            'companyName' => shop_test_required_post('invoice_company_name', 'nazwa firmy', 180),
-            'nip' => $nip,
-            'address' => shop_test_text_field('invoice_address', 240),
-        ];
+        $sameAsDelivery = !empty($_POST['invoice_same_as_delivery']);
+        if ($sameAsDelivery) {
+            $invoiceAddress = ['street' => $street, 'postalCode' => $postalCode, 'city' => $city, 'country' => $country];
+        } else {
+            $invoiceCountry = strtoupper(shop_test_required_post('invoice_country', 'kraj faktury', 2));
+            if (!isset(SHOP_ALLOWED_COUNTRIES[$invoiceCountry])) {
+                throw new RuntimeException('Wybierz prawidłowy kraj faktury.');
+            }
+            $invoicePostalCode = shop_test_required_post('invoice_postal_code', 'kod pocztowy faktury', 20);
+            $invoicePostalCode = shop_test_normalize_postal_code_for_country($invoicePostalCode, $invoiceCountry) ?? '';
+            if ($invoicePostalCode === '') {
+                throw new RuntimeException('Podaj prawidłowy kod pocztowy faktury.');
+            }
+            $invoiceAddress = [
+                'street' => shop_test_required_post('invoice_street', 'ulica i numer faktury', 180),
+                'postalCode' => $invoicePostalCode,
+                'city' => shop_test_required_post('invoice_city', 'miasto faktury', 120),
+                'country' => $invoiceCountry,
+            ];
+        }
+        $invoice += ['companyName' => shop_test_required_post('invoice_company_name', 'nazwa firmy', 180), 'nip' => $nip] + $invoiceAddress;
     }
 
     return [
@@ -648,6 +664,40 @@ function shop_test_validate_checkout_customer_input(): void
         $_POST['delivery_postal_code'] = $normalizedPostalCode;
     }
 
+    if (!empty($_POST['invoice_requested'])) {
+        if (shop_test_text_field('invoice_company_name', 180) === '') {
+            $errors['invoice_company_name'] = 'Podaj nazwę firmy.';
+        }
+        $nip = preg_replace('/\D+/', '', shop_test_text_field('invoice_nip', 24)) ?: '';
+        if (strlen($nip) !== 10) {
+            $errors['invoice_nip'] = 'Podaj poprawny 10-cyfrowy NIP.';
+        } else {
+            $_POST['invoice_nip'] = $nip;
+        }
+        if (empty($_POST['invoice_same_as_delivery'])) {
+            if (shop_test_text_field('invoice_street', 180) === '') {
+                $errors['invoice_street'] = 'Podaj ulicę i numer faktury.';
+            }
+            if (shop_test_text_field('invoice_city', 120) === '') {
+                $errors['invoice_city'] = 'Podaj miasto faktury.';
+            }
+            $invoiceCountry = strtoupper(shop_test_text_field('invoice_country', 2));
+            if (!isset(SHOP_ALLOWED_COUNTRIES[$invoiceCountry])) {
+                $errors['invoice_country'] = 'Wybierz prawidłowy kraj faktury.';
+            }
+            $invoicePostalCode = shop_test_text_field('invoice_postal_code', 20);
+            $normalizedInvoicePostalCode = isset(SHOP_ALLOWED_COUNTRIES[$invoiceCountry])
+                ? shop_test_normalize_postal_code_for_country($invoicePostalCode, $invoiceCountry)
+                : null;
+            if ($invoicePostalCode === '' || $normalizedInvoicePostalCode === null) {
+                $errors['invoice_postal_code'] = $invoiceCountry === 'PL' ? 'Podaj kod pocztowy faktury w formacie 00-000.' : 'Podaj prawidłowy kod pocztowy faktury.';
+            } else {
+                $_POST['invoice_postal_code'] = $normalizedInvoicePostalCode;
+            }
+            $_POST['invoice_country'] = $invoiceCountry;
+        }
+    }
+
     if ($errors !== []) {
         throw new ShopCheckoutValidationException($errors, $_POST);
     }
@@ -687,7 +737,7 @@ function shop_test_checkout_errors(): array
 function shop_test_checkout_remember_validation_error(array $errors, array $input): void
 {
     $_SESSION['checkout_errors'] = $errors;
-    $oldInput = array_intersect_key($input, array_flip(['customer_first_name', 'customer_last_name', 'customer_email', 'customer_phone', 'phone_prefix', 'phone_number', 'delivery_street', 'delivery_postal_code', 'delivery_city', 'delivery_country', 'invoice_requested', 'invoice_company_name', 'invoice_nip', 'invoice_address', 'customer_notes', 'payment_method', 'terms']));
+    $oldInput = array_intersect_key($input, array_flip(['customer_first_name', 'customer_last_name', 'customer_email', 'customer_phone', 'phone_prefix', 'phone_number', 'delivery_street', 'delivery_postal_code', 'delivery_city', 'delivery_country', 'invoice_requested', 'invoice_company_name', 'invoice_nip', 'invoice_same_as_delivery', 'invoice_street', 'invoice_postal_code', 'invoice_city', 'invoice_country', 'customer_notes', 'payment_method', 'terms']));
     $cart = json_decode((string) ($input['cart_payload'] ?? ''), true);
     if (is_array($cart) && is_array($cart['items'] ?? null)) {
         foreach ($cart['items'] as $item) {

@@ -1191,10 +1191,11 @@ function shop_order_document_lines(array $order): array
     }
 
     $deliveryAddress = is_array($order['deliveryAddress'] ?? null) ? $order['deliveryAddress'] : [];
-    $address = trim((string)($invoice['address'] ?? '')) ?: trim((string)($deliveryAddress['street'] ?? ''));
-    $postalCode = trim((string)($deliveryAddress['postalCode'] ?? ''));
-    $city = trim((string)($deliveryAddress['city'] ?? ''));
-    $country = trim((string)($deliveryAddress['country'] ?? $order['countryCode'] ?? ''));
+    $hasNewInvoiceAddress = array_key_exists('street', $invoice);
+    $street = trim((string)($hasNewInvoiceAddress ? ($invoice['street'] ?? '') : ($invoice['address'] ?? $deliveryAddress['street'] ?? '')));
+    $postalCode = trim((string)($hasNewInvoiceAddress ? ($invoice['postalCode'] ?? '') : ($deliveryAddress['postalCode'] ?? '')));
+    $city = trim((string)($hasNewInvoiceAddress ? ($invoice['city'] ?? '') : ($deliveryAddress['city'] ?? '')));
+    $country = trim((string)($hasNewInvoiceAddress ? ($invoice['country'] ?? '') : ($deliveryAddress['country'] ?? $order['countryCode'] ?? '')));
     $lines = [
         'DOKUMENT SPRZEDAŻY: FAKTURA',
         '',
@@ -1203,8 +1204,9 @@ function shop_order_document_lines(array $order): array
     foreach ([
         'Firma' => trim((string)($invoice['companyName'] ?? '')),
         'NIP' => trim((string)($invoice['nip'] ?? '')),
-        'Adres' => $address,
-        'Kod i miasto' => trim($postalCode . ' ' . $city),
+        'Adres' => $street,
+        'Kod pocztowy' => $postalCode,
+        'Miasto' => $city,
         'Kraj' => $country,
     ] as $label => $value) {
         if ($value !== '') {

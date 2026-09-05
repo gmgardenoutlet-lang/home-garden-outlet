@@ -1085,9 +1085,11 @@ if ($showStats) {
               $deliveryAddress = is_array($order['deliveryAddress'] ?? null) ? $order['deliveryAddress'] : [];
               $invoice = is_array($order['invoice'] ?? null) ? $order['invoice'] : [];
               $invoiceRequested = !empty($invoice['requested']);
-              $invoiceAddress = trim((string)($invoice['address'] ?? '')) ?: trim((string)($deliveryAddress['street'] ?? ''));
-              $invoicePostalCity = trim((string)($deliveryAddress['postalCode'] ?? '') . ' ' . (string)($deliveryAddress['city'] ?? ''));
-              $invoiceCountry = trim((string)($deliveryAddress['country'] ?? $order['countryCode'] ?? ''));
+              $hasNewInvoiceAddress = array_key_exists('street', $invoice);
+              $invoiceStreet = trim((string)($hasNewInvoiceAddress ? ($invoice['street'] ?? '') : ($invoice['address'] ?? $deliveryAddress['street'] ?? '')));
+              $invoicePostalCode = trim((string)($hasNewInvoiceAddress ? ($invoice['postalCode'] ?? '') : ($deliveryAddress['postalCode'] ?? '')));
+              $invoiceCity = trim((string)($hasNewInvoiceAddress ? ($invoice['city'] ?? '') : ($deliveryAddress['city'] ?? '')));
+              $invoiceCountry = trim((string)($hasNewInvoiceAddress ? ($invoice['country'] ?? '') : ($deliveryAddress['country'] ?? $order['countryCode'] ?? '')));
               $delivery = is_array($order['delivery'] ?? null) ? $order['delivery'] : [];
               $items = is_array($order['items'] ?? null) ? $order['items'] : [];
               $orderStatus = (string)($order['orderStatus'] ?? $order['status'] ?? 'new');
@@ -1130,8 +1132,9 @@ if ($showStats) {
                       <h3>Dane do faktury</h3>
                       <?php if (trim((string)($invoice['companyName'] ?? '')) !== ''): ?><p>Firma: <?= e((string)$invoice['companyName']) ?></p><?php endif; ?>
                       <?php if (trim((string)($invoice['nip'] ?? '')) !== ''): ?><p>NIP: <?= e((string)$invoice['nip']) ?></p><?php endif; ?>
-                      <?php if ($invoiceAddress !== ''): ?><p>Adres: <?= e($invoiceAddress) ?></p><?php endif; ?>
-                      <?php if ($invoicePostalCity !== ''): ?><p>Kod i miasto: <?= e($invoicePostalCity) ?></p><?php endif; ?>
+                      <?php if ($invoiceStreet !== ''): ?><p>Adres: <?= e($invoiceStreet) ?></p><?php endif; ?>
+                      <?php if ($invoicePostalCode !== ''): ?><p>Kod pocztowy: <?= e($invoicePostalCode) ?></p><?php endif; ?>
+                      <?php if ($invoiceCity !== ''): ?><p>Miasto: <?= e($invoiceCity) ?></p><?php endif; ?>
                       <?php if ($invoiceCountry !== ''): ?><p>Kraj: <?= e($invoiceCountry) ?></p><?php endif; ?>
                     </section>
                   <?php endif; ?>
