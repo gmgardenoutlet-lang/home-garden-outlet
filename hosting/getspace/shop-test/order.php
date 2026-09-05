@@ -126,7 +126,13 @@ try {
     ];
     shop_save_order($order);
     if ($paymentMethod === 'paynow' && !$quoteRequired) {
-        paynow_start_payment((string)$order['orderId']);
+        try {
+            paynow_start_payment((string)$order['orderId'], $confirmationToken);
+        } catch (Throwable $paymentException) {
+            paynow_record_start_failure((string)$order['orderId']);
+            header('Location: ' . shop_confirmation_url((string)$order['orderId'], $confirmationToken), true, 303);
+            exit;
+        }
     }
     header('Location: ' . shop_confirmation_url((string)$order['orderId'], $confirmationToken), true, 303);
     exit;

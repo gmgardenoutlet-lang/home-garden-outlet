@@ -16,11 +16,6 @@ if (!paynow_verify_notification_signature($raw, $signature)) { http_response_cod
 $payload = json_decode($raw, true);
 if (!is_array($payload) || !is_string($payload['paymentId'] ?? null) || !is_string($payload['externalId'] ?? null) || !is_string($payload['status'] ?? null)) { http_response_code(400); echo '{"error":"invalid_notification"}'; exit; }
 try {
-    paynow_order_lock((string)$payload['externalId'], static function () use ($payload): void {
-        $order = shop_load_order((string)$payload['externalId']);
-        if (!$order) throw new RuntimeException('not found');
-        $updated = paynow_apply_status($order, $payload['paymentId'], $payload['externalId'], $payload['status'], (string)($payload['modifiedAt'] ?? ''));
-        if ($updated !== $order) shop_save_order($updated);
-    });
+    paynow_process_notification($payload);
     http_response_code(202);
 } catch (Throwable $e) { http_response_code(400); echo '{"error":"invalid_notification"}'; }

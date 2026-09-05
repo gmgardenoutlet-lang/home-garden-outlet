@@ -1185,7 +1185,11 @@ function shop_bank_transfer_details(string $orderId = ''): array
 
 function shop_order_email_lines(array $order, bool $includeTransfer): array
 {
-    $lines = ['Numer zamówienia: ' . ($order['orderId'] ?? ''), 'Data: ' . ($order['createdAt'] ?? '')];
+    $lines = [
+        'Numer zamówienia: ' . ($order['orderId'] ?? ''),
+        'Data: ' . ($order['createdAt'] ?? ''),
+        'Zamówienie zostało przyjęte.',
+    ];
     foreach ((array)($order['items'] ?? []) as $item) {
         $lines[] = sprintf('%s — %d szt. × %s PLN', (string)($item['name'] ?? ''), (int)($item['quantity'] ?? 0), number_format(((int)($item['unitPriceCents'] ?? 0)) / 100, 2, ',', ' '));
     }
@@ -1209,7 +1213,9 @@ function shop_order_email_lines(array $order, bool $includeTransfer): array
     $lines[] = 'Razem: ' . number_format(((int)($order['totalCents'] ?? 0)) / 100, 2, ',', ' ') . ' PLN';
     if (($order['paymentMethod'] ?? '') === 'paynow') {
         $lines[] = 'Płatność: Paynow (BLIK lub przelew online).';
-        $lines[] = 'Po ustaleniu wszystkich kosztów dostawy prześlemy możliwość opłacenia zamówienia online.';
+        $lines[] = 'Zamówienie oczekuje na opłacenie.';
+        $lines[] = 'Przycisk do płatności znajduje się na stronie potwierdzenia zamówienia.';
+        $lines[] = 'Realizacja zamówienia rozpocznie się po potwierdzeniu płatności.';
     } else {
         $transfer = shop_bank_transfer_details((string)($order['orderId'] ?? ''));
         $lines[] = 'Płatność: Przelew tradycyjny';
@@ -1230,12 +1236,87 @@ function shop_send_order_emails(array $order, ?callable $mailer = null): array
     $body = implode("\n", $lines);
     $result = ['customer' => false, 'admin' => false];
     if (empty($order['emailNotifications']['customerCreatedAt'])) {
-        $result['customer'] = $mailer((string)($order['customer']['email'] ?? ''), ($quote ? 'Przyjęcie zamówienia ' : 'Potwierdzenie zamówienia ') . ($order['orderId'] ?? '') . ' | Home & Garden Outlet', $body, $headers);
+        $result['customer'] = $mailer((string)($order['customer']['email'] ?? ''), 'Otrzymaliśmy zamówienie ' . ($order['orderId'] ?? '') . ' | Home & Garden Outlet', $body, $headers);
     }
     if (empty($order['emailNotifications']['adminCreatedAt'])) {
-        $result['admin'] = $mailer('biuro@mgoutlet.pl', 'Nowe zamówienie ' . ($order['orderId'] ?? ''), $body, $headers);
+        $adminSubject = 'Nowe zamówienie ' . ($order['orderId'] ?? '');
+        if (!$quote && ($order['paymentMethod'] ?? '') === 'paynow') {
+            $adminSubject .= ' – oczekuje na płatność';
+        }
+        $result['admin'] = $mailer('biuro@mgoutlet.pl', $adminSubject, $body, $headers);
     }
     return $result;
+}
+
+function shop_payment_confirmed_email_lines(array $order, bool $forAdmin = false): array
+{
+    $orderId = (string)($order['orderId'] ?? '');
+    $lines = [
+        'Numer zamówienia: ' . $orderId,
+        'Paynow potwierdził prawidłowe opłacenie zamówienia.',
+        'Kwota: ' . number_format(((int)($order['totalCents'] ?? 0)) / 100, 2, ',', ' ') . ' PLN',
+    ];
+    if ($forAdmin) {
+        $lines[] = 'Status: paid / confirmed';
+    } else {
+        $lines[] = 'Zamówienie zostało przekazane do dalszej realizacji.';
+        $lines[] = '';
+        $lines[] = 'Home & Garden Outlet';
+    }
+    return $lines;
+}
+
+function shop_send_payment_confirmed_emails(array $order, ?callable $mailer = null): array
+{
+    if (($order['paymentMethod'] ?? $order['paymentProvider'] ?? '') !== 'paynow'
+        || ($order['orderStatus'] ?? $order['status'] ?? '') !== 'paid'
+        || ($order['paymentStatus'] ?? '') !== 'confirmed') {
+        return $order;
+    }
+
+    $mailer ??= static fn(string $to, string $subject, string $body, string $headers): bool => @mail($to, $subject, $body, $headers);
+    $headers = "From: Home & Garden Outlet <biuro@mgoutlet.pl>\r\nReply-To: biuro@mgoutlet.pl\r\nMIME-Version: 1.0\r\nContent-Type: text/plain; charset=UTF-8";
+    $orderId = (string)($order['orderId'] ?? '');
+    $now = (new DateTimeImmutable('now', new DateTimeZone(STATS_TIMEZONE)))->format(DATE_ATOM);
+    $notifications = [
+        'customer' => [
+            'attemptedAt' => 'customerPaymentConfirmedEmailAttemptedAt',
+            'sentAt' => 'customerPaymentConfirmedEmailSentAt',
+            'failed' => 'customerPaymentConfirmedEmailFailed',
+            'to' => (string)($order['customer']['email'] ?? ''),
+            'subject' => 'Płatność za zamówienie ' . $orderId . ' została potwierdzona | Home & Garden Outlet',
+            'body' => implode("\n", shop_payment_confirmed_email_lines($order)),
+        ],
+        'admin' => [
+            'attemptedAt' => 'adminPaymentConfirmedEmailAttemptedAt',
+            'sentAt' => 'adminPaymentConfirmedEmailSentAt',
+            'failed' => 'adminPaymentConfirmedEmailFailed',
+            'to' => 'biuro@mgoutlet.pl',
+            'subject' => 'Zamówienie ' . $orderId . ' opłacone',
+            'body' => implode("\n", shop_payment_confirmed_email_lines($order, true)),
+        ],
+    ];
+
+    foreach ($notifications as $notification) {
+        if (!empty($order['emailNotifications'][$notification['attemptedAt']])) {
+            continue;
+        }
+
+        // Persist the attempt before mail() so a PHP restart or a repeated webhook
+        // cannot send the same notification twice.
+        $order['emailNotifications'][$notification['attemptedAt']] = $now;
+        shop_save_order($order);
+        try {
+            $sent = $mailer($notification['to'], $notification['subject'], $notification['body'], $headers);
+        } catch (Throwable $ignored) {
+            $sent = false;
+        }
+        $order['emailNotifications'][$notification['sentAt']] = $sent ? $now : null;
+        $order['emailNotifications'][$notification['failed']] = !$sent;
+        shop_save_order($order);
+    }
+
+    return $order;
 }
 
 function shop_producer_whatsapp_recipients(): array
