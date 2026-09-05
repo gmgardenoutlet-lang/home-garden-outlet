@@ -10,6 +10,10 @@ $orderId = shop_safe_order_id((string)($_GET['order'] ?? ''));
 $confirmationToken = (string)($_GET['token'] ?? '');
 $order = shop_public_confirmation_order($orderId, $confirmationToken);
 $paynowRedirectUrl = is_array($order) ? paynow_redirect_url((string)($order['paymentRedirectUrl'] ?? '')) : null;
+$paynowPaymentFailed = is_array($order) && paynow_payment_failed($order);
+if ($paynowPaymentFailed) {
+    $paynowRedirectUrl = null;
+}
 header('Cache-Control: private, no-store, max-age=0');
 header('Referrer-Policy: no-referrer');
 header('X-Robots-Tag: noindex, follow, noarchive');
@@ -59,10 +63,19 @@ if (!$order) {
         <?php elseif (($order['paymentMethod'] ?? '') === 'paynow' && ($order['delivery']['pricingType'] ?? '') === 'fixed_price'): ?>
           <section class="confirmation-section">
             <h2>Płatność online Paynow</h2>
-            <p>Możesz opłacić zamówienie BLIK-iem lub przelewem online. Płatność zostanie uznana dopiero po potwierdzeniu Paynow.</p>
-            <?php if ($paynowRedirectUrl !== null): ?>
+            <?php if (($order['paymentStatus'] ?? '') === 'confirmed'): ?>
+              <p><strong>Płatność została potwierdzona.</strong> Zamówienie zostało przekazane do dalszej realizacji.</p>
+            <?php elseif ($paynowPaymentFailed): ?>
+              <p><strong>Płatność nie została zakończona.</strong> Możesz bezpiecznie utworzyć nową próbę płatności dla tego samego zamówienia.</p>
+              <form method="post" action="/sklep/paynow/create-payment"><input type="hidden" name="csrf" value="<?= e(csrf_token()) ?>"><input type="hidden" name="order_id" value="<?= e($order['orderId'] ?? '') ?>"><input type="hidden" name="confirmation_token" value="<?= e($confirmationToken) ?>"><button class="btn" type="submit">Spróbuj ponownie</button></form>
+            <?php elseif (!empty($order['paymentStartFailedAt']) && $paynowRedirectUrl === null): ?>
+              <p><strong>Zamówienie zostało zapisane, ale nie udało się uruchomić płatności online.</strong> Spróbuj ponownie, używając przycisku poniżej. Nie utworzymy drugiego zamówienia.</p>
+              <form method="post" action="/sklep/paynow/create-payment"><input type="hidden" name="csrf" value="<?= e(csrf_token()) ?>"><input type="hidden" name="order_id" value="<?= e($order['orderId'] ?? '') ?>"><input type="hidden" name="confirmation_token" value="<?= e($confirmationToken) ?>"><button class="btn" type="submit">Ponów uruchomienie płatności</button></form>
+            <?php elseif ($paynowRedirectUrl !== null): ?>
+              <p>Możesz opłacić zamówienie BLIK-iem lub przelewem online. Płatność zostanie uznana dopiero po potwierdzeniu Paynow.</p>
               <a class="btn" href="<?= e($paynowRedirectUrl) ?>" rel="noreferrer">Opłać zamówienie</a>
             <?php else: ?>
+              <p>Możesz opłacić zamówienie BLIK-iem lub przelewem online. Płatność zostanie uznana dopiero po potwierdzeniu Paynow.</p>
               <form method="post" action="/sklep/paynow/create-payment"><input type="hidden" name="csrf" value="<?= e(csrf_token()) ?>"><input type="hidden" name="order_id" value="<?= e($order['orderId'] ?? '') ?>"><input type="hidden" name="confirmation_token" value="<?= e($confirmationToken) ?>"><button class="btn" type="submit">Przygotuj płatność Paynow</button></form>
             <?php endif; ?>
           </section>

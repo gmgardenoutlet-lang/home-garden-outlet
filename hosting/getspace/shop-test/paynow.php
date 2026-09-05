@@ -106,6 +106,15 @@ function paynow_external_id(array $order): string
     return $id;
 }
 
+function paynow_continue_url(string $orderId, string $confirmationToken): string
+{
+    if (shop_safe_order_id($orderId) === '' || $confirmationToken === '') {
+        return '';
+    }
+    return 'https://mgoutlet.pl/sklep/figury-ogrodowe/platnosc/powrot/?order=' . rawurlencode($orderId)
+        . '&token=' . rawurlencode($confirmationToken);
+}
+
 function paynow_payment_allowed(array $order): void
 {
     shop_test_require_sales();
@@ -129,7 +138,13 @@ function paynow_payment_allowed(array $order): void
     }
 }
 
-function paynow_payment_payload(array $order): array
+function paynow_payment_failed(array $order): bool
+{
+    return in_array(strtolower((string)($order['paymentStatus'] ?? '')), ['rejected', 'error', 'expired'], true)
+        || (($order['orderStatus'] ?? $order['status'] ?? '') === 'payment_failed');
+}
+
+function paynow_payment_payload(array $order, string $continueUrl = ''): array
 {
     if (shop_test_order_country_code($order) !== 'PL' && ($order['shippingTotalCents'] ?? null) === null) {
         throw new RuntimeException('Płatność online jest dostępna dopiero po ustaleniu kosztu dostawy.');
@@ -157,8 +172,12 @@ function paynow_payment_payload(array $order): array
     if ($shippingCents > 0) {
         $items[] = ['name' => 'Dostawa', 'category' => 'Delivery', 'quantity' => 1, 'price' => $shippingCents];
     }
-    return ['amount' => (int)$order['totalCents'], 'currency' => 'PLN', 'externalId' => paynow_external_id($order),
+    $payload = ['amount' => (int)$order['totalCents'], 'currency' => 'PLN', 'externalId' => paynow_external_id($order),
         'description' => 'Zamówienie ' . paynow_external_id($order), 'buyer' => $buyer, 'orderItems' => $items];
+    if ($continueUrl !== '') {
+        $payload['continueUrl'] = $continueUrl;
+    }
+    return $payload;
 }
 
 function paynow_status_mapping(string $status): array
@@ -203,10 +222,20 @@ function paynow_apply_status(array $order, string $paymentId, string $externalId
     return $order;
 }
 
-function paynow_post_payment(array $order): array
+function paynow_is_historical_attempt(array $order, string $paymentId): bool
+{
+    foreach ((array)($order['paynowAttempts'] ?? []) as $attempt) {
+        if (is_array($attempt) && hash_equals((string)($attempt['paymentId'] ?? ''), $paymentId)) {
+            return true;
+        }
+    }
+    return false;
+}
+
+function paynow_post_payment(array $order, string $continueUrl = ''): array
 {
     $idempotencyKey = paynow_idempotency_key($order);
-    $payload = paynow_payment_payload($order);
+    $payload = paynow_payment_payload($order, $continueUrl);
     // This exact byte string is both signed and sent. Match Paynow's PHP SDK:
     // do not enable JSON_UNESCAPED_UNICODE.
     $body = json_encode($payload, JSON_UNESCAPED_SLASHES);
@@ -254,18 +283,68 @@ function paynow_post_payment(array $order): array
     return ['paymentId' => $response['paymentId'], 'redirectUrl' => $redirectUrl, 'idempotencyKey' => $idempotencyKey];
 }
 
-function paynow_start_payment(string $orderId): array
+function paynow_process_notification(array $payload, ?callable $mailer = null): array
+{
+    return paynow_order_lock((string)$payload['externalId'], static function () use ($payload, $mailer): array {
+        $order = shop_load_order((string)$payload['externalId']);
+        if (!$order) throw new RuntimeException('not found');
+        $externalId = (string)$payload['externalId'];
+        $paymentId = (string)$payload['paymentId'];
+        if (!hash_equals(paynow_external_id($order), $externalId)) {
+            throw new RuntimeException('Powiadomienie nie pasuje do zamówienia.');
+        }
+        if (!hash_equals((string)($order['paymentId'] ?? ''), $paymentId)
+            && paynow_is_historical_attempt($order, $paymentId)) {
+            return $order; // signed notification for an archived payment attempt: no state or e-mail changes
+        }
+        $updated = paynow_apply_status($order, (string)$payload['paymentId'], (string)$payload['externalId'], (string)$payload['status'], (string)($payload['modifiedAt'] ?? ''));
+        if ($updated !== $order) shop_save_order($updated);
+        if (strtoupper((string)$payload['status']) === 'CONFIRMED') {
+            $updated = shop_send_payment_confirmed_emails($updated, $mailer);
+        }
+        return $updated;
+    });
+}
+
+function paynow_record_start_failure(string $orderId): array
 {
     return paynow_order_lock($orderId, static function () use ($orderId): array {
         $order = shop_load_order($orderId);
         if (!$order) throw new RuntimeException('Nie znaleziono zamówienia.');
-        if (!empty($order['paymentId']) && !empty($order['paymentRedirectUrl'])) {
+        $order['paymentStartFailedAt'] = (new DateTimeImmutable('now', new DateTimeZone(STATS_TIMEZONE)))->format(DATE_ATOM);
+        shop_save_order($order);
+        return $order;
+    });
+}
+
+function paynow_start_payment(string $orderId, string $confirmationToken = '', ?callable $paymentCreator = null): array
+{
+    return paynow_order_lock($orderId, static function () use ($orderId, $confirmationToken, $paymentCreator): array {
+        $order = shop_load_order($orderId);
+        if (!$order) throw new RuntimeException('Nie znaleziono zamówienia.');
+        paynow_payment_allowed($order);
+        $retryFailedPayment = paynow_payment_failed($order);
+        if (!empty($order['paymentId']) && !empty($order['paymentRedirectUrl']) && !$retryFailedPayment) {
             return ['paymentId' => (string)$order['paymentId'], 'redirectUrl' => (string)$order['paymentRedirectUrl']];
         }
-        paynow_payment_allowed($order);
+
+        if ($retryFailedPayment) {
+            $order['paynowAttempts'][] = [
+                'paymentId' => (string)($order['paymentId'] ?? ''),
+                'paymentRedirectUrl' => (string)($order['paymentRedirectUrl'] ?? ''),
+                'idempotencyKey' => (string)($order['paynowIdempotencyKey'] ?? ''),
+                'status' => (string)($order['paymentStatus'] ?? ''),
+                'finishedAt' => (string)($order['paymentModifiedAt'] ?? ''),
+            ];
+            unset($order['paymentId'], $order['paymentRedirectUrl'], $order['paynowIdempotencyKey'], $order['paynowStatus'], $order['paymentModifiedAt']);
+            $order['paymentStatus'] = 'not_started';
+            $order['status'] = $order['orderStatus'] = 'awaiting_payment';
+        }
+
         $order['paynowIdempotencyKey'] = paynow_idempotency_key($order);
         shop_save_order($order); // preserve the key before a timeout/retry
-        $created = paynow_post_payment($order);
+        $continueUrl = paynow_continue_url($orderId, $confirmationToken);
+        $created = $paymentCreator !== null ? $paymentCreator($order, $continueUrl) : paynow_post_payment($order, $continueUrl);
         $now = (new DateTimeImmutable('now', new DateTimeZone(STATS_TIMEZONE)))->format(DATE_ATOM);
         $order['paymentProvider'] = 'paynow';
         $order['paymentId'] = $created['paymentId'];
@@ -275,6 +354,7 @@ function paynow_start_payment(string $orderId): array
         $order['status'] = $order['orderStatus'] = 'awaiting_payment';
         $order['paymentStartedAt'] = $now;
         $order['updatedAt'] = $now;
+        unset($order['paymentStartFailedAt']);
         shop_save_order($order);
         return ['paymentId' => $created['paymentId'], 'redirectUrl' => $created['redirectUrl']];
     });
