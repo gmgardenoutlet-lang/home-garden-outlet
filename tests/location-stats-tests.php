@@ -65,6 +65,6 @@ location_stats_assert(!isset($cookieOptions['domain']) && $cookieOptions['path']
 
 $tracker = (string)file_get_contents(__DIR__ . '/../hosting/getspace/stats/track.php');
 $guard = strpos($tracker, 'if (stats_browser_is_excluded())');
-location_stats_assert($guard !== false && $guard < strpos($tracker, '$rawInput =') && $guard < strrpos($tracker, 'geoip_lookup(') && $guard < strrpos($tracker, 'stats_increment('), 'Tracker musi sprawdzać cookie przed odczytem payloadu, GeoIP i zapisem.');
+location_stats_assert($guard !== false && $guard < strpos($tracker, '$rawInput =') && $guard < strrpos($tracker, 'geoip_lookup(') && $guard < strrpos($tracker, 'stats_record_event('), 'Tracker musi sprawdzać cookie przed odczytem payloadu, GeoIP i zapisem.');
 
 echo "PASS: location and browser exclusion tests\n";
