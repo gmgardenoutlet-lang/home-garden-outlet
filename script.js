@@ -113,7 +113,8 @@ const trackedEvents = new Set([
   "navigation_click",
   "facebook_click",
   "instagram_click",
-  "product_question_click"
+  "product_question_click",
+  "whatsapp_delivery_click"
 ]);
 let products = assignProductSlugs(fallbackProducts);
 
@@ -664,7 +665,8 @@ function productWhatsappAction(product, detailUrl) {
   const name = product.name || "Produkt outletowy";
   const message = `Dzień dobry, interesuje mnie produkt: ${name}. Proszę o informację dotyczącą możliwości dostawy. Link: https://mgoutlet.pl${detailUrl}`;
   const href = `https://wa.me/${whatsappPhone}?text=${encodeURIComponent(message)}`;
-  return `<a class="btn btn-whatsapp" href="${escapeHtml(href)}" target="_blank" rel="noopener">Napisz na WhatsApp</a>`;
+  const slug = getProductSeo(product).slug || "";
+  return `<a class="btn btn-whatsapp" href="${escapeHtml(href)}" target="_blank" rel="noopener" data-stat-event="whatsapp_delivery_click" data-product-slug="${escapeHtml(slug)}">Napisz na WhatsApp</a>`;
 }
 
 function productDeliveryInfo(product, detailUrl) {
@@ -695,7 +697,7 @@ function hydrateProductDetailDelivery() {
   const whatsappPlaceholder = deliveryInfo.querySelector("[data-product-whatsapp]");
 
   if (whatsappPlaceholder) {
-    whatsappPlaceholder.outerHTML = productWhatsappAction({ name }, detailUrl);
+    whatsappPlaceholder.outerHTML = productWhatsappAction({ name, slug: document.body.dataset.productSlug || "" }, detailUrl);
   }
 }
 
@@ -1107,7 +1109,9 @@ document.addEventListener("click", (event) => {
 
   const trackedLink = target.closest("a[href]");
   if (trackedLink) {
-    classifyTrackedLink(trackedLink).forEach((eventName) => sendStatsEvent(eventName));
+    classifyTrackedLink(trackedLink).forEach((eventName) => sendStatsEvent(eventName, {
+      productSlug: eventName === "whatsapp_delivery_click" ? (trackedLink.dataset.productSlug || "") : ""
+    }));
   }
 
   const galleryTrigger = target.closest(".product-gallery-trigger");

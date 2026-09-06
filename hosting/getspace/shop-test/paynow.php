@@ -297,8 +297,13 @@ function paynow_process_notification(array $payload, ?callable $mailer = null): 
             && paynow_is_historical_attempt($order, $paymentId)) {
             return $order; // signed notification for an archived payment attempt: no state or e-mail changes
         }
+        $wasConfirmed = ($order['paymentStatus'] ?? '') === 'confirmed';
         $updated = paynow_apply_status($order, (string)$payload['paymentId'], (string)$payload['externalId'], (string)$payload['status'], (string)($payload['modifiedAt'] ?? ''));
         if ($updated !== $order) shop_save_order($updated);
+        if (!$wasConfirmed && ($updated['paymentStatus'] ?? '') === 'confirmed') {
+            /* A signed webhook is the only route that can emit payment_confirmed. */
+            shop_record_order_stats($updated, 'payment_confirmed');
+        }
         if (strtoupper((string)$payload['status']) === 'CONFIRMED') {
             $updated = shop_send_payment_confirmed_emails($updated, $mailer);
         }

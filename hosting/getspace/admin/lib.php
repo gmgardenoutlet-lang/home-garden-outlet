@@ -26,6 +26,7 @@ const MAX_PRODUCT_DRAFT_JSON_BYTES = 256 * 1024;
 
 require_once SITE_ROOT . '/lib/geoip.php';
 require_once SITE_ROOT . '/lib/stats-exclusion.php';
+require_once SITE_ROOT . '/lib/stats-writer.php';
 require_once SITE_ROOT . '/catalog.php';
 require_once __DIR__ . '/../shop-test/config.php';
 
@@ -618,12 +619,13 @@ function stats_event_labels(): array
         'facebook_click' => 'Facebook',
         'instagram_click' => 'Instagram',
         'product_question_click' => 'Zapytanie o produkt',
+        'whatsapp_delivery_click' => 'Zapytanie o dostawę WhatsApp',
     ];
 }
 
 function normalize_stats_range(string $range): string
 {
-    return in_array($range, ['today', '7', '30', '90'], true) ? $range : 'today';
+    return in_array($range, ['today', '7', '28', '30', '90'], true) ? $range : 'today';
 }
 
 function normalize_stats_product_limit($limit): int
@@ -639,6 +641,9 @@ function stats_range_days(string $range): int
     }
     if ($range === '30') {
         return 30;
+    }
+    if ($range === '28') {
+        return 28;
     }
     if ($range === '7') {
         return 7;
@@ -878,7 +883,7 @@ function load_location_summary(string $range): array
 
 function empty_stats_summary(string $range): array
 {
-    $events = ['page_view', 'product_view', 'call_click', 'sms_click', 'navigation_click', 'facebook_click', 'instagram_click', 'product_question_click'];
+    $events = HGO_STATS_EVENTS;
     return [
         'range' => $range,
         'days' => stats_range_days($range),
@@ -1012,7 +1017,7 @@ function load_diagnostic_events(string $range, array $filters = []): array
             $match = true;
             foreach (['event_type' => 'type', 'country' => 'country', 'city' => 'city', 'client_class' => 'client', 'device_class' => 'device'] as $field => $filter) {
                 $wanted = (string)($filters[$filter] ?? ''); $actual = (string)($row[$field] ?? '');
-                if ($filter === 'type' && $wanted === 'other') { if (in_array($actual, ['page_view', 'product_view'], true)) $match = false; }
+                if ($filter === 'type' && $wanted === 'other') { if (in_array($actual, HGO_STATS_EVENTS, true)) $match = false; }
                 elseif ($wanted !== '' && $actual !== $wanted) $match = false;
             }
             if ($match) $events[] = $row;
@@ -1085,13 +1090,13 @@ function load_stats_summary(string $range, array $catalog): array
                     $summary['products'][$slug] = [
                         'slug' => $slug,
                         'name' => $productNames[$slug] ?? $slug,
-                        'views' => 0,
+                        'views' => 0, 'figure_views' => 0, 'add_to_cart' => 0, 'whatsapp_delivery_click' => 0,
                         'call_click' => 0,
                         'sms_click' => 0,
                         'product_question_click' => 0,
                     ];
                 }
-                foreach (['views', 'call_click', 'sms_click', 'product_question_click'] as $metric) {
+                foreach (['views', 'figure_views', 'add_to_cart', 'whatsapp_delivery_click', 'call_click', 'sms_click', 'product_question_click'] as $metric) {
                     $value = safe_stat_int($metrics[$metric] ?? 0);
                     $summary['products'][$slug][$metric] += $value;
                     if ($value > 0) {
@@ -1363,6 +1368,44 @@ function shop_producer_whatsapp_recipients(): array
         '1' => ['label' => 'Numer 1', 'number' => shop_producer_whatsapp_number(HGO_WHATSAPP_PRODUCER_1)],
         '2' => ['label' => 'Numer 2', 'number' => shop_producer_whatsapp_number(HGO_WHATSAPP_PRODUCER_2)],
     ];
+}
+
+function shop_record_order_stats(array &$order, string $event): bool
+{
+    if (!in_array($event, ['order_created', 'payment_confirmed'], true) || !empty($order['statsExcluded'])) {
+        return false;
+    }
+    $analytics = is_array($order['analytics'] ?? null) ? $order['analytics'] : [];
+    if (!empty($analytics[$event])) {
+        return false;
+    }
+    $items = is_array($order['items'] ?? null) ? $order['items'] : [];
+    $quantity = 0;
+    foreach ($items as $item) {
+        if (is_array($item)) $quantity += max(0, min(1000, (int)($item['quantity'] ?? 0)));
+    }
+    $meta = [
+        'itemCount' => min(100000, $quantity),
+        'itemTypes' => min(100000, count($items)),
+        'currency' => 'PLN',
+    ];
+    if (is_int($order['totalCents'] ?? null) && $order['totalCents'] >= 0) $meta['orderValueCents'] = $order['totalCents'];
+    try {
+        $recorded = stats_record_event($event, '/sklep/figury-ogrodowe/zamowienie', '', null, $meta);
+    } catch (Throwable $ignored) {
+        $recorded = false;
+    }
+    if ($recorded) {
+        $analytics[$event] = true;
+        $order['analytics'] = $analytics;
+        shop_save_order($order);
+    }
+    return $recorded;
+}
+
+function stats_diagnostic_event_types(): array
+{
+    return array_merge(HGO_STATS_EVENTS, ['other']);
 }
 
 function shop_order_is_paid(array $order): bool

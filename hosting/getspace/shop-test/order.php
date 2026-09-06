@@ -104,6 +104,8 @@ try {
         'paymentId' => '',
         'paymentStatus' => $quoteRequired ? 'not_started' : ($paymentMethod === 'paynow' ? 'not_started' : 'awaiting'),
         'internalNote' => '',
+        'statsExcluded' => stats_browser_is_excluded(),
+        'analytics' => [],
         'confirmationTokenHash' => shop_confirmation_token_hash($confirmationToken),
     ];
 
@@ -112,6 +114,7 @@ try {
     }
 
     $order = shop_create_order($order);
+    shop_record_order_stats($order, 'order_created');
     shop_test_remember_checkout_order($submissionToken, (string)$order['orderId'], $confirmationToken);
     if (!$quoteRequired && $paymentMethod === 'bank_transfer') {
         $order['bankTransfer'] = shop_bank_transfer_details((string)$order['orderId']);

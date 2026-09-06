@@ -656,7 +656,7 @@ $statsTab = (string)($_GET['stats_tab'] ?? 'general') === 'locations' ? 'locatio
 $statsProductLimit = normalize_stats_product_limit($_GET['product_limit'] ?? 10);
 $diagnosticRange = in_array((string)($_GET['event_range'] ?? 'today'), ['today', '7', '30'], true) ? (string)($_GET['event_range'] ?? 'today') : 'today';
 $diagnosticFilters = [
-    'type' => stats_event_filter((string)($_GET['event_type'] ?? ''), ['', 'page_view', 'product_view', 'other']),
+    'type' => stats_event_filter((string)($_GET['event_type'] ?? ''), array_merge([''], stats_diagnostic_event_types())),
     'country' => substr(trim((string)($_GET['event_country'] ?? '')), 0, 80),
     'city' => substr(trim((string)($_GET['event_city'] ?? '')), 0, 80),
     'client' => stats_event_filter((string)($_GET['event_client'] ?? ''), ['', 'browser', 'known_bot', 'suspected_automation', 'unknown']),
@@ -666,7 +666,7 @@ $trafficChartRange = normalize_traffic_chart_range((string)($_GET['traffic_range
 $trafficChartRangeLabels = ['7' => '7 dni', '28' => '28 dni', '90' => '3 miesiące'];
 $statsRangeLabels = ['today' => 'Dzisiaj', '7' => 'Ostatnie 7 dni', '30' => 'Ostatnie 30 dni', '90' => 'Ostatnie 90 dni'];
 $statsProductLimitLabels = [10 => 'Top 10', 25 => 'Top 25', 50 => 'Top 50'];
-$statsToday = $stats7 = $stats30 = $stats90 = $statsSelected = $statsLocations = $diagnosticEvents = null;
+$statsToday = $stats7 = $stats28 = $stats30 = $stats90 = $statsSelected = $statsLocations = $diagnosticEvents = null;
 $statsCards = [];
 $statsTopProducts = [];
 $trafficChart = $trafficChartPrevious = $trafficChartComparison = null;
@@ -749,9 +749,10 @@ foreach ($listedProducts as $listedIndex => $listedProduct) {
 if ($showStats) {
     $statsToday = load_stats_summary('today', $catalog);
     $stats7 = load_stats_summary('7', $catalog);
+    $stats28 = load_stats_summary('28', $catalog);
     $stats30 = load_stats_summary('30', $catalog);
     $stats90 = load_stats_summary('90', $catalog);
-    $statsSelected = $statsRange === 'today' ? $statsToday : ($statsRange === '7' ? $stats7 : ($statsRange === '30' ? $stats30 : $stats90));
+    $statsSelected = $statsRange === 'today' ? $statsToday : ($statsRange === '7' ? $stats7 : ($statsRange === '28' ? $stats28 : ($statsRange === '30' ? $stats30 : $stats90)));
     $statsLocations = load_location_summary($statsRange);
     $statsTopProducts = array_slice($statsSelected['topProducts'] ?? [], 0, $statsProductLimit);
     $diagnosticEvents = load_diagnostic_events($diagnosticRange, $diagnosticFilters);
@@ -952,6 +953,7 @@ if ($showStats) {
           </article>
         <?php endforeach; ?>
       </section>
+      <section class="card stats-section"><h2>Sklep internetowy / figury</h2><p class="muted">Są to zdarzenia, nie użytkownicy ani klienci.</p><div class="stats-grid"><?php foreach (['shop_view' => 'Wejścia do sklepu', 'figure_view' => 'Wyświetlenia figur', 'add_to_cart' => 'Dodania do koszyka', 'cart_view' => 'Wejścia do koszyka', 'checkout_view' => 'Checkout', 'whatsapp_delivery_click' => 'Zapytania o dostawę WhatsApp', 'order_created' => 'Utworzone zamówienia', 'payment_confirmed' => 'Opłacone zamówienia'] as $event => $label): ?><article class="stat-card"><span><?= e($label) ?></span><strong><?= e(number_format((int)($statsToday['totals'][$event] ?? 0), 0, ',', ' ')) ?></strong><small>Dzisiaj · 7 dni: <?= e(number_format((int)($stats7['totals'][$event] ?? 0), 0, ',', ' ')) ?> · 28 dni: <?= e(number_format((int)($stats28['totals'][$event] ?? 0), 0, ',', ' ')) ?> · 90 dni: <?= e(number_format((int)($stats90['totals'][$event] ?? 0), 0, ',', ' ')) ?></small></article><?php endforeach; ?></div><h3>Zainteresowanie figurami</h3><div class="table-wrap"><table class="stats-table"><thead><tr><th>Produkt</th><th>Wyświetlenia</th><th>Dodania do koszyka</th><th>Zapytania WhatsApp</th></tr></thead><tbody><?php foreach (($statsSelected['products'] ?? []) as $row): if ((int)($row['figure_views'] ?? 0) + (int)($row['add_to_cart'] ?? 0) + (int)($row['whatsapp_delivery_click'] ?? 0) === 0) continue; ?><tr><td><?= e((string)($row['name'] ?? $row['slug'] ?? '')) ?></td><td><?= e((string)($row['figure_views'] ?? 0)) ?></td><td><?= e((string)($row['add_to_cart'] ?? 0)) ?></td><td><?= e((string)($row['whatsapp_delivery_click'] ?? 0)) ?></td></tr><?php endforeach; ?></tbody></table></div></section>
 
       <?php if (($statsSelected['invalidFiles'] ?? 0) > 0): ?>
         <div class="flash flash-error">Pominięto <?= e((string)$statsSelected['invalidFiles']) ?> uszkodzony plik statystyk. Panel działa dalej i pokazuje poprawne dane.</div>

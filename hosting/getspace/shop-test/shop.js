@@ -1,5 +1,17 @@
 (function () {
   const products = Array.isArray(window.HGO_SHOP_PRODUCTS) ? window.HGO_SHOP_PRODUCTS : [];
+  const statsEndpoint = "/stats/track.php";
+  const shopStatsEvents = new Set(["shop_view", "figure_view", "add_to_cart", "cart_view", "checkout_view"]);
+  const sendShopStatsEvent = (event, extra = {}) => {
+    if (!shopStatsEvents.has(event)) return;
+    const payload = { event, path: window.location.pathname || "/", productSlug: extra.productSlug || "" };
+    if (Number.isInteger(extra.quantity) && extra.quantity > 0 && extra.quantity <= 20) payload.quantity = extra.quantity;
+    const body = JSON.stringify(payload);
+    try {
+      if (navigator.sendBeacon && navigator.sendBeacon(statsEndpoint, new Blob([body], { type: "application/json" }))) return;
+      fetch(statsEndpoint, { method: "POST", body, headers: { "Content-Type": "application/json" }, keepalive: true, credentials: "omit" }).catch(() => {});
+    } catch (error) {}
+  };
   const salesEnabled = window.HGO_SHOP_SALES_ENABLED === true;
   const foreignShippingEnabled = window.HGO_FOREIGN_SHIPPING_ENABLED === true;
   const bySlug = new Map(products.map((product) => [product.slug, product]));
@@ -532,6 +544,7 @@
       if (existing) existing.quantity = Math.min(20, existing.quantity + 1);
       else cart.items.push({ slug: addSlug, quantity: 1, shippingProfileId: "" });
       saveCart(cart);
+      sendShopStatsEvent("add_to_cart", { productSlug: addSlug, quantity: 1 });
       showToast(product);
       if (!cartToast && addButton) {
         const previous = addButton.textContent;
@@ -673,4 +686,12 @@
     try { localStorage.removeItem(storageKey); } catch (error) {}
   }
   renderPerItemCart();
+  const statsPath = window.location.pathname.replace(/\/+$/, "") || "/";
+  if (statsPath === "/sklep/figury-ogrodowe") sendShopStatsEvent("shop_view");
+  else if (statsPath === "/sklep/figury-ogrodowe/koszyk") sendShopStatsEvent("cart_view");
+  else if (statsPath === "/sklep/figury-ogrodowe/zamowienie") sendShopStatsEvent("checkout_view");
+  else {
+    const figureMatch = statsPath.match(/^\/sklep\/figury-ogrodowe\/produkt\/([a-z0-9-]+)$/);
+    if (figureMatch && bySlug.has(figureMatch[1])) sendShopStatsEvent("figure_view", { productSlug: figureMatch[1] });
+  }
 })();
