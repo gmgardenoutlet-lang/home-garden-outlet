@@ -19,6 +19,8 @@ $ny = load_diagnostic_events('today', ['city' => 'New York', 'type' => 'page_vie
 event_assert(count($ny) === 1 && $ny[0]['path'] === '/', 'Filtry zdarzeń nie zawężają po mieście i typie.');
 event_assert(stats_event_filter('../../x', ['', 'browser']) === '', 'Walidacja filtru dopuszcza niedozwoloną wartość.');
 $tracker = (string)file_get_contents(__DIR__ . '/../hosting/getspace/stats/track.php');
-event_assert(strpos($tracker, 'stats_browser_is_excluded())') < strrpos($tracker, 'stats_append_event('), 'Wykluczona przeglądarka mogłaby trafić do dziennika.');
-event_assert(strpos($tracker, 'HTTP_USER_AGENT') !== false && strpos($tracker, "'user_agent'") === false, 'Tracker nie może zapisywać pełnego User-Agent.');
+$writer = (string)file_get_contents(__DIR__ . '/../hosting/getspace/lib/stats-writer.php');
+event_assert(strpos($tracker, 'stats_browser_is_excluded())') < strpos($tracker, 'stats_record_event('), 'Wykluczona przeglądarka mogłaby trafić do dziennika.');
+event_assert(strpos($writer, 'HTTP_USER_AGENT') !== false && strpos($writer, "'user_agent'") === false, 'Tracker nie może zapisywać pełnego User-Agent.');
+event_assert(strpos($writer, 'if (!stats_append_event(') !== false && strpos($writer, 'return stats_increment(') !== false, 'Agregat nie może być zwiększony bez udanego wpisu JSONL.');
 echo "PASS: diagnostic event tests\n";
