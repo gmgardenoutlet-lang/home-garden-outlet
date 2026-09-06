@@ -433,7 +433,7 @@ $adminOrderSource = (string)file_get_contents(__DIR__ . '/../hosting/getspace/ad
 test_assert(str_contains($adminOrderSource, 'DOKUMENT SPRZEDAŻY:') && str_contains($adminOrderSource, 'Dane do faktury'), 'Panel administratora nie wyświetla dokumentu sprzedaży i danych do faktury.');
 $checkoutSource = (string)file_get_contents(__DIR__ . '/../hosting/getspace/shop-test/checkout.php');
 $shopJavaScript = (string)file_get_contents(__DIR__ . '/../hosting/getspace/shop-test/shop.js');
-test_assert(str_contains($checkoutSource, 'data-invoice-same-address') && str_contains($checkoutSource, 'data-invoice-address-fields') && str_contains($checkoutSource, 'shop.js?v=20260905-invoice-address1'), 'Checkout nie ładuje aktualnej obsługi niezależnego adresu faktury.');
+test_assert(str_contains($checkoutSource, 'data-invoice-same-address') && str_contains($checkoutSource, 'data-invoice-address-fields') && str_contains($checkoutSource, 'shop.js?v=20260906-shop-stats1'), 'Checkout nie ładuje aktualnej obsługi niezależnego adresu faktury.');
 test_assert(str_contains($shopJavaScript, 'invoiceAddressFields.hidden = !requested || sameAddress') && str_contains($shopJavaScript, 'invoiceSameAddress.addEventListener("change", updateInvoiceFields)'), 'Przełącznik adresu faktury nie pokazuje i nie ukrywa pól bez przeładowania strony.');
 $paynowMailOrder = array_replace($mailOrder, ['paymentMethod' => 'paynow', 'paymentProvider' => 'paynow', 'paymentStatus' => 'not_started']);
 $paynowMailMessages = [];
