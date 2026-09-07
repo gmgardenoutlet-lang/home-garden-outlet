@@ -131,6 +131,7 @@ function stats_increment(string $event, string $pagePath, string $productSlug, ?
 function stats_record_event(string $event, string $pagePath, string $productSlug = '', ?array $location = null, array $meta = []): bool
 {
     if (!in_array($event, HGO_STATS_EVENTS, true) || !stats_ensure_storage()) return false;
+    if ($productSlug !== '' && !isset($meta['productSlug'])) $meta['productSlug'] = $productSlug;
     $now = stats_now();
     /* JSONL is the audit source. Append it first, never increment an aggregate without it. */
     if (!stats_append_event($event, $pagePath, $location, $meta, $now)) return false;
