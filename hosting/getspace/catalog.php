@@ -32,7 +32,7 @@ function catalog_has_value($value): bool
         && $normalized !== 'brak'
         && $normalized !== 'xxx'
         && $normalized !== '-'
-        && $normalized !== 'niedostepny'
+        && !in_array($normalized, ['niedostepny', 'niedostepna', 'niedostepne'], true)
         && strpos($normalized, 'do uzupelnienia') === false;
 }
 
@@ -41,6 +41,342 @@ function catalog_slugify(string $value): string
     $value = catalog_normalize($value);
     $value = preg_replace('/[^a-z0-9]+/', '-', $value) ?: 'produkt';
     return trim($value, '-') ?: 'produkt';
+}
+
+/**
+ * A closed allow-list for the general public catalogue feed. Adding an admin
+ * field to products.json must never expose it automatically.
+ */
+function catalog_public_product_fields(): array
+{
+    return [
+        'name', 'category', 'catalogPrice', 'outletPrice', 'grossPrice', 'currency',
+        'status', 'condition', 'dimensions', 'visible', 'productStatus', 'image',
+        'gallery', 'imageAlt', 'description', 'longDescription', 'material', 'color',
+        'availability', 'featured', 'order', 'slug', 'seoTitle', 'seoDescription',
+        'keywords', 'tags', 'productType', 'saleType', 'shopVisible', 'shopStatus',
+    ];
+}
+
+function catalog_public_product_record(array $product): array
+{
+    return array_intersect_key($product, array_fill_keys(catalog_public_product_fields(), true));
+}
+
+function catalog_append_internal_note(array &$product, string $field, string $removedText): void
+{
+    $note = "Treść robocza przeniesiona z pola {$field}:\n{$removedText}";
+    catalog_append_internal_note_text($product, $note);
+}
+
+function catalog_append_internal_note_text(array &$product, string $note): void
+{
+    $note = trim($note);
+    $existing = trim((string)($product['internalNote'] ?? ''));
+    if ($note === '' || ($existing !== '' && strpos($existing, $note) !== false)) {
+        return;
+    }
+    $product['internalNote'] = $existing === '' ? $note : $existing . "\n\n" . $note;
+}
+
+/**
+ * Applies only individually reviewed copy corrections. Exact replacements keep
+ * the operation deliberately narrow: edited source data stops matching and is
+ * never rewritten by a broad phrase filter.
+ */
+function catalog_apply_reviewed_product_fixes(array $product): array
+{
+    $slug = catalog_slugify((string)($product['slug'] ?? $product['name'] ?? ''));
+    $replacements = [
+        'zestaw-2-krzesel-altoona-szary' => [
+            'longDescription' => [[
+                'Oferowany komplet jest produktem outletowym / ekspozycyjnym. Na przesłanych zdjęciach nie widać istotnych uszkodzeń tapicerki ani konstrukcji. W przypadku weluru odcień powierzchni może zmieniać się zależnie od kierunku ułożenia włosia oraz oświetlenia.',
+                'Oferowany komplet jest produktem outletowym / ekspozycyjnym. W przypadku weluru odcień powierzchni może zmieniać się zależnie od kierunku ułożenia włosia oraz oświetlenia.',
+            ]],
+        ],
+        'fotel-bujany-oulu-boucle-bezowy' => [
+            'longDescription' => [[
+                'Oferowany egzemplarz jest produktem outletowym / ekspozycyjnym. Na przesłanych zdjęciach nie widać istotnych uszkodzeń konstrukcji ani tapicerki. Możliwe są drobne ślady wynikające z ekspozycji lub magazynowania.',
+                'Oferowany egzemplarz jest produktem outletowym / ekspozycyjnym.',
+            ]],
+        ],
+        'sofa-rozkladana-glomma-niebieska' => [
+            'longDescription' => [
+                [
+                    'W komplecie znajdują się również 2 poduszki dekoracyjne widoczne na przesłanych zdjęciach.',
+                    'W komplecie znajdują się również 2 poduszki dekoracyjne.',
+                ],
+                [
+                    'Oferowany egzemplarz jest produktem outletowym / ekspozycyjnym. Na przesłanych zdjęciach nie widać istotnych uszkodzeń konstrukcji ani tapicerki. Możliwe są drobne ślady związane z ekspozycją lub magazynowaniem.',
+                    'Oferowany egzemplarz jest produktem outletowym / ekspozycyjnym.',
+                ],
+            ],
+        ],
+        'zestaw-4-krzesel-sanilac-bezowoszary' => [
+            'longDescription' => [[
+                'Oferowane krzesła są produktami outletowymi / ekspozycyjnymi. Na przesłanych zdjęciach nie widać istotnych uszkodzeń konstrukcji ani tapicerki. Welur może zmieniać wizualnie odcień w zależności od kierunku ułożenia włosia oraz rodzaju oświetlenia.',
+                'Oferowane krzesła są produktami outletowymi / ekspozycyjnymi. Welur może zmieniać wizualnie odcień w zależności od kierunku ułożenia włosia oraz rodzaju oświetlenia.',
+            ]],
+        ],
+        'zestaw-2-krzesel-covelo-bezowoszary' => [
+            'longDescription' => [[
+                'Oferowany komplet jest produktem outletowym / ekspozycyjnym. Na przesłanych zdjęciach nie widać istotnych uszkodzeń konstrukcji ani tapicerki. Widoczne różnice w odcieniu powierzchni wynikają między innymi z charakterystycznego sposobu układania się włosia weluru pod wpływem dotyku i światła.',
+                'Oferowany komplet jest produktem outletowym / ekspozycyjnym. Widoczne różnice w odcieniu powierzchni wynikają między innymi z charakterystycznego sposobu układania się włosia weluru pod wpływem dotyku i światła.',
+            ]],
+        ],
+        'szafka-lazienkowa-rosell-40-cm' => [
+            'longDescription' => [[
+                'Oferowany egzemplarz jest produktem outletowym / ekspozycyjnym. Na przesłanych zdjęciach nie widać istotnych uszkodzeń konstrukcyjnych ani wyraźnych uszkodzeń rattanowych frontów. Przed sprzedażą zalecana jest standardowa kontrola szuflady, zawiasów i powierzchni mebla.',
+                'Oferowany egzemplarz jest produktem outletowym / ekspozycyjnym.',
+            ]],
+            'material' => [[
+                'Płyta pilśniowa, rattan, żelazo  Uwaga: w szczegółowej specyfikacji Beliani materiał główny podano jako „płyta pilśniowa”, natomiast w opisie produktu użyto określenia „płyta wiórowa”.',
+                'Płyta pilśniowa, rattan, żelazo',
+            ]],
+        ],
+        'szafka-pod-umywalke-rosell-86-cm-2' => [
+            'longDescription' => [[
+                'Oferowany egzemplarz jest produktem outletowym / ekspozycyjnym. Na przesłanych zdjęciach nie widać istotnych uszkodzeń konstrukcyjnych. Przed publikacją warto jedynie wykonać końcową kontrolę powierzchni blatu, frontów oraz mocowań.',
+                'Oferowany egzemplarz jest produktem outletowym / ekspozycyjnym.',
+            ]],
+        ],
+        'zestaw-2-krzesel-day-zielone-boucle' => [
+            'longDescription' => [[
+                'Oferowany komplet jest produktem outletowym / ekspozycyjnym. Na przesłanych zdjęciach nie widać istotnych uszkodzeń konstrukcji ani wyraźnych uszkodzeń tapicerki. Mogą występować drobne ślady związane z ekspozycją.',
+                'Oferowany komplet jest produktem outletowym / ekspozycyjnym.',
+            ]],
+        ],
+        'witryna-tingledale-czarna-40-cm' => [
+            'longDescription' => [[
+                'Oferowany egzemplarz jest produktem outletowym / ekspozycyjnym. Na przesłanych zdjęciach widoczne są drobne ślady ekspozycji, jednak nie widać istotnych uszkodzeń konstrukcyjnych ani uszkodzeń szklanego frontu.',
+                'Oferowany egzemplarz jest produktem outletowym / ekspozycyjnym. Widoczne są drobne ślady ekspozycji.',
+            ]],
+        ],
+        'krzeslo-ogrodowe-adirondack-czerwone' => [
+            'longDescription' => [[
+                'Oferowany egzemplarz jest produktem outletowym / ekspozycyjnym. Na przesłanych zdjęciach widoczne są drobne ślady ekspozycyjne. Nie widać istotnych uszkodzeń konstrukcyjnych. Przed publikacją warto dodatkowo sprawdzić wszystkie połączenia oraz powierzchnię siedziska i podłokietników.',
+                'Oferowany egzemplarz jest produktem outletowym / ekspozycyjnym. Widoczne są drobne ślady ekspozycyjne.',
+            ]],
+        ],
+        'zestaw-2-krzesel-unity-boucle-bezowoszare' => [
+            'longDescription' => [[
+                'Oferowany zestaw jest produktem outletowym / ekspozycyjnym. Na przesłanych zdjęciach widoczne są drobne ślady ekspozycyjne, jednak nie widać istotnych uszkodzeń konstrukcyjnych. Przed publikacją warto sprawdzić tapicerkę obu krzeseł oraz stabilność nóg.',
+                'Oferowany zestaw jest produktem outletowym / ekspozycyjnym. Widoczne są drobne ślady ekspozycyjne.',
+            ]],
+        ],
+        'hamak-ogrodowy-treviso-drewniany-bezowy' => [
+            'longDescription' => [[
+                'Oferowany egzemplarz jest produktem outletowym / ekspozycyjnym. Na drewnianej konstrukcji widoczne są drobne ślady użytkowania i ekspozycji. Na podstawie przesłanych zdjęć nie widać istotnych uszkodzeń konstrukcyjnych.',
+                'Oferowany egzemplarz jest produktem outletowym / ekspozycyjnym. Na drewnianej konstrukcji widoczne są drobne ślady użytkowania i ekspozycji.',
+            ]],
+            'dimensions' => [[
+                'Hamak ogrodowy TREVISO to wolnostojący model ze stabilnym drewnianym stelażem, dzięki któremu nie wymaga mocowania do drzew ani słupów. Zakrzywiona konstrukcja z drewna modrzewiowego oraz beżowa powierzchnia do leżenia tworzą wygodne miejsce do odpoczynku w ogrodzie lub na tarasie.  Powierzchnia hamaka wykonana jest z bawełny i według danych producenta może być zdejmowana oraz prana. Model przeznaczony jest do użytkowania na zewnątrz, jednak dla zachowania dobrego stanu producent zaleca zabezpieczanie go przed intensywnymi opadami i przechowywanie pod przykryciem, gdy nie jest używany.  Hamak wyposażony jest w drewniane rozpórki, liny oraz metalowy system mocowania do stelaża. Maksymalne dopuszczalne obciążenie wynosi 150 kg.  Oferowany egzemplarz jest produktem outletowym / ekspozycyjnym. Na drewnianej konstrukcji widoczne są drobne ślady użytkowania i ekspozycji. Na podstawie przesłanych zdjęć nie widać istotnych uszkodzeń konstrukcyjnych.  Dodatkowe informacje: - model: TREVISO - typ: hamak ogrodowy ze stelażem - kolor: beżowy / brązowy - odcień tkaniny: złamana biel - materiał stelaża: drewno modrzewiowe - materiał powierzchni do leżenia: 100% bawełna - maksymalne obciążenie: 150 kg - zdejmowany materiał: tak - materiał nadający się do prania: tak - odporność tkaniny na promieniowanie słoneczne: klasa 4 według ISO 105-B05 - montaż według źródła: wymaga kompletnego montażu - waga produktu: 43 kg - stan: outletowy / ekspozycyjny',
+                'Szerokość: 415 cm Głębokość: 124 cm Wysokość: 122 cm Wysokość siedziska: 57 cm',
+            ]],
+        ],
+        'zestaw-modulow-kuchennych-ogrodowych-venosa' => [
+            'longDescription' => [[
+                'Oferowany egzemplarz jest produktem outletowym / ekspozycyjnym. Jeden z modułów jest wybrakowany — brakuje dwóch wsporników. Zgodnie z przekazaną informacją brak ten nie przeszkadza w użytkowaniu. Miejsce brakujących elementów jest widoczne na przesłanych zdjęciach, dlatego warto uczciwie zaznaczyć to w ofercie.',
+                'Oferowany egzemplarz jest produktem outletowym / ekspozycyjnym. Jeden z modułów jest wybrakowany — brakuje dwóch wsporników. Brak ten nie przeszkadza w użytkowaniu.',
+            ]],
+        ],
+        'regal-johnson-3-polki-jasne-drewno' => [
+            'longDescription' => [[
+                'Oferowany egzemplarz jest produktem outletowym / ekspozycyjnym. Na przesłanych zdjęciach nie widać wyraźnych uszkodzeń. Przed publikacją warto jednak dodatkowo sprawdzić stan półek, narożników i krawędzi.',
+                'Oferowany egzemplarz jest produktem outletowym / ekspozycyjnym.',
+            ]],
+        ],
+        'zestaw-2-krzesel-melrose-oliwkowe' => [
+            'longDescription' => [[
+                'Oferowany zestaw jest produktem outletowym / ekspozycyjnym. Na tapicerce widoczne są miejscowe ślady ekspozycyjne oraz różnice w odcieniu. Część tych zmian może wynikać z charakterystycznego dla weluru ułożenia włosia, jednak przed publikacją warto dodatkowo sprawdzić tapicerkę po wyczyszczeniu i przeczesaniu w jednym kierunku.',
+                'Oferowany zestaw jest produktem outletowym / ekspozycyjnym. Na tapicerce widoczne są miejscowe ślady ekspozycyjne oraz różnice w odcieniu. Część tych zmian może wynikać z charakterystycznego dla weluru ułożenia włosia.',
+            ]],
+        ],
+        'zestaw-2-krzesel-piseco-ciemnozielone' => [
+            'longDescription' => [[
+                'Oferowany zestaw jest produktem outletowym / ekspozycyjnym. Na zdjęciach widoczne są miejscowe ślady ekspozycyjne oraz różnice w ułożeniu włosia weluru. Na przesłanych zdjęciach nie widać oczywistych poważnych uszkodzeń konstrukcyjnych.',
+                'Oferowany zestaw jest produktem outletowym / ekspozycyjnym. Widoczne są miejscowe ślady ekspozycyjne oraz różnice w ułożeniu włosia weluru.',
+            ]],
+            'dimensions' => [[
+                'Szerokość: 48 cm Głębokość: Do weryfikacji — na stronie Ceneo występują niejednoznaczne dane dotyczące głębokości Wysokość: 97 cm Powierzchnia siedziska: 48 x 42 cm Wysokość siedziska: 49 cm Grubość tapicerki: 13 — jednostka nie została jednoznacznie podana w danych Ceneo Waga: 7 kg Maksymalne obciążenie: 180 kg według danych Ceneo',
+                'Szerokość: 48 cm Głębokość całkowita: 50 cm Wysokość: 97 cm Powierzchnia siedziska: 48 x 42 cm Głębokość siedziska: 42 cm Wysokość siedziska: 49 cm Waga: 7 kg Maksymalne obciążenie: 180 kg według danych Ceneo',
+            ]],
+        ],
+        'zestaw-2-krzesel-clayton-zielone-welurowe' => [
+            'longDescription' => [[
+                'Oferowany zestaw jest produktem outletowym / ekspozycyjnym. Na welurowej powierzchni widoczne są ślady użytkowania ekspozycyjnego oraz miejscowe różnice w ułożeniu włosia. W przypadku weluru kierunek ułożenia włókien oraz oświetlenie mogą wpływać na widoczny odcień tapicerki. Na przesłanych zdjęciach nie widać rozdarć tapicerki ani oczywistych poważnych uszkodzeń konstrukcyjnych.',
+                'Oferowany zestaw jest produktem outletowym / ekspozycyjnym. Na welurowej powierzchni widoczne są ślady użytkowania ekspozycyjnego oraz miejscowe różnice w ułożeniu włosia. W przypadku weluru kierunek ułożenia włókien oraz oświetlenie mogą wpływać na widoczny odcień tapicerki.',
+            ]],
+        ],
+        'zestaw-4-krzesel-magalia-szary-welur' => [
+            'name' => [[
+                'Zestaw 2 krzeseł do jadalni MAGALIA Welur Jasnobeżowy',
+                'Zestaw 4 krzeseł do jadalni MAGALIA — szary welur',
+            ]],
+            'longDescription' => [[
+                'Produkt ma charakter outletowy / ekspozycyjny. Na powierzchni tapicerki widoczne są naturalne ślady ułożenia weluru oraz delikatne ślady ekspozycji. Na podstawie przesłanych zdjęć nie potwierdzono uszkodzeń konstrukcyjnych.',
+                'Produkt ma charakter outletowy / ekspozycyjny. Na powierzchni tapicerki widoczne są naturalne ślady ułożenia weluru oraz delikatne ślady ekspozycji.',
+            ]],
+        ],
+        'zestaw-4-krzesel-cisco-z-jasnobezowa-tapicerka-i-czarnymi-nogami-krzesla-do-jadalni-w-home-garden-outlet-pod-wroclawiem' => [
+            'longDescription' => [[
+                'Oferowany komplet obejmuje 4 krzesła. Produkt jest outletowy. Na przesłanych zdjęciach widoczne są ślady ekspozycyjne oraz miejscowe zabrudzenia / przebarwienia jasnej tapicerki, szczególnie na siedziskach i dolnych partiach oparć. Nie widać dużych uszkodzeń konstrukcyjnych, ale przed sprzedażą warto sprawdzić stabilność krzeseł, stan tapicerki oraz dokręcenie śrub.',
+                'Oferowany komplet obejmuje 4 krzesła. Produkt jest outletowy. Widoczne są ślady ekspozycyjne oraz miejscowe zabrudzenia / przebarwienia jasnej tapicerki, szczególnie na siedziskach i dolnych partiach oparć.',
+            ]],
+        ],
+        'zestaw-4-krzesel-onaga-boucle-biale' => [
+            'longDescription' => [[
+                'Oferowany komplet obejmuje 4 krzesła. Produkt jest outletowy. Na przesłanych zdjęciach widoczne są drobne ślady ekspozycyjne / miejscowe zabrudzenia tapicerki, szczególnie przy krawędzi siedziska. Nie widać dużych uszkodzeń konstrukcyjnych, ale przed sprzedażą warto sprawdzić stabilność krzeseł, stan tapicerki oraz kompletność zestawu.',
+                'Oferowany komplet obejmuje 4 krzesła. Produkt jest outletowy. Widoczne są drobne ślady ekspozycyjne / miejscowe zabrudzenia tapicerki, szczególnie przy krawędzi siedziska.',
+            ]],
+        ],
+        'biurko-caddo-biale-polki' => [
+            'longDescription' => [[
+                'Na przesłanych zdjęciach biurko jest złożone i wygląda na kompletne. Nie widać dużych uszkodzeń, ale jako produkt outletowy powinno zostać sprawdzone pod kątem stabilności, stanu blatu, półek, krawędzi i ewentualnych drobnych śladów ekspozycyjnych.',
+                'Produkt jest outletowy.',
+            ]],
+        ],
+        'fotel-biurowy-palmdale-boucle' => [
+            'longDescription' => [[
+                'Na przesłanych zdjęciach nie widać dużych uszkodzeń. Produkt jest outletowy, dlatego przed sprzedażą warto sprawdzić stan tapicerki, działanie regulacji wysokości, mechanizm odchylenia oraz kółka.',
+                'Produkt jest outletowy.',
+            ]],
+        ],
+        'lampa-wiszaca-led-bodri-czarna' => [
+            'longDescription' => [[
+                'Produkt outletowy. Na przesłanych zdjęciach nie widać jednoznacznych dużych uszkodzeń, ale przed sprzedażą warto sprawdzić działanie oświetlenia LED, stan przewodów, kompletność elementów montażowych oraz ogólny stan wizualny lampy.',
+                'Produkt outletowy.',
+            ]],
+        ],
+        'lampa-wiszaca-krysztalowa-srebrna' => [
+            'longDescription' => [[
+                'Na przesłanych zdjęciach widać lampę wiszącą na łańcuchach, z okrągłą/opływową oprawą i kilkoma rzędami ozdobnych kryształków. Przed sprzedażą warto dodatkowo sprawdzić kompletność elementów dekoracyjnych, stan oprawy oraz instalacji elektrycznej.',
+                'Lampa jest zawieszana na łańcuchach i ma okrągłą/opływową oprawę z kilkoma rzędami ozdobnych kryształków.',
+            ]],
+        ],
+        'lustro-scienne-massilly-czarne' => [
+            'longDescription' => [[
+                'Lustro jest przeznaczone do zawieszenia na ścianie. Według danych producenta posiada haczyki montażowe z tyłu produktu. Na przesłanych zdjęciach nie widać wyraźnych uszkodzeń, ale jako produkt outletowy powinno zostać obejrzane na miejscu przed zakupem.',
+                'Lustro jest przeznaczone do zawieszenia na ścianie. Według danych producenta posiada haczyki montażowe z tyłu produktu.',
+            ]],
+        ],
+        'stol-rozkladany-avis-czarny' => [
+            'longDescription' => [
+                [
+                    'Model ma funkcję rozkładania — długość blatu można zwiększyć ze 140 cm do 190 cm.',
+                    'Model ma funkcję rozkładania — długość blatu można zwiększyć ze 160 cm do 210 cm.',
+                ],
+                [
+                    'Blat wykonany jest z MDF, a konstrukcja została uzupełniona stalowymi nogami. Na przesłanych zdjęciach widać czarny blat z jasną krawędzią oraz linię łączenia blatu wynikającą z funkcji rozkładania. Nie widać jednoznacznych uszkodzeń, ale jako produkt outletowy powinien zostać obejrzany na miejscu przed zakupem.',
+                    'Blat wykonany jest z MDF, a konstrukcja została uzupełniona stalowymi nogami. Czarny blat ma jasną krawędź oraz linię łączenia wynikającą z funkcji rozkładania.',
+                ],
+            ],
+            'dimensions' => [[
+                'Szerokość: 90 cm Głębokość / długość: 140 / 190 cm Wysokość: 76 cm Wysokość nóżek: 74 cm',
+                'Szerokość: 90 cm Głębokość / długość: 160 / 210 cm Wysokość: 76 cm Wysokość nóżek: 74 cm',
+            ]],
+            'imageAlt' => [[
+                'Czarny stół do jadalni rozkładany AVIS 140/190 × 90 cm z metalowymi nogami, dostępny w Home & Garden Outlet pod Wrocławiem.',
+                'Czarny stół do jadalni rozkładany AVIS 160/210 × 90 cm z metalowymi nogami, dostępny w Home & Garden Outlet pod Wrocławiem.',
+            ]],
+            'seoDescription' => [[
+                'Czarny stół rozkładany AVIS 140/190 × 90 cm z blatem MDF i stalowymi nogami. Home & Garden Outlet pod Wrocławiem.',
+                'Czarny stół rozkładany AVIS 160/210 × 90 cm z blatem MDF i stalowymi nogami. Home & Garden Outlet pod Wrocławiem.',
+            ]],
+        ],
+        'konsola-birson-czarna-120-cm' => [
+            'longDescription' => [[
+                'Oferowany egzemplarz jest produktem outletowym / ekspozycyjnym. Na zdjęciach widoczne są drobne ślady ekspozycji, miejscowe zabrudzenia i niewielkie ślady powierzchniowe. Nie widać uszkodzeń konstrukcyjnych wpływających na użytkowanie.',
+                'Oferowany egzemplarz jest produktem outletowym / ekspozycyjnym. Widoczne są drobne ślady ekspozycji, miejscowe zabrudzenia i niewielkie ślady powierzchniowe.',
+            ]],
+        ],
+        'zestaw-2-krzesel-wellston-ciemnoszary-welur' => [
+            'longDescription' => [[
+                'Oferowany komplet jest produktem outletowym / ekspozycyjnym. Na zdjęciach widoczne są drobne ślady ekspozycji oraz naturalne zmiany odcienia wynikające z kierunku ułożenia włosia weluru. Nie widać istotnych uszkodzeń konstrukcyjnych.',
+                'Oferowany komplet jest produktem outletowym / ekspozycyjnym. Widoczne są drobne ślady ekspozycji oraz naturalne zmiany odcienia wynikające z kierunku ułożenia włosia weluru.',
+            ]],
+        ],
+        'zestaw-2-krzesel-mayetta-ciemnozielone' => [
+            'longDescription' => [[
+                'Oferowany zestaw jest produktem outletowym / ekspozycyjnym. Na zdjęciach widoczne są drobne ślady ekspozycyjne oraz lekkie miejscowe przybrudzenia tapicerki. Nie widać poważnych uszkodzeń konstrukcyjnych.',
+                'Oferowany zestaw jest produktem outletowym / ekspozycyjnym. Widoczne są drobne ślady ekspozycyjne oraz lekkie miejscowe przybrudzenia tapicerki.',
+            ]],
+        ],
+        'lozko-dzieciece-cossaye-domek' => [
+            'longDescription' => [[
+                'Oferowany egzemplarz jest produktem outletowym. Na zdjęciach widoczne są drobne ślady ekspozycyjne, miejscowe obtarcia oraz niewielkie odpryski lakieru przy niektórych łączeniach konstrukcji. Wady mają charakter wizualny i powinny zostać pokazane klientowi przed zakupem.',
+                'Oferowany egzemplarz jest produktem outletowym. Widoczne są drobne ślady ekspozycyjne, miejscowe obtarcia oraz niewielkie odpryski lakieru przy niektórych łączeniach konstrukcji. Wady mają charakter wizualny.',
+            ]],
+        ],
+        'wanna-hawes-hydromasaz-led-czarna' => [
+            'longDescription' => [[
+                'Przed sprzedażą należy potwierdzić działanie hydromasażu, LED, panelu sterowania, baterii, odpływu oraz szczelność instalacji. Jeżeli wanna nie była testowana z wodą, warto oznaczyć ją jako technicznie niesprawdzoną.',
+                'Elementy hydromasażu i oświetlenia LED są nowe.',
+            ]],
+        ],
+        'wentylator-sufitowy-zarqa-oswietlenie-led' => [
+            'longDescription' => [
+                [
+                    'Model przeznaczony jest do montażu sufitowego. Zgodnie z opisem źródłowym montaż powinien zostać wykonany przez wykwalifikowanego elektryka. Na zdjęciach widoczne są przewody montażowe, dlatego przed sprzedażą warto sprawdzić stan instalacji, kompletność zestawu oraz działanie oświetlenia i wentylatora.',
+                    'Model przeznaczony jest do montażu sufitowego. Zgodnie z opisem źródłowym montaż powinien zostać wykonany przez wykwalifikowanego elektryka.',
+                ],
+                [
+                    'Produkt outletowy. Nie widać jednoznacznych dużych uszkodzeń na zdjęciach, ale przed zakupem zalecamy obejrzenie lampy na miejscu, szczególnie pod kątem kompletności elementów dekoracyjnych, łopatek, przewodów i pilota.',
+                    'Oferowany egzemplarz jest nowy.',
+                ],
+                [
+                    '- obecność pilota w komplecie: do potwierdzenia',
+                    '',
+                ],
+            ],
+        ],
+        'stolik-pomocniczy-wallis-szklo-hartowane-brazowy' => [
+            'material' => [['brązowy', 'żelazo / szkło hartowane']],
+            'color' => [['żelazo/ szkło hartowane', 'brązowy']],
+        ],
+        'zestaw-2-lamp-sciennych-lorenta-czarno-zlote' => [
+            'dimensions' => [['wysokość 12 szerokość 11 długość 12 głębokość 12 wymiary 12x11x12', '12 × 11 × 12']],
+        ],
+    ];
+
+    $appliedChange = false;
+    foreach (($replacements[$slug] ?? []) as $field => $pairs) {
+        $value = (string)($product[$field] ?? '');
+        foreach ($pairs as [$from, $to]) {
+            if ($from === '' || strpos($value, $from) === false) {
+                continue;
+            }
+            $value = str_replace($from, $to, $value);
+            catalog_append_internal_note($product, $field, $from);
+            $appliedChange = true;
+        }
+        $product[$field] = trim($value);
+    }
+
+    if ($appliedChange && $slug === 'wanna-hawes-hydromasaz-led-czarna') {
+        catalog_append_internal_note_text($product, 'Decyzja właściciela: hydromasaż i LED są nowe; ich działanie nie było testowane.');
+    }
+    if ($appliedChange && $slug === 'wentylator-sufitowy-zarqa-oswietlenie-led') {
+        catalog_append_internal_note_text($product, 'Decyzja właściciela: produkt jest nowy; działanie światła i wentylatora nie było testowane.');
+    }
+
+    return $product;
+}
+
+function catalog_sale_price_text(array $product): string
+{
+    $field = catalog_is_figure_shop_product($product) ? 'grossPrice' : 'outletPrice';
+    return catalog_has_value($product[$field] ?? '') ? trim((string)$product[$field]) : '';
+}
+
+function catalog_sale_price_caption(array $product): string
+{
+    return catalog_is_figure_shop_product($product) ? 'Cena' : 'Cena outletowa';
+}
+
+function catalog_confirmed_brand(array $product): string
+{
+    return catalog_has_value($product['brand'] ?? '') ? trim((string)$product['brand']) : '';
 }
 
 function catalog_load(): array
@@ -110,6 +446,7 @@ function catalog_products_with_slugs(): array
     $used = [];
 
     foreach ($products as $index => &$product) {
+        $product = catalog_apply_reviewed_product_fixes($product);
         $source = catalog_has_value($product['slug'] ?? '')
             ? (string)$product['slug']
             : (string)($product['name'] ?? 'produkt');

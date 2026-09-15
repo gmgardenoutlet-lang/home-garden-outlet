@@ -114,6 +114,37 @@ test_assert(shop_load_orders() === [], 'Walidacja błędnych danych utworzyła z
 
 // Customer-facing delivery code deliberately does not fall back to defaults.
 // Give this isolated test an explicit admin-cennik fixture instead.
+$shippingFixturePath = SHIPPING_PROFILES_FILE;
+$shippingFixtureExisted = is_file($shippingFixturePath);
+$shippingFixtureBackup = $shippingFixtureExisted ? file_get_contents($shippingFixturePath) : null;
+register_shutdown_function(static function () use ($shippingFixturePath, $shippingFixtureExisted, $shippingFixtureBackup): void {
+    if ($shippingFixtureExisted && is_string($shippingFixtureBackup)) {
+        file_put_contents($shippingFixturePath, $shippingFixtureBackup, LOCK_EX);
+        return;
+    }
+    @unlink($shippingFixturePath);
+    @rmdir(dirname($shippingFixturePath));
+});
+
+$reviewedPallet = normalize_shipping_profile([
+    'id' => 'paleta',
+    'name' => 'Paleta',
+    'customerName' => 'Paleta',
+    'type' => 'paleta',
+    'price' => 250,
+    'requiresConfirmation' => false,
+    'priceFrom' => true,
+]);
+test_assert($reviewedPallet['price'] === 250.0 && $reviewedPallet['requiresConfirmation'] === false && $reviewedPallet['priceFrom'] === false, 'Potwierdzona paleta 250 zł nadal jest ceną „od” lub wymaga potwierdzenia.');
+$customPallet = normalize_shipping_profile([
+    'id' => 'paleta',
+    'name' => 'Paleta',
+    'price' => 275,
+    'requiresConfirmation' => false,
+    'priceFrom' => true,
+]);
+test_assert($customPallet['price'] === 275.0 && $customPallet['priceFrom'] === true, 'Późniejsza niestandardowa edycja palety została nadpisana korektą runtime.');
+
 save_shipping_profiles([
     [
         'id' => 'kurier-standardowy',
@@ -139,6 +170,17 @@ save_shipping_profiles([
         'price' => 35.00,
         'active' => true,
         'sortOrder' => 30,
+    ],
+    [
+        'id' => 'paleta',
+        'name' => 'Paleta',
+        'customerName' => 'Dostawa paletowa',
+        'type' => 'paleta',
+        'price' => 250.00,
+        'requiresConfirmation' => false,
+        'priceFrom' => true,
+        'active' => true,
+        'sortOrder' => 35,
     ],
     [
         'id' => 'odbior-osobisty',
@@ -170,9 +212,16 @@ $secondProduct = array_merge($product, [
     'grossPrice' => '100,01',
     'shippingProfileIds' => ['kurier-sredni'],
 ]);
+$palletProduct = array_merge($product, [
+    '_shopSlug' => 'figura-paletowa',
+    'slug' => 'figura-paletowa',
+    'name' => 'Figura paletowa',
+    'shippingProfileIds' => ['paleta'],
+]);
 $products = [
     (string)$product['_shopSlug'] => $product,
     (string)$secondProduct['_shopSlug'] => $secondProduct,
+    (string)$palletProduct['_shopSlug'] => $palletProduct,
 ];
 test_assert(shop_test_is_figure($product), 'Fixture produktu nie kwalifikuje się do sprzedaży.');
 test_assert(shop_test_delivery_methods($product) !== [], 'Fixture nie ma dostępnej metody dostawy.');
@@ -201,6 +250,17 @@ $perItemShipping = array_map('shop_test_resolve_item_delivery', $perItemCart['it
 test_assert(array_sum(array_map(static fn(array $shipping): int => (int)$shipping['shippingLineCents'], $perItemShipping)) === 5999, 'Różne profile dostawy nie sumują się per produkt.');
 $quantityShipping = shop_test_resolve_item_delivery(array_merge($cart['items'][0], ['quantity' => 2]));
 test_assert($quantityShipping['shippingLineCents'] === 4998, 'Koszt dostawy nie mnoży się przez quantity.');
+$quantityThreeShipping = shop_test_resolve_item_delivery(array_merge($cart['items'][0], ['quantity' => 3]));
+test_assert($quantityThreeShipping['shippingUnitCents'] === 2499 && $quantityThreeShipping['shippingLineCents'] === 7497, 'Dostawa dla 3 sztuk nie rozdziela ceny jednostkowej i sumy pozycji.');
+$palletCart = shop_test_decode_cart((string)json_encode(['items' => [[
+    'slug' => $palletProduct['_shopSlug'],
+    'quantity' => 3,
+    'shippingProfileId' => 'paleta',
+]]]), $products);
+$palletShipping = shop_test_resolve_item_delivery($palletCart['items'][0]);
+$palletPublic = shop_test_delivery_methods($palletProduct)['paleta'] ?? [];
+test_assert($palletShipping['shippingUnitCents'] === 25000 && $palletShipping['shippingLineCents'] === 75000, 'Paleta 250 zł nie mnoży się prawidłowo przez liczbę sztuk/palet.');
+test_assert(($palletPublic['cost'] ?? '') === '250,00 zł' && empty($palletPublic['priceFrom']) && empty($palletPublic['requiresConfirmation']), 'Karta/koszyk nadal pokazują „od” lub potwierdzenie dla palety 250 zł.');
 $expectedPrice = shop_test_price_number($product['grossPrice'] ?? '');
 test_assert($cart['items'][0]['price'] === $expectedPrice, 'Cena z payloadu klienta nie została zignorowana.');
 test_assert($cart['items'][0]['lineTotalCents'] === shop_test_price_cents($expectedPrice), 'Nieprawidłowa suma pozycji w groszach.');
@@ -433,7 +493,7 @@ $adminOrderSource = (string)file_get_contents(__DIR__ . '/../hosting/getspace/ad
 test_assert(str_contains($adminOrderSource, 'DOKUMENT SPRZEDAŻY:') && str_contains($adminOrderSource, 'Dane do faktury'), 'Panel administratora nie wyświetla dokumentu sprzedaży i danych do faktury.');
 $checkoutSource = (string)file_get_contents(__DIR__ . '/../hosting/getspace/shop-test/checkout.php');
 $shopJavaScript = (string)file_get_contents(__DIR__ . '/../hosting/getspace/shop-test/shop.js');
-test_assert(str_contains($checkoutSource, 'data-invoice-same-address') && str_contains($checkoutSource, 'data-invoice-address-fields') && str_contains($checkoutSource, 'shop.js?v=20260906-shop-stats1'), 'Checkout nie ładuje aktualnej obsługi niezależnego adresu faktury.');
+test_assert(str_contains($checkoutSource, 'data-invoice-same-address') && str_contains($checkoutSource, 'data-invoice-address-fields') && str_contains($checkoutSource, 'shop.js?v=20260914-audit1'), 'Checkout nie ładuje aktualnej obsługi niezależnego adresu faktury.');
 test_assert(str_contains($shopJavaScript, 'invoiceAddressFields.hidden = !requested || sameAddress') && str_contains($shopJavaScript, 'invoiceSameAddress.addEventListener("change", updateInvoiceFields)'), 'Przełącznik adresu faktury nie pokazuje i nie ukrywa pól bez przeładowania strony.');
 $paynowMailOrder = array_replace($mailOrder, ['paymentMethod' => 'paynow', 'paymentProvider' => 'paynow', 'paymentStatus' => 'not_started']);
 $paynowMailMessages = [];

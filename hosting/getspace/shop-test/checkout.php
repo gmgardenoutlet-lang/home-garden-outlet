@@ -33,7 +33,7 @@ function checkout_field_attrs(array $errors, string $key): string { return isset
       <div class="admin-ribbon">Sklep internetowy</div>
       <p class="eyebrow">Zamówienie</p>
       <h1>Dostawa i dane klienta</h1>
-      <p>Uzupełnij dane potrzebne do ręcznego potwierdzenia zamówienia. Płatności online zostaną uruchomione po publicznym starcie sklepu.</p>
+      <p>Uzupełnij dane dostawy i wybierz metodę płatności. Po złożeniu zamówienia przejdziesz do Paynow albo otrzymasz dane do przelewu tradycyjnego.</p>
     </section>
 
     <section class="checkout-shell checkout-page" aria-label="Zamówienie">
@@ -132,6 +132,6 @@ function checkout_field_attrs(array $errors, string $key): string { return isset
 
   <?php shop_test_footer(); ?>
   <script>window.HGO_SHOP_SALES_ENABLED = <?= shop_sales_enabled() ? 'true' : 'false' ?>; window.HGO_FOREIGN_SHIPPING_ENABLED = <?= FOREIGN_SHIPPING_ENABLED ? 'true' : 'false' ?>; window.HGO_SHOP_PRODUCTS = <?= json_encode($publicProducts, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_HEX_TAG) ?>;</script>
-  <script src="/sklep/shop.js?v=20260906-shop-stats1"></script>
+  <script src="/sklep/shop.js?v=20260914-audit1"></script>
 </body>
 </html>

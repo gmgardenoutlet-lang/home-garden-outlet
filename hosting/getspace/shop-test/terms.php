@@ -87,7 +87,7 @@ shop_test_boot();
 
       <section>
         <h2>11. Postanowienia końcowe</h2>
-        <p>Regulamin może być aktualizowany przed publicznym uruchomieniem sklepu online. Zmiany nie naruszają praw klientów wynikających z zamówień złożonych przed zmianą regulaminu.</p>
+        <p>Regulamin może być aktualizowany. Zmiany nie naruszają praw klientów wynikających z zamówień złożonych przed zmianą regulaminu.</p>
         <p>W sprawach nieuregulowanych zastosowanie mają przepisy prawa polskiego.</p>
       </section>
 
@@ -102,6 +102,6 @@ shop_test_boot();
 
   <?php shop_test_footer(); ?>
   <script>window.HGO_SHOP_PRODUCTS = <?= json_encode(shop_test_public_products(), JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_HEX_TAG) ?>;</script>
-  <script src="/sklep/shop.js"></script>
+  <script src="/sklep/shop.js?v=20260914-audit1"></script>
 </body>
 </html>

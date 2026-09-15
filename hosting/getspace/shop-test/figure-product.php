@@ -27,6 +27,10 @@ $galleryJson = json_encode($images, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNIC
 $productUrl = $showProduct && $view ? 'https://mgoutlet.pl' . shop_test_product_url($view['slug']) : '';
 $metaDescription = $product !== null && catalog_has_value($product['seoDescription'] ?? '') ? trim((string)$product['seoDescription']) : '';
 $mainImageUrl = preg_match('#^https?://#i', (string)$images[0]) ? (string)$images[0] : 'https://mgoutlet.pl' . shop_test_image_url((string)$images[0]);
+$productBrand = $product ? catalog_confirmed_brand($product) : '';
+$offerCurrency = $product && preg_match('/^[A-Z]{3}$/', strtoupper(trim((string)($product['currency'] ?? ''))))
+    ? strtoupper(trim((string)$product['currency']))
+    : 'PLN';
 $productBreadcrumbs = null;
 $productSchema = null;
 if ($showProduct && $view) {
@@ -35,12 +39,15 @@ if ($showProduct && $view) {
         ['@type' => 'ListItem', 'position' => 2, 'name' => 'Figury ogrodowe', 'item' => 'https://mgoutlet.pl' . shop_catalog_url()],
         ['@type' => 'ListItem', 'position' => 3, 'name' => $view['name'], 'item' => $productUrl],
     ]];
-    if ($isAvailable && $view['canBuy'] && $view['price'] !== null) {
+    if ($view['price'] !== null) {
         $productSchema = ['@context' => 'https://schema.org', '@type' => 'Product', 'name' => $view['name'],
             'image' => array_map(static fn(string $image): string => preg_match('#^https?://#i', $image) ? $image : 'https://mgoutlet.pl' . shop_test_image_url($image), $images),
             'description' => $view['shortDescription'], 'url' => $productUrl,
-            'offers' => ['@type' => 'Offer', 'url' => $productUrl, 'price' => number_format((float)$view['price'], 2, '.', ''), 'priceCurrency' => 'PLN', 'availability' => 'https://schema.org/InStock']];
+            'offers' => ['@type' => 'Offer', 'url' => $productUrl, 'price' => number_format((float)$view['price'], 2, '.', ''), 'priceCurrency' => $offerCurrency,
+                'availability' => $isAvailable && $view['canBuy'] ? 'https://schema.org/InStock' : 'https://schema.org/OutOfStock',
+                'seller' => ['@type' => 'FurnitureStore', 'name' => 'Home & Garden Outlet']]];
         if ($view['sku'] !== '') { $productSchema['sku'] = $view['sku']; }
+        if ($productBrand !== '') { $productSchema['brand'] = ['@type' => 'Brand', 'name' => $productBrand]; }
     }
 }
 $details = $product ? array_filter([
@@ -183,6 +190,6 @@ $details = $product ? array_filter([
 
   <?php shop_test_footer(); ?>
   <script>window.HGO_SHOP_SALES_ENABLED = <?= shop_sales_enabled() ? 'true' : 'false' ?>; window.HGO_SHOP_PRODUCTS = <?= json_encode($publicProducts, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_HEX_TAG) ?>;</script>
-  <script src="/sklep/shop.js?v=20260906-shop-stats1"></script>
+  <script src="/sklep/shop.js?v=20260914-audit1"></script>
 </body>
 </html>

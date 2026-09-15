@@ -7,6 +7,7 @@ const publish = path.join(root, "publish");
 
 const rootFiles = [
   "index.html",
+  "404.html",
   "dom.html",
   "ogrod.html",
   "styles.css",
@@ -105,6 +106,7 @@ await cp(path.join(root, "vendor"), path.join(publish, "vendor"), { recursive: t
 await cp(path.join(root, "hosting", "getspace", "vendor", ".htaccess"), path.join(publish, "vendor", ".htaccess"));
 await cp(path.join(root, "hosting", "getspace", ".htaccess"), path.join(publish, ".htaccess"));
 await cp(path.join(root, "hosting", "getspace", "catalog.php"), path.join(publish, "catalog.php"));
+await cp(path.join(root, "hosting", "getspace", "products-public.php"), path.join(publish, "products-public.php"));
 await cp(path.join(root, "hosting", "getspace", "product.php"), path.join(publish, "product.php"));
 await cp(path.join(root, "hosting", "getspace", "garden.php"), path.join(publish, "garden.php"));
 await cp(path.join(root, "hosting", "getspace", "home.php"), path.join(publish, "home.php"));

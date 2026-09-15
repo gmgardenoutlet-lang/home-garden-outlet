@@ -350,7 +350,7 @@ function default_shipping_profiles(): array
         ['id' => 'paczkomat-duzy', 'name' => 'Paczkomat duży', 'customerName' => 'Paczkomat duży', 'type' => 'paczkomat', 'price' => 29.99, 'description' => 'Dostawa do Paczkomatu dla większych paczek mieszczących się w limicie gabarytu.', 'maxWeightKg' => 25, 'maxLengthCm' => 64, 'maxWidthCm' => 38, 'maxHeightCm' => 41, 'sortOrder' => 30],
         ['id' => 'kurier-standardowy', 'name' => 'Kurier standardowy', 'customerName' => 'Kurier standardowy', 'type' => 'kurier', 'price' => 39.99, 'description' => 'Dostawa kurierem dla standardowych produktów.', 'maxWeightKg' => 20, 'maxLengthCm' => 65, 'maxWidthCm' => 40, 'maxHeightCm' => 40, 'sortOrder' => 40],
         ['id' => 'kurier-gabarytowy', 'name' => 'Kurier gabarytowy', 'customerName' => 'Kurier gabarytowy', 'type' => 'kurier_gabarytowy', 'price' => 69.99, 'description' => 'Dostawa dla większych produktów. Koszt może wymagać potwierdzenia przy większej liczbie sztuk.', 'maxWeightKg' => 31.5, 'maxLengthCm' => 120, 'maxWidthCm' => 60, 'maxHeightCm' => 60, 'sortOrder' => 50],
-        ['id' => 'paleta', 'name' => 'Paleta', 'customerName' => 'Paleta', 'type' => 'paleta', 'price' => 149.00, 'description' => 'Dostawa paletowa dla ciężkich lub gabarytowych produktów.', 'requiresConfirmation' => true, 'priceFrom' => true, 'sortOrder' => 60],
+        ['id' => 'paleta', 'name' => 'Paleta', 'customerName' => 'Paleta', 'type' => 'paleta', 'price' => 250.00, 'description' => 'Dostawa paletowa dla ciężkich lub gabarytowych produktów.', 'requiresConfirmation' => false, 'priceFrom' => false, 'sortOrder' => 60],
         ['id' => 'odbior-osobisty', 'name' => 'Odbiór osobisty', 'customerName' => 'Odbiór osobisty', 'type' => 'odbior_osobisty', 'price' => 0.00, 'description' => 'Odbiór osobisty w showroomie Home & Garden Outlet, ul. Przelotowa 16, 55-080 Kębłowice.', 'sortOrder' => 70],
         ['id' => 'dostawa-indywidualna', 'name' => 'Dostawa do ustalenia indywidualnie', 'customerName' => 'Dostawa do ustalenia indywidualnie', 'type' => 'do_ustalenia', 'price' => null, 'description' => 'Skontaktujemy się po złożeniu zamówienia w celu potwierdzenia kosztu i sposobu transportu.', 'requiresConfirmation' => true, 'sortOrder' => 80],
     ];
@@ -409,6 +409,19 @@ function normalize_shipping_profile(array $profile): array
     $normalized['priceFrom'] = !empty($normalized['priceFrom']);
     $normalized['sortOrder'] = (int)$normalized['sortOrder'];
     $normalized['internalNote'] = trim((string)$normalized['internalNote']);
+
+    // The production profile already has the confirmed PLN 250 price and no
+    // quote requirement. Correct only its former "from" flag; any later admin
+    // edit (including a different price) remains authoritative.
+    if (
+        $normalized['id'] === 'paleta'
+        && $normalized['price'] === 250.0
+        && $normalized['requiresConfirmation'] === false
+        && $normalized['priceFrom'] === true
+    ) {
+        $normalized['priceFrom'] = false;
+    }
+
     return $normalized;
 }
 
@@ -1916,6 +1929,7 @@ function product_defaults(): array
         'packageLengthCm' => '',
         'packageWidthCm' => '',
         'packageHeightCm' => '',
+        'brand' => '',
         'material' => '',
         'color' => '',
         'outdoorUse' => false,
@@ -1929,6 +1943,7 @@ function product_defaults(): array
         'deliveryMethods' => [],
         'shippingProfileIds' => [],
         'condition' => 'Outletowy',
+        'internalNote' => '',
         'status' => 'Dostępne',
         'productStatus' => 'Aktywny',
         'seoTitle' => '',

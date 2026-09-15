@@ -429,13 +429,16 @@
         const inputId = `item-delivery-${item.slug}-${method.method}`;
         return `<label><input type="radio" name="item_delivery_${escapeAttr(item.slug)}" value="${escapeAttr(method.method)}" data-item-shipping="${escapeAttr(item.slug)}"${item.shippingProfileId === method.method ? " checked" : ""}> <span><strong>${escapeHtml(method.label)}</strong> — ${escapeHtml(deliveryCostLabel(method))}</span></label>`;
       }).join("");
-      const selectedText = selected ? `${escapeHtml(selected.label)}: ${escapeHtml(deliveryCostLabel(selected))}` : "Wybierz sposób dostawy";
-      const lineShipping = selected && !deliveryRequiresConfirmation(selected) ? formatter.format((Number(selected.costNumber) || 0) * item.quantity) : "Koszt do potwierdzenia";
+      const selectedText = selected ? escapeHtml(selected.label) : "Wybierz sposób dostawy";
+      const unitShipping = selected && !deliveryRequiresConfirmation(selected) ? Number(selected.costNumber) || 0 : null;
+      const shippingBreakdown = selected && unitShipping !== null
+        ? `${item.quantity} × ${formatter.format(unitShipping)} = ${formatter.format(unitShipping * item.quantity)}`
+        : "Koszt do potwierdzenia";
       const row = document.createElement("div");
       row.className = "cart-row cart-row-delivery";
       row.innerHTML = `
         <img src="${escapeAttr(product.image)}" alt="" width="82" height="82">
-        <div class="cart-row-main"><strong>${escapeHtml(product.name)}</strong><br><span>${formatter.format(price)} / szt.</span><div class="item-delivery"><strong>Sposób dostawy</strong>${options}<small>${selectedText}${selected ? ` · ${item.quantity} × ${lineShipping}` : ""}</small></div></div>
+        <div class="cart-row-main"><strong>${escapeHtml(product.name)}</strong><br><span>${formatter.format(price)} / szt.</span><div class="item-delivery"><strong>Sposób dostawy</strong>${options}<small>${selectedText}${selected ? ` · ${shippingBreakdown}` : ""}</small></div></div>
         <div class="qty"><button type="button" data-cart-minus="${escapeAttr(item.slug)}">-</button><span>${item.quantity}</span><button type="button" data-cart-plus="${escapeAttr(item.slug)}">+</button></div>
         <button type="button" class="cart-clear" data-cart-remove="${escapeAttr(item.slug)}">Usuń</button>
       `;

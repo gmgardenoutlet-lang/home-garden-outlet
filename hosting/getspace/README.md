@@ -40,12 +40,14 @@ Workflow nie uruchomi wdrożenia FTP, dopóki wymagane sekrety nie istnieją.
 ## Co publikuje workflow
 
 - publiczne pliki HTML, CSS, JS, SEO i favicony,
-- `data/products.json`,
-- wyłącznie zdjęcia używane przez aktualne produkty,
-- zdjęcia produktowe zoptymalizowane do WebP,
 - `.htaccess` z routingiem, cache, kompresją i przekierowaniem www,
 - małą stronę `/admin/`, która przekierowuje do działającego panelu Netlify.
 - obsługę linków odzyskiwania hasła, które są przekierowywane do Netlify Identity.
+
+Przed wdrożeniem workflow kopiuje pełną aktualną zawartość produkcji do prywatnego
+katalogu `private_backups` obok `public_html` i sprawdza pliki potrzebne do
+przywrócenia kodu. Potem pobiera świeże dane, wykonuje zatwierdzoną migrację z
+kontrolą konfliktów i zapisuje jej osobną kopię w tym samym prywatnym katalogu.
 
 Nie publikuje:
 
@@ -53,4 +55,8 @@ Nie publikuje:
 - workflow i plików roboczych,
 - skryptów budujących,
 - kopii zapasowej produktów,
+- starszych repozytoryjnych kopii `data/products.json`, `data/shipping-profiles.json`
+  i `data/google-reviews.json`,
+- produkcyjnych zdjęć w `uploads`,
+- sekretów, zamówień, statystyk i pozostałych plików `admin/storage`,
 - plików Netlify `_headers`, `_redirects` i `netlify.toml`.

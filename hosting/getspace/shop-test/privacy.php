@@ -85,6 +85,6 @@ shop_test_boot();
 
   <?php shop_test_footer(); ?>
   <script>window.HGO_SHOP_PRODUCTS = <?= json_encode(shop_test_public_products(), JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_HEX_TAG) ?>;</script>
-  <script src="/sklep/shop.js"></script>
+  <script src="/sklep/shop.js?v=20260914-audit1"></script>
 </body>
 </html>

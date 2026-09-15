@@ -46,6 +46,9 @@ jobs:
           HGO_SHOP_SALES_ENABLED=false HGO_PAYNOW_ENABLED=false php tests/shop-frontend-tests.php disabled
           HGO_STORAGE_DIR="$(mktemp -d)" HGO_SHOP_SALES_ENABLED=true php tests/shop-order-tests.php
           HGO_SHOP_SALES_ENABLED=true HGO_PAYNOW_ENABLED=false php tests/shop-frontend-tests.php enabled
+          php tests/catalog-presentation-tests.php
+          php tests/owner-decisions-migration-tests.php
+          node tests/prerender-privacy-tests.mjs
           HGO_SHOP_SALES_ENABLED=true php tests/paynow-v3-tests.php
           php tests/codex-draft-tests.php
           php tests/admin-figure-entry-tests.php
@@ -69,8 +72,98 @@ jobs:
       - name: Sprawdz pliki PHP Getspace
         run: find publish -name "*.php" -print0 | xargs -0 -n1 php -l
 
+      - name: Przygotuj bezpieczne polaczenie FTPS
+        run: |
+          set -euo pipefail
+          for value in FTP_SERVER FTP_USERNAME FTP_PASSWORD FTP_REMOTE_DIR; do
+            if [ -z "${!value:-}" ]; then
+              echo "Brakuje sekretu $value." >&2
+              exit 1
+            fi
+          done
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq lftp
+
+      - name: Wyznacz prywatny katalog kopii
+        id: paths
+        run: |
+          set -euo pipefail
+          public_dir="${FTP_REMOTE_DIR%/}"
+          case "$public_dir" in
+            */public_html)
+              private_parent="${public_dir%/public_html}"
+              ;;
+            public_html)
+              private_parent=""
+              ;;
+            *)
+              echo "FTP_REMOTE_DIR musi wskazywac katalog public_html; nie mozna bezpiecznie wyznaczyc prywatnej lokalizacji kopii." >&2
+              exit 1
+              ;;
+          esac
+          backup_name="deploy-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}-${GITHUB_SHA:0:8}"
+          if [ -n "$private_parent" ]; then
+            backup_dir="${private_parent}/private_backups/${backup_name}"
+          else
+            backup_dir="private_backups/${backup_name}"
+          fi
+          echo "public_dir=$public_dir" >> "$GITHUB_OUTPUT"
+          echo "backup_dir=$backup_dir" >> "$GITHUB_OUTPUT"
+          echo "backup_local=$RUNNER_TEMP/mgoutlet-production-before" >> "$GITHUB_OUTPUT"
+          echo "migration_local=$RUNNER_TEMP/mgoutlet-production-migration" >> "$GITHUB_OUTPUT"
+
+      - name: Zrob pelna kopie produkcji poza public_html
+        id: backup
+        run: |
+          set -euo pipefail
+          public_dir='${{ steps.paths.outputs.public_dir }}'
+          backup_dir='${{ steps.paths.outputs.backup_dir }}'
+          backup_local='${{ steps.paths.outputs.backup_local }}'
+          mkdir -p "$backup_local"
+          lftp -u "$FTP_USERNAME,$FTP_PASSWORD" "ftp://$FTP_SERVER:21" <<LFTP
+          set ftp:ssl-force true
+          set ftp:ssl-protect-data true
+          set ssl:verify-certificate true
+          set net:max-retries 2
+          set net:timeout 30
+          mirror --continue --parallel=4 "$public_dir" "$backup_local"
+          mirror --reverse --continue --parallel=4 "$backup_local" "$backup_dir"
+          bye
+          LFTP
+          for critical in .htaccess catalog.php data/products.json data/shipping-profiles.json; do
+            if [ ! -f "$backup_local/$critical" ]; then
+              echo "Kopia nie zawiera wymaganego pliku: $critical" >&2
+              exit 1
+            fi
+          done
+          mkdir -p "$RUNNER_TEMP/backup-verification"
+          lftp -u "$FTP_USERNAME,$FTP_PASSWORD" "ftp://$FTP_SERVER:21" <<LFTP
+          set ftp:ssl-force true
+          set ftp:ssl-protect-data true
+          set ssl:verify-certificate true
+          get "$backup_dir/data/products.json" -o "$RUNNER_TEMP/backup-verification/products.json"
+          get "$backup_dir/catalog.php" -o "$RUNNER_TEMP/backup-verification/catalog.php"
+          bye
+          LFTP
+          cmp "$backup_local/data/products.json" "$RUNNER_TEMP/backup-verification/products.json"
+          cmp "$backup_local/catalog.php" "$RUNNER_TEMP/backup-verification/catalog.php"
+          product_count="$(php -r '$data=json_decode(file_get_contents($argv[1]),true,512,JSON_THROW_ON_ERROR); echo count($data["products"] ?? []);' "$backup_local/data/products.json")"
+          slug_hash="$(php -r '$data=json_decode(file_get_contents($argv[1]),true,512,JSON_THROW_ON_ERROR); $s=array_map(static fn($p)=>(string)($p["slug"]??""),$data["products"]??[]); sort($s,SORT_STRING); echo hash("sha256",implode("\n",$s));' "$backup_local/data/products.json")"
+          echo "product_count=$product_count" >> "$GITHUB_OUTPUT"
+          echo "slug_hash=$slug_hash" >> "$GITHUB_OUTPUT"
+          echo "Kopia kodu i danych: $backup_dir" >> "$GITHUB_STEP_SUMMARY"
+          echo "Produkty przed wdrozeniem: $product_count" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Sprawdz migracje na kopii produkcji
+        run: |
+          set -euo pipefail
+          backup_local='${{ steps.paths.outputs.backup_local }}'
+          php scripts/migrate-owner-decisions-2026-09-14.php \
+            --products="$backup_local/data/products.json" \
+            --shipping="$backup_local/data/shipping-profiles.json"
+
       - name: Wdróż przez bezpieczny FTPS
-        if: ${{ env.FTP_SERVER != '' && env.FTP_USERNAME != '' && env.FTP_PASSWORD != '' && env.FTP_REMOTE_DIR != '' }}
+        id: deploy
         uses: SamKirkland/FTP-Deploy-Action@v4.4.0
         with:
           server: ${{ secrets.FTP_SERVER }}
@@ -94,3 +187,215 @@ jobs:
             uploads/**/*.gif
             admin/.credentials.php
             admin/storage/**
+
+      - name: Pobierz swieze dane, wykonaj migracje i zapisz kopie
+        id: migration
+        run: |
+          set -euo pipefail
+          public_dir='${{ steps.paths.outputs.public_dir }}'
+          backup_dir='${{ steps.paths.outputs.backup_dir }}'
+          migration_local='${{ steps.paths.outputs.migration_local }}'
+          input_dir="$migration_local/input"
+          check_dir="$migration_local/concurrency-check"
+          backup_local="$migration_local/private-backups"
+          mkdir -p "$input_dir" "$check_dir" "$backup_local"
+          lftp -u "$FTP_USERNAME,$FTP_PASSWORD" "ftp://$FTP_SERVER:21" <<LFTP
+          set ftp:ssl-force true
+          set ftp:ssl-protect-data true
+          set ssl:verify-certificate true
+          get "$public_dir/data/products.json" -o "$input_dir/products.json"
+          get "$public_dir/data/shipping-profiles.json" -o "$input_dir/shipping-profiles.json"
+          bye
+          LFTP
+          cp "$input_dir/products.json" "$backup_local/products.json.pre-migration"
+          cp "$input_dir/shipping-profiles.json" "$backup_local/shipping-profiles.json.pre-migration"
+          php scripts/migrate-owner-decisions-2026-09-14.php \
+            --products="$input_dir/products.json" \
+            --shipping="$input_dir/shipping-profiles.json"
+          php scripts/migrate-owner-decisions-2026-09-14.php \
+            --products="$input_dir/products.json" \
+            --shipping="$input_dir/shipping-profiles.json" \
+            --write --backup-dir="$backup_local"
+          lftp -u "$FTP_USERNAME,$FTP_PASSWORD" "ftp://$FTP_SERVER:21" <<LFTP
+          set ftp:ssl-force true
+          set ftp:ssl-protect-data true
+          set ssl:verify-certificate true
+          get "$public_dir/data/products.json" -o "$check_dir/products.json"
+          get "$public_dir/data/shipping-profiles.json" -o "$check_dir/shipping-profiles.json"
+          mirror --reverse --continue "$backup_local" "$backup_dir/migration-originals"
+          bye
+          LFTP
+          cmp "$backup_local/products.json.pre-migration" "$check_dir/products.json"
+          cmp "$backup_local/shipping-profiles.json.pre-migration" "$check_dir/shipping-profiles.json"
+          lftp -u "$FTP_USERNAME,$FTP_PASSWORD" "ftp://$FTP_SERVER:21" <<LFTP
+          set ftp:ssl-force true
+          set ftp:ssl-protect-data true
+          set ssl:verify-certificate true
+          set xfer:clobber true
+          put "$input_dir/products.json" -o "$public_dir/data/products.json"
+          put "$input_dir/shipping-profiles.json" -o "$public_dir/data/shipping-profiles.json"
+          bye
+          LFTP
+          mkdir -p "$migration_local/after-upload"
+          lftp -u "$FTP_USERNAME,$FTP_PASSWORD" "ftp://$FTP_SERVER:21" <<LFTP
+          set ftp:ssl-force true
+          set ftp:ssl-protect-data true
+          set ssl:verify-certificate true
+          get "$public_dir/data/products.json" -o "$migration_local/after-upload/products.json"
+          get "$public_dir/data/shipping-profiles.json" -o "$migration_local/after-upload/shipping-profiles.json"
+          bye
+          LFTP
+          php scripts/migrate-owner-decisions-2026-09-14.php \
+            --products="$migration_local/after-upload/products.json" \
+            --shipping="$migration_local/after-upload/shipping-profiles.json"
+          after_count="$(php -r '$data=json_decode(file_get_contents($argv[1]),true,512,JSON_THROW_ON_ERROR); echo count($data["products"] ?? []);' "$migration_local/after-upload/products.json")"
+          after_hash="$(php -r '$data=json_decode(file_get_contents($argv[1]),true,512,JSON_THROW_ON_ERROR); $s=array_map(static fn($p)=>(string)($p["slug"]??""),$data["products"]??[]); sort($s,SORT_STRING); echo hash("sha256",implode("\n",$s));' "$migration_local/after-upload/products.json")"
+          test "$after_count" = '${{ steps.backup.outputs.product_count }}'
+          test "$after_hash" = '${{ steps.backup.outputs.slug_hash }}'
+          echo "Produkty po migracji: $after_count" >> "$GITHUB_STEP_SUMMARY"
+          echo "Migracja: ponowny dry-run 0 zmian, 0 konfliktow" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Sprawdz produkcje po wdrozeniu
+        id: smoke
+        run: |
+          set -euo pipefail
+          for attempt in $(seq 1 12); do
+            if curl --fail --silent --show-error --max-time 20 https://mgoutlet.pl/products-public.php -o "$RUNNER_TEMP/products-public.json"; then
+              break
+            fi
+            if [ "$attempt" = 12 ]; then
+              echo "Publiczny endpoint nie odpowiada po wdrozeniu." >&2
+              exit 1
+            fi
+            sleep 5
+          done
+          raw_status="$(curl --silent --output /dev/null --write-out '%{http_code}' --max-time 20 https://mgoutlet.pl/data/products.json)"
+          test "$raw_status" = "403"
+          for url in \
+            https://mgoutlet.pl/ \
+            https://mgoutlet.pl/dom \
+            https://mgoutlet.pl/ogrod \
+            https://mgoutlet.pl/sklep/figury-ogrodowe \
+            https://mgoutlet.pl/sklep/figury-ogrodowe/koszyk \
+            https://mgoutlet.pl/sklep/figury-ogrodowe/zamowienie; do
+            curl --fail --silent --show-error --location --max-time 30 "$url" -o /dev/null
+          done
+          not_found_status="$(curl --silent --output "$RUNNER_TEMP/404.html" --write-out '%{http_code}' --max-time 20 https://mgoutlet.pl/nieistniejaca-strona-kontrolna-404)"
+          test "$not_found_status" = "404"
+          python - <<'PY'
+          import concurrent.futures
+          import hashlib
+          import json
+          import pathlib
+          import urllib.error
+          import urllib.parse
+          import urllib.request
+          import xml.etree.ElementTree as ET
+
+          temp = pathlib.Path("${{ runner.temp }}")
+          migrated = json.loads((temp / "mgoutlet-production-migration/after-upload/products.json").read_text(encoding="utf-8"))
+          public = json.loads((temp / "products-public.json").read_text(encoding="utf-8"))
+          source_products = migrated.get("products", [])
+          public_products = public.get("products", [])
+          if len(source_products) != int("${{ steps.backup.outputs.product_count }}") or len(public_products) != len(source_products):
+              raise SystemExit("Liczba produktow w danych i publicznym endpoincie jest rozna.")
+          source_slugs = sorted(str(p.get("slug", "")) for p in source_products)
+          public_slugs = sorted(str(p.get("slug", "")) for p in public_products)
+          if source_slugs != public_slugs or len(source_slugs) != len(set(source_slugs)) or "" in source_slugs:
+              raise SystemExit("Identyfikatory produktow zmienily sie, sa puste albo nie sa unikalne.")
+          allowed = {
+              "name", "category", "catalogPrice", "outletPrice", "grossPrice", "currency",
+              "status", "condition", "dimensions", "visible", "productStatus", "image",
+              "gallery", "imageAlt", "description", "longDescription", "material", "color",
+              "availability", "featured", "order", "slug", "seoTitle", "seoDescription",
+              "keywords", "tags", "productType", "saleType", "shopVisible", "shopStatus",
+          }
+          for product in public_products:
+              extra = set(product) - allowed
+              if extra:
+                  raise SystemExit(f"Publiczny endpoint ujawnia niedozwolone pola: {sorted(extra)}")
+          public_text = json.dumps(public, ensure_ascii=False)
+          if "internalNote" in public_text or "nie było testowane" in public_text:
+              raise SystemExit("Publiczny endpoint ujawnia notatke wewnetrzna.")
+          by_slug = {p["slug"]: p for p in public_products}
+          checks = {
+              "stol-rozkladany-avis-czarny": lambda p: "160 / 210 cm" in p.get("dimensions", "") and "140 / 190" not in json.dumps(p, ensure_ascii=False),
+              "zestaw-4-krzesel-magalia-szary-welur": lambda p: "4 krzeseł" in p.get("name", "") and p.get("status") == "Sprzedane",
+              "zestaw-2-lamp-sciennych-lorenta-czarno-zlote": lambda p: p.get("dimensions") == "12 × 11 × 12",
+              "zestaw-2-krzesel-piseco-ciemnozielone": lambda p: "Głębokość całkowita: 50 cm" in p.get("dimensions", "") and "Głębokość siedziska: 42 cm" in p.get("dimensions", "") and "Grubość tapicerki" not in p.get("dimensions", ""),
+              "szafka-lazienkowa-rosell-40-cm": lambda p: p.get("material") == "Płyta pilśniowa, rattan, żelazo",
+              "hamak-ogrodowy-treviso-drewniany-bezowy": lambda p: p.get("dimensions") == "Szerokość: 415 cm Głębokość: 124 cm Wysokość: 122 cm Wysokość siedziska: 57 cm",
+              "wanna-hawes-hydromasaz-led-czarna": lambda p: "Elementy hydromasażu i oświetlenia LED są nowe." in p.get("longDescription", "") and "ubytek przy narożniku" in p.get("longDescription", "") and "technicznie niesprawdz" not in p.get("longDescription", ""),
+              "wentylator-sufitowy-zarqa-oswietlenie-led": lambda p: "Oferowany egzemplarz jest nowy." in p.get("longDescription", "") and "do potwierdzenia" not in p.get("longDescription", ""),
+          }
+          for slug, check in checks.items():
+              if slug not in by_slug or not check(by_slug[slug]):
+                  raise SystemExit(f"Niepoprawne zatwierdzone dane produktu: {slug}")
+
+          with urllib.request.urlopen("https://mgoutlet.pl/sitemap.xml", timeout=30) as response:
+              sitemap_bytes = response.read()
+          root = ET.fromstring(sitemap_bytes)
+          sitemap_urls = [element.text for element in root.findall("{http://www.sitemaps.org/schemas/sitemap/0.9}url/{http://www.sitemaps.org/schemas/sitemap/0.9}loc") if element.text]
+          expected = []
+          for product in source_products:
+              status = str(product.get("productStatus", "")).strip().lower()
+              if product.get("saleType") == "garden_figure":
+                  if product.get("shopVisible") and product.get("shopStatus") == "Dostępny" and status != "ukryty":
+                      expected.append("https://mgoutlet.pl/sklep/figury-ogrodowe/produkt/" + urllib.parse.quote(str(product["slug"])))
+              elif product.get("visible", True) is not False and status != "ukryty":
+                  expected.append("https://mgoutlet.pl/produkt/" + urllib.parse.quote(str(product["slug"])))
+          missing = sorted(set(expected) - set(sitemap_urls))
+          if missing:
+              raise SystemExit(f"Mapa witryny nie zawiera {len(missing)} publicznych produktow, np. {missing[0]}")
+
+          def fetch(url):
+              request = urllib.request.Request(url, headers={"User-Agent": "HGO deployment verification"})
+              try:
+                  with urllib.request.urlopen(request, timeout=30) as response:
+                      body = response.read().decode("utf-8", "replace")
+                      return url, response.status, body
+              except Exception as exc:
+                  return url, 0, str(exc)
+
+          with concurrent.futures.ThreadPoolExecutor(max_workers=10) as pool:
+              results = list(pool.map(fetch, sitemap_urls))
+          failed = [(url, status) for url, status, _ in results if status != 200]
+          if failed:
+              raise SystemExit(f"Niedostepne adresy z mapy witryny: {failed[:5]}")
+          for url, _, body in results:
+              if "/produkt/" in url and ("internalNote" in body or "nie było testowane" in body):
+                  raise SystemExit(f"Prywatna notatka trafila do HTML/JSON-LD: {url}")
+
+          delivery = fetch("https://mgoutlet.pl/sklep/figury-ogrodowe/dostawa-i-platnosci")[2]
+          if "250,00 zł" not in delivery or "od 250,00 zł" in delivery:
+              raise SystemExit("Paleta nie ma stalej etykiety 250,00 zl.")
+          terms = fetch("https://mgoutlet.pl/sklep/figury-ogrodowe/regulamin")[2]
+          if "przed publicznym uruchomieniem sklepu online" in terms:
+              raise SystemExit("Regulamin nadal zawiera usunieta fraze.")
+          checkout = fetch("https://mgoutlet.pl/sklep/figury-ogrodowe/zamowienie")[2]
+          for marker in ("invoice_requested", "invoice_same_as_delivery", "invoice_street"):
+              if marker not in checkout:
+                  raise SystemExit(f"Checkout nie zawiera pola faktury: {marker}")
+          print(f"Zweryfikowano {len(source_products)} produktow, {len(sitemap_urls)} adresow mapy witryny i zamknieta liste pol endpointu.")
+          PY
+          echo "Kontrola produkcji: PASS" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Przywroc poprzedni kod po krytycznej awarii
+        if: ${{ always() && steps.backup.outcome == 'success' && (steps.deploy.outcome == 'failure' || steps.smoke.outcome == 'failure') }}
+        run: |
+          set -euo pipefail
+          public_dir='${{ steps.paths.outputs.public_dir }}'
+          backup_local='${{ steps.paths.outputs.backup_local }}'
+          lftp -u "$FTP_USERNAME,$FTP_PASSWORD" "ftp://$FTP_SERVER:21" <<LFTP
+          set ftp:ssl-force true
+          set ftp:ssl-protect-data true
+          set ssl:verify-certificate true
+          mirror --reverse --delete --parallel=4 \
+            --exclude-glob data/** \
+            --exclude-glob uploads/** \
+            --exclude-glob admin/storage/** \
+            --exclude-glob admin/.credentials.php \
+            "$backup_local" "$public_dir"
+          bye
+          LFTP
+          echo "Przywrocono poprzedni kod bez nadpisywania produktow, zamowien, zdjec i sekretow." >> "$GITHUB_STEP_SUMMARY"

@@ -403,7 +403,7 @@ try {
             $textFields = [
                 'name', 'saleType', 'category', 'productType', 'sku', 'grossPrice', 'shopStatus',
                 'catalogPrice', 'outletPrice', 'currency',
-                'imageAlt', 'description', 'longDescription', 'dimensions', 'material', 'color',
+                'imageAlt', 'description', 'longDescription', 'dimensions', 'brand', 'material', 'color', 'internalNote',
                 'height', 'width', 'depth', 'weight', 'packageDimensions', 'packageWeight',
                 'packageLengthCm', 'packageWidthCm', 'packageHeightCm', 'producerAvailability', 'leadTime',
                 'condition', 'status', 'productStatus', 'seoTitle', 'seoDescription', 'slug',
@@ -587,7 +587,7 @@ $showFigures = isset($_GET['figures']);
 $showShipping = isset($_GET['shipping']);
 $showGoogleConfig = isset($_GET['google_config']);
 $editIndex = $editing ? (int)$editRaw : null;
-$product = $editing ? array_merge(product_defaults(), $products[$editIndex]) : product_defaults();
+$product = $editing ? catalog_apply_reviewed_product_fixes(array_merge(product_defaults(), $products[$editIndex])) : product_defaults();
 $draftId = product_image_draft_id((string)($_GET['draft'] ?? ''));
 $imageDraft = (!$editing && $draftId !== '') ? load_product_image_draft($draftId) : null;
 $codexAnalysis = $imageDraft ? imported_codex_product_draft($imageDraft) : null;
@@ -596,6 +596,7 @@ if (!$editing && $newProduct) {
     if ($newSaleType === 'garden_figure') {
         $product['category'] = 'Figury i dekoracje ogrodowe';
         $product['productType'] = 'figura ogrodowa';
+        $product['condition'] = '';
         $product['shopVisible'] = true;
         $product['visible'] = false;
         $product['shopStatus'] = 'Dostępny';
@@ -1528,8 +1529,10 @@ if ($showStats) {
           <div class="field field-full"><label for="description">Opis widoczny na karcie</label><textarea id="description" name="description" required><?= e($product['description']) ?></textarea></div>
           <div class="field field-full"><label for="longDescription">Dłuższy opis</label><textarea id="longDescription" name="longDescription"><?= e($product['longDescription']) ?></textarea></div>
           <div class="field"><label for="dimensions">Wymiary</label><input id="dimensions" name="dimensions" value="<?= e($product['dimensions']) ?>"></div>
+          <div class="field"><label for="brand">Marka producenta</label><input id="brand" name="brand" value="<?= e($product['brand']) ?>" placeholder="Pozostaw puste, jeśli marka nie jest potwierdzona"></div>
           <div class="field"><label for="material">Materiał</label><input id="material" name="material" value="<?= e($product['material']) ?>"></div>
           <div class="field"><label for="color">Kolor</label><input id="color" name="color" value="<?= e($product['color']) ?>"></div>
+          <div class="field field-full"><label for="internalNote">Notatka wewnętrzna</label><textarea id="internalNote" name="internalNote"><?= e($product['internalNote']) ?></textarea><small>Informacja dla obsługi; nie jest wyświetlana klientom.</small></div>
 
           <div class="section-title">Opcjonalne SEO</div>
           <div class="field field-full"><label for="seoTitle">Tytuł SEO</label><input id="seoTitle" name="seoTitle" value="<?= e($product['seoTitle']) ?>"></div>

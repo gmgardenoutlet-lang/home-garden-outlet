@@ -1,5 +1,6 @@
 Options -Indexes
 DirectoryIndex index.php index.html
+ErrorDocument 404 /404.html
 
 <IfModule mod_env.c>
   SetEnv HGO_SHOP_SALES_ENABLED true
@@ -15,6 +16,7 @@ AddType application/manifest+json .webmanifest
   # Blokady prywatnych i niebezpiecznych plikow.
   RewriteRule (^|/)\.git(?:/|$) - [F,L]
   RewriteRule ^uploads/.*\.(?:php|phtml|php[0-9]?|phar|cgi|pl|py|sh|exe|js|html?|svg|zip)$ - [F,L,NC]
+  RewriteRule ^data/products\.json$ - [F,L,NC]
 
   # Jedna wersja domeny: HTTPS bez www. Nie przekierowuj adresu testowego hostingu.
   RewriteCond %{HTTP_HOST} ^www\.mgoutlet\.pl$ [NC,OR]
@@ -92,6 +94,10 @@ AddType application/manifest+json .webmanifest
   Require all denied
 </Files>
 
+<Files "products.json">
+  Require all denied
+</Files>
+
 <IfModule mod_expires.c>
   ExpiresActive On
   ExpiresByType image/avif "access plus 1 year"
@@ -119,7 +125,7 @@ AddType application/manifest+json .webmanifest
     Header set Cache-Control "public, max-age=86400, must-revalidate"
   </FilesMatch>
 
-  <Files "products.json">
+  <Files "products-public.php">
     Header set Cache-Control "no-store, max-age=0"
   </Files>
 </IfModule>

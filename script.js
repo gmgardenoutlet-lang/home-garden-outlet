@@ -129,13 +129,13 @@ function initializeGoogleReviewLinks() {
   });
 }
 
-function formatGoogleReviewDate(value, fallback = "") {
+function formatGoogleReviewDate(value) {
   if (!value) {
-    return fallback || "Źródło: Google";
+    return "";
   }
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) {
-    return fallback || "Źródło: Google";
+    return "";
   }
   return date.toLocaleDateString("pl-PL", { year: "numeric", month: "long", day: "numeric" });
 }
@@ -155,8 +155,8 @@ function createReviewCard(review, featured = false) {
   author.textContent = String(review.author || "Klient Google").trim();
 
   const meta = document.createElement("span");
-  const dateText = formatGoogleReviewDate(review.updateTime || review.createTime, review.relativeTime);
-  meta.textContent = `${dateText} · Źródło: Google`;
+  const dateText = formatGoogleReviewDate(review.updateTime || review.createTime);
+  meta.textContent = dateText ? `${dateText} · Źródło: Google` : "Źródło: Google";
 
   card.append(stars, text, author, meta);
   return card;
@@ -350,6 +350,14 @@ function isFigureShopProduct(product) {
   return product.saleType === "garden_figure";
 }
 
+function getProductSalePrice(product) {
+  return isFigureShopProduct(product) ? product.grossPrice : product.outletPrice;
+}
+
+function getProductSalePriceCaption(product) {
+  return isFigureShopProduct(product) ? "Cena" : "Cena outletowa";
+}
+
 function productDetailUrl(product, slug) {
   if (!isFigureShopProduct(product)) {
     return `/produkt/${encodeURIComponent(slug)}`;
@@ -384,6 +392,9 @@ function hasDisplayValue(value) {
   return Boolean(normalized)
     && !normalized.includes("do uzupelnienia")
     && normalized !== "cena outletowa"
+    && normalized !== "niedostepny"
+    && normalized !== "niedostepna"
+    && normalized !== "niedostepne"
     && normalized !== "brak"
     && normalized !== "xxx"
     && normalized !== "-";
@@ -653,6 +664,10 @@ function productCategoryLinks(product) {
 }
 
 function isOutletHomeOrGardenProduct(product) {
+  if (isFigureShopProduct(product)) {
+    return false;
+  }
+
   const category = normalizeText(product.category);
   return category === "wyposazenie domu" || category === "wyposazenie ogrodu";
 }
@@ -703,7 +718,9 @@ function hydrateProductDetailDelivery() {
 
 function productTemplate(product) {
   const name = product.name || "Produkt outletowy";
-  const category = getReadableCategory(product.category || "Wyposażenie ogrodu");
+  const category = isFigureShopProduct(product)
+    ? "Figury i dekoracje ogrodowe"
+    : getReadableCategory(product.category || "Wyposażenie ogrodu");
   const status = getProductDisplayStatus(product);
   const images = getProductImages(product);
   const seo = getProductSeo(product);
@@ -715,17 +732,19 @@ function productTemplate(product) {
     : "";
   const badgeClass = statusClasses[status] || "";
   const dimensions = hasDisplayValue(product.dimensions) ? `<p class="dimensions">${escapeHtml(product.dimensions)}</p>` : "";
-  const condition = hasDisplayValue(product.condition) ? `<p class="dimensions">Stan: ${escapeHtml(product.condition)}</p>` : "";
+  const isOnlineFigure = isActiveFigureShopProduct(product);
+  const condition = !isFigureShopProduct(product) && hasDisplayValue(product.condition) ? `<p class="dimensions">Stan: ${escapeHtml(product.condition)}</p>` : "";
   const hasCatalogPrice = hasDisplayValue(product.catalogPrice);
-  const hasOutletPrice = hasDisplayValue(product.outletPrice);
+  const salePrice = getProductSalePrice(product);
+  const hasOutletPrice = hasDisplayValue(salePrice);
   const catalogValue = parsePrice(product.catalogPrice);
-  const outletValue = parsePrice(product.outletPrice);
+  const outletValue = parsePrice(salePrice);
   const savings = hasCatalogPrice && hasOutletPrice && catalogValue && outletValue && catalogValue > outletValue
     ? Math.round(catalogValue - outletValue)
     : null;
   const priceItems = [
     hasCatalogPrice ? `<span class="catalog-price${hasOutletPrice ? " old-price" : ""}">Cena katalogowa: ${escapeHtml(product.catalogPrice)}</span>` : "",
-    hasOutletPrice ? `<span class="outlet-price">Cena outletowa: ${escapeHtml(product.outletPrice)}</span>` : "",
+    hasOutletPrice ? `<span class="outlet-price">${escapeHtml(getProductSalePriceCaption(product))}: ${escapeHtml(salePrice)}</span>` : "",
     savings ? `<span class="saving-badge">Oszczędzasz: ${savings} zł</span>` : ""
   ].filter(Boolean);
   const priceRow = priceItems.length ? `<div class="price-row${hasOutletPrice ? " has-outlet" : ""}">${priceItems.join("")}</div>` : "";
@@ -746,7 +765,7 @@ function productTemplate(product) {
       <div class="product-body">
         <div class="product-meta">
           <span>${escapeHtml(category)}</span>
-          <span>Dostępny lokalnie</span>
+          ${isOnlineFigure ? "<span>Zakup online</span>" : (!isFigureShopProduct(product) ? "<span>Dostępny lokalnie</span>" : "")}
         </div>
         <h3><a class="product-title-link" href="${escapeHtml(detailUrl)}">${escapeHtml(name)}</a></h3>
         ${priceRow}
@@ -760,7 +779,7 @@ function productTemplate(product) {
         ${productCategoryLinks(product)}
         ${productDeliveryInfo(product, detailUrl)}
         <div class="product-actions">
-          <a class="btn btn-primary" href="${escapeHtml(detailUrl)}">Zobacz produkt</a>
+          <a class="btn btn-primary" href="${escapeHtml(detailUrl)}">${isOnlineFigure ? "Kup online" : "Zobacz produkt"}</a>
           <a class="btn btn-outline" href="tel:+48577210777">Zapytaj o dostępność</a>
         </div>
       </div>
@@ -1039,7 +1058,7 @@ function initializeDescriptionToggles() {
 
 async function loadProducts() {
   try {
-    const response = await fetch("/data/products.json", { cache: "no-store" });
+    const response = await fetch("/products-public.php", { cache: "no-store" });
 
     if (!response.ok) {
       throw new Error("Nie można pobrać pliku produktów.");

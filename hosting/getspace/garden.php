@@ -7,12 +7,7 @@ function garden_has_display_value($value): bool
 {
     $normalized = trim(catalog_normalize((string)$value));
 
-    return $normalized !== ''
-        && strpos($normalized, 'do uzupelnienia') === false
-        && $normalized !== 'cena outletowa'
-        && $normalized !== 'brak'
-        && $normalized !== 'xxx'
-        && $normalized !== '-';
+    return catalog_has_value($value) && $normalized !== 'cena outletowa';
 }
 
 function garden_display_status(array $product): string
@@ -154,9 +149,10 @@ function garden_card(array $product): string
         ? '<p class="dimensions">Stan: ' . catalog_e($product['condition']) . '</p>'
         : '';
     $hasCatalogPrice = garden_has_display_value($product['catalogPrice'] ?? '');
-    $hasOutletPrice = garden_has_display_value($product['outletPrice'] ?? '');
+    $salePrice = catalog_sale_price_text($product);
+    $hasOutletPrice = $salePrice !== '';
     $catalogValue = garden_parse_price($product['catalogPrice'] ?? '');
-    $outletValue = garden_parse_price($product['outletPrice'] ?? '');
+    $outletValue = garden_parse_price($salePrice);
     $savings = $hasCatalogPrice && $hasOutletPrice && $catalogValue && $outletValue && $catalogValue > $outletValue
         ? (int)round($catalogValue - $outletValue)
         : null;
@@ -166,7 +162,7 @@ function garden_card(array $product): string
         $priceItems[] = '<span class="catalog-price' . ($hasOutletPrice ? ' old-price' : '') . '">Cena katalogowa: ' . catalog_e($product['catalogPrice']) . '</span>';
     }
     if ($hasOutletPrice) {
-        $priceItems[] = '<span class="outlet-price">Cena outletowa: ' . catalog_e($product['outletPrice']) . '</span>';
+        $priceItems[] = '<span class="outlet-price">' . catalog_e(catalog_sale_price_caption($product)) . ': ' . catalog_e($salePrice) . '</span>';
     }
     if ($savings !== null) {
         $priceItems[] = '<span class="saving-badge">Oszczędzasz: ' . $savings . ' zł</span>';

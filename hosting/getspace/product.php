@@ -70,6 +70,10 @@ $saving = $catalogValue !== null && $outletValue !== null && $catalogValue > $ou
     ? round($catalogValue - $outletValue)
     : null;
 $isSold = in_array(catalog_normalize($status), ['sprzedane', 'sprzedany'], true);
+$productBrand = $product ? catalog_confirmed_brand($product) : '';
+$offerCurrency = $product && preg_match('/^[A-Z]{3}$/', strtoupper(trim((string)($product['currency'] ?? ''))))
+    ? strtoupper(trim((string)$product['currency']))
+    : 'PLN';
 $stylesHash = is_file(__DIR__ . '/styles.css') ? @hash_file('sha256', __DIR__ . '/styles.css') : false;
 $stylesVersion = is_string($stylesHash) ? substr($stylesHash, 0, 12) : 'product-php';
 $scriptHash = is_file(__DIR__ . '/script.js') ? @hash_file('sha256', __DIR__ . '/script.js') : false;
@@ -85,16 +89,18 @@ if ($product !== null && $hasOutletOffer) {
         'description' => $description,
         'image' => array_map('catalog_absolute_url', $images),
         'url' => $canonical,
-        'brand' => ['@type' => 'Brand', 'name' => 'Home & Garden Outlet'],
         'offers' => [
             '@type' => 'Offer',
             'url' => $canonical,
-            'priceCurrency' => 'PLN',
+            'priceCurrency' => $offerCurrency,
             'price' => number_format($outletValue, 2, '.', ''),
             'availability' => $isSold ? 'https://schema.org/OutOfStock' : 'https://schema.org/InStock',
             'seller' => ['@type' => 'FurnitureStore', 'name' => 'Home & Garden Outlet'],
         ],
     ];
+    if ($productBrand !== '') {
+        $productSchema['brand'] = ['@type' => 'Brand', 'name' => $productBrand];
+    }
 }
 
 $breadcrumbs = [
