@@ -332,7 +332,11 @@ jobs:
               if slug not in by_slug or not check(by_slug[slug]):
                   raise SystemExit(f"Niepoprawne zatwierdzone dane produktu: {slug}")
 
-          with urllib.request.urlopen("https://mgoutlet.pl/sitemap.xml", timeout=30) as response:
+          sitemap_request = urllib.request.Request(
+              "https://mgoutlet.pl/sitemap.xml",
+              headers={"User-Agent": "HGO deployment verification"},
+          )
+          with urllib.request.urlopen(sitemap_request, timeout=30) as response:
               sitemap_bytes = response.read()
           root = ET.fromstring(sitemap_bytes)
           sitemap_urls = [element.text for element in root.findall("{http://www.sitemaps.org/schemas/sitemap/0.9}url/{http://www.sitemaps.org/schemas/sitemap/0.9}loc") if element.text]
