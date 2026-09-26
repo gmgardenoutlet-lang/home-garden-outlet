@@ -1588,6 +1588,131 @@ body.gallery-open {
   font-size: clamp(17px, 2vw, 21px);
 }
 
+/* Only the /dom landing section: the catalogue follows the concise introduction. */
+body[data-category="Wyposażenie domu"] .category-hero-home {
+  min-height: 0;
+  align-items: center;
+  padding: 24px 6vw 22px;
+}
+
+body[data-category="Wyposażenie domu"] .category-hero-home > div {
+  max-width: 1080px;
+}
+
+body[data-category="Wyposażenie domu"] .category-hero-home h1 {
+  max-width: 1080px;
+  margin-bottom: 14px;
+  font-size: clamp(44px, 3.35vw, 48px);
+  line-height: 1.06;
+}
+
+body[data-category="Wyposażenie domu"] .category-hero-home p:not(.eyebrow) {
+  margin-bottom: 8px;
+}
+
+body[data-category="Wyposażenie domu"] .category-hero-showroom {
+  font-size: 16px;
+  font-weight: 800;
+}
+
+body[data-category="Wyposażenie domu"] .category-hero-directions {
+  margin-top: 4px;
+}
+
+/* Compact the /dom catalogue only; product cards keep their shared layout. */
+body[data-category="Wyposażenie domu"] .category-hero-home + .section {
+  padding-top: 24px;
+}
+
+body[data-category="Wyposażenie domu"] .category-hero-home + .section .section-heading {
+  margin-bottom: 14px;
+}
+
+body[data-category="Wyposażenie domu"] .category-hero-home + .section .category-switch {
+  margin: 0 0 14px;
+}
+
+body[data-category="Wyposażenie domu"] .category-hero-home + .section .product-discovery {
+  gap: 12px;
+  margin-bottom: 20px;
+  padding: 14px;
+}
+
+body[data-category="Wyposażenie domu"] .category-hero-home + .section .product-discovery-head {
+  gap: 2px;
+}
+
+body[data-category="Wyposażenie domu"] .category-hero-home + .section .product-filter-bar {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+body[data-category="Wyposażenie domu"] .category-hero-home + .section .product-filter-bar fieldset {
+  gap: 6px;
+}
+
+/* Only the /ogrod landing section: keep the catalogue directly after the concise introduction. */
+body[data-category="Wyposażenie ogrodu"] .category-hero-garden {
+  min-height: 0;
+  align-items: center;
+  padding: 24px 6vw 22px;
+}
+
+body[data-category="Wyposażenie ogrodu"] .category-hero-garden > div {
+  max-width: 1080px;
+}
+
+body[data-category="Wyposażenie ogrodu"] .category-hero-garden h1 {
+  max-width: 1080px;
+  margin-bottom: 14px;
+  font-size: clamp(44px, 3.35vw, 48px);
+  line-height: 1.06;
+}
+
+body[data-category="Wyposażenie ogrodu"] .category-hero-garden p:not(.eyebrow) {
+  margin-bottom: 8px;
+}
+
+body[data-category="Wyposażenie ogrodu"] .category-hero-showroom {
+  font-size: 16px;
+  font-weight: 800;
+}
+
+body[data-category="Wyposażenie ogrodu"] .category-hero-directions {
+  margin-top: 4px;
+}
+
+body[data-category="Wyposażenie ogrodu"] .category-hero-garden + .section {
+  padding-top: 24px;
+}
+
+body[data-category="Wyposażenie ogrodu"] .category-hero-garden + .section .section-heading {
+  margin-bottom: 14px;
+}
+
+body[data-category="Wyposażenie ogrodu"] .category-hero-garden + .section .category-switch {
+  margin: 0 0 14px;
+}
+
+body[data-category="Wyposażenie ogrodu"] .category-hero-garden + .section .product-discovery {
+  gap: 12px;
+  margin-bottom: 20px;
+  padding: 14px;
+}
+
+body[data-category="Wyposażenie ogrodu"] .category-hero-garden + .section .product-discovery-head {
+  gap: 2px;
+}
+
+body[data-category="Wyposażenie ogrodu"] .category-hero-garden + .section .product-filter-bar {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+body[data-category="Wyposażenie ogrodu"] .category-hero-garden + .section .product-filter-bar fieldset {
+  gap: 6px;
+}
+
 .showroom-copy p:not(.eyebrow) {
   max-width: 560px;
   color: var(--muted);
@@ -2104,6 +2229,110 @@ body.gallery-open {
 .faq-list a {
   color: var(--green-800);
   font-weight: 800;
+}
+
+body[data-category="Wyposażenie domu"] .dom-showroom-details {
+  max-width: 980px;
+  overflow: hidden;
+  border: 1px solid rgba(36, 69, 51, 0.16);
+  border-radius: 20px;
+  background: var(--white);
+  box-shadow: var(--shadow-soft);
+}
+
+body[data-category="Wyposażenie domu"] .dom-showroom-details summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  min-height: 68px;
+  padding: 18px 24px;
+  color: var(--heading);
+  cursor: pointer;
+  font-size: 20px;
+  font-weight: 900;
+  list-style: none;
+}
+
+body[data-category="Wyposażenie domu"] .dom-showroom-details summary::-webkit-details-marker {
+  display: none;
+}
+
+body[data-category="Wyposażenie domu"] .dom-showroom-details summary::after {
+  content: "+";
+  flex: 0 0 auto;
+  color: var(--green-800);
+  font-size: 28px;
+  font-weight: 500;
+  line-height: 1;
+}
+
+body[data-category="Wyposażenie domu"] .dom-showroom-details[open] summary {
+  border-bottom: 1px solid var(--line);
+}
+
+body[data-category="Wyposażenie domu"] .dom-showroom-details[open] summary::after {
+  content: "−";
+}
+
+body[data-category="Wyposażenie domu"] .dom-showroom-details-content {
+  padding: 34px 24px;
+}
+
+body[data-category="Wyposażenie domu"] .dom-showroom-details-content .section-heading {
+  margin-bottom: 24px;
+}
+
+body[data-category="Wyposażenie ogrodu"] .garden-showroom-details {
+  max-width: 980px;
+  overflow: hidden;
+  border: 1px solid rgba(36, 69, 51, 0.16);
+  border-radius: 20px;
+  background: var(--white);
+  box-shadow: var(--shadow-soft);
+}
+
+body[data-category="Wyposażenie ogrodu"] .garden-showroom-details summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  min-height: 68px;
+  padding: 18px 24px;
+  color: var(--heading);
+  cursor: pointer;
+  font-size: 20px;
+  font-weight: 900;
+  list-style: none;
+}
+
+body[data-category="Wyposażenie ogrodu"] .garden-showroom-details summary::-webkit-details-marker {
+  display: none;
+}
+
+body[data-category="Wyposażenie ogrodu"] .garden-showroom-details summary::after {
+  content: "+";
+  flex: 0 0 auto;
+  color: var(--green-800);
+  font-size: 28px;
+  font-weight: 500;
+  line-height: 1;
+}
+
+body[data-category="Wyposażenie ogrodu"] .garden-showroom-details[open] summary {
+  border-bottom: 1px solid var(--line);
+}
+
+body[data-category="Wyposażenie ogrodu"] .garden-showroom-details[open] summary::after {
+  content: "−";
+}
+
+body[data-category="Wyposażenie ogrodu"] .garden-showroom-details-content {
+  padding: 34px 24px;
+}
+
+body[data-category="Wyposażenie ogrodu"] .garden-showroom-details-content .section-heading {
+  margin-bottom: 24px;
 }
 
 .compact-benefits {
@@ -3104,6 +3333,98 @@ body.gallery-open {
     flex-direction: column;
     align-items: flex-start;
     gap: 2px;
+  }
+}
+
+@media (max-width: 640px) {
+  body[data-category="Wyposażenie domu"] .category-hero-home {
+    padding: 16px 6vw 10px;
+  }
+
+  body[data-category="Wyposażenie domu"] .category-hero-home h1 {
+    margin-bottom: 12px;
+    font-size: clamp(30px, 8.2vw, 32px);
+    line-height: 1.1;
+  }
+
+  body[data-category="Wyposażenie domu"] .category-hero-home .eyebrow {
+    margin-bottom: 8px;
+  }
+
+  body[data-category="Wyposażenie domu"] .category-hero-home p:not(.eyebrow) {
+    margin-bottom: 6px;
+  }
+
+  body[data-category="Wyposażenie domu"] .category-hero-home + .section {
+    padding-top: 16px;
+  }
+
+  body[data-category="Wyposażenie domu"] .category-hero-home + .section .section-heading {
+    margin-bottom: 12px;
+  }
+
+  body[data-category="Wyposażenie domu"] .category-hero-home + .section .category-switch {
+    margin-bottom: 8px;
+  }
+
+  body[data-category="Wyposażenie domu"] .category-hero-home + .section .product-discovery {
+    gap: 8px;
+    margin-bottom: 16px;
+    padding: 12px;
+  }
+
+  body[data-category="Wyposażenie domu"] .category-hero-home + .section .product-search {
+    gap: 6px;
+  }
+
+  body[data-category="Wyposażenie domu"] .category-hero-home + .section .product-filter-bar {
+    grid-template-columns: 1fr;
+    gap: 10px;
+  }
+
+  body[data-category="Wyposażenie ogrodu"] .category-hero-garden {
+    padding: 16px 6vw 10px;
+  }
+
+  body[data-category="Wyposażenie ogrodu"] .category-hero-garden h1 {
+    margin-bottom: 12px;
+    font-size: clamp(30px, 8.2vw, 32px);
+    line-height: 1.1;
+  }
+
+  body[data-category="Wyposażenie ogrodu"] .category-hero-garden .eyebrow {
+    margin-bottom: 8px;
+  }
+
+  body[data-category="Wyposażenie ogrodu"] .category-hero-garden p:not(.eyebrow) {
+    margin-bottom: 6px;
+  }
+
+  body[data-category="Wyposażenie ogrodu"] .category-hero-garden + .section {
+    padding-top: 16px;
+  }
+
+  body[data-category="Wyposażenie ogrodu"] .category-hero-garden + .section .section-heading {
+    margin-bottom: 12px;
+  }
+
+  body[data-category="Wyposażenie ogrodu"] .category-hero-garden + .section .category-switch {
+    margin-bottom: 8px;
+  }
+
+  body[data-category="Wyposażenie ogrodu"] .category-hero-garden + .section .product-discovery {
+    gap: 8px;
+    margin-bottom: 16px;
+    padding: 12px;
+  }
+
+  body[data-category="Wyposażenie ogrodu"] .category-hero-garden + .section .product-search {
+    gap: 6px;
+  }
+
+  body[data-category="Wyposażenie ogrodu"] .category-hero-garden + .section .product-filter-bar {
+    grid-template-columns: 1fr;
+    gap: 10px;
   }
 }
 
