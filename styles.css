@@ -3336,6 +3336,138 @@ body[data-category="Wyposażenie ogrodu"] .garden-showroom-details-content .sect
   }
 }
 
+/* Homepage catalogue-first proposal: keep these adjustments isolated from category pages. */
+main#start > .hero {
+  min-height: 470px;
+  align-items: center;
+}
+
+main#start > .hero .hero-content {
+  width: min(980px, 88vw);
+  padding: 76px 0 64px 6vw;
+}
+
+main#start > .hero h1 {
+  max-width: 920px;
+  margin-bottom: 16px;
+  font-size: clamp(44px, 5.2vw, 64px);
+}
+
+main#start > .hero p {
+  margin-bottom: 22px;
+}
+
+main#start > .quick-choice-section {
+  padding-top: 34px;
+  padding-bottom: 34px;
+}
+
+main#start > .quick-choice-section .section-heading {
+  margin-bottom: 18px;
+}
+
+main#start > .quick-choice-card {
+  min-height: 190px;
+  padding: 24px;
+}
+
+main#start > #nowosci {
+  padding-top: 34px;
+}
+
+main#start > #nowosci .section-heading {
+  margin-bottom: 18px;
+}
+
+main#start > #nowosci .product-discovery {
+  gap: 12px;
+  margin-bottom: 20px;
+  padding: 14px;
+}
+
+main#start > #nowosci .product-discovery-head {
+  gap: 2px;
+}
+
+main#start > #nowosci .product-filter-bar {
+  gap: 12px;
+}
+
+main#start > #nowosci .product-filter-bar fieldset {
+  gap: 6px;
+}
+
+@media (max-width: 640px) {
+  main#start > .hero {
+    min-height: 0;
+  }
+
+  main#start > .hero .hero-content {
+    padding: 94px 6vw 22px;
+  }
+
+  main#start > .hero h1 {
+    margin-bottom: 12px;
+    font-size: clamp(32px, 9vw, 38px);
+    line-height: 1.1;
+  }
+
+  main#start > .hero p {
+    margin-bottom: 12px;
+    font-size: 16px;
+    line-height: 1.45;
+  }
+
+  main#start > .hero .hero-actions {
+    gap: 8px;
+  }
+
+  main#start ~ .mobile-sticky-cta {
+    display: none;
+  }
+
+  main#start > .quick-choice-section {
+    padding-top: 18px;
+    padding-bottom: 18px;
+  }
+
+  main#start > .quick-choice-section .section-heading {
+    margin-bottom: 12px;
+  }
+
+  main#start > .quick-choice-grid {
+    gap: 12px;
+  }
+
+  main#start > .quick-choice-card {
+    min-height: 0;
+    gap: 12px;
+    padding: 16px;
+  }
+
+  main#start > .quick-choice-card span {
+    font-size: 30px;
+  }
+
+  main#start > .quick-choice-card p {
+    font-size: 15px;
+    line-height: 1.4;
+  }
+
+  main#start > #nowosci {
+    padding-top: 18px;
+  }
+
+  main#start > #nowosci .section-heading {
+    margin-bottom: 12px;
+  }
+
+  main#start > #nowosci .product-discovery {
+    gap: 10px;
+    padding: 12px;
+  }
+}
+
 @media (max-width: 640px) {
   body[data-category="Wyposażenie domu"] .category-hero-home {
     padding: 16px 6vw 10px;
