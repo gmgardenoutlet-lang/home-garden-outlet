@@ -6,25 +6,9 @@ require __DIR__ . '/catalog.php';
 header('Content-Type: application/xml; charset=UTF-8');
 header('Cache-Control: public, max-age=900');
 
-function sitemap_catalog_lastmod(): ?string
+function sitemap_url(string $loc): array
 {
-    if (!is_file(CATALOG_PRODUCTS_FILE)) {
-        return null;
-    }
-
-    $modifiedAt = @filemtime(CATALOG_PRODUCTS_FILE);
-    if (!is_int($modifiedAt) || $modifiedAt <= 0) {
-        return null;
-    }
-
-    $lastmod = gmdate('Y-m-d', $modifiedAt);
-
-    return preg_match('/^\d{4}-\d{2}-\d{2}$/', $lastmod) === 1 ? $lastmod : null;
-}
-
-function sitemap_url(string $loc, ?string $lastmod = null): array
-{
-    return ['loc' => $loc, 'lastmod' => $lastmod];
+    return ['loc' => $loc];
 }
 
 function sitemap_emit_url(array $url): void
@@ -32,19 +16,15 @@ function sitemap_emit_url(array $url): void
     echo '  <url>' . PHP_EOL;
     echo '    <loc>' . catalog_e($url['loc']) . '</loc>' . PHP_EOL;
 
-    $lastmod = $url['lastmod'] ?? null;
-    if (is_string($lastmod) && preg_match('/^\d{4}-\d{2}-\d{2}$/', $lastmod) === 1) {
-        echo '    <lastmod>' . catalog_e($lastmod) . '</lastmod>' . PHP_EOL;
-    }
-
     echo '  </url>' . PHP_EOL;
 }
 
-$lastModified = sitemap_catalog_lastmod();
+// No URL has a verified per-page content modification date. A catalogue file
+// mtime (or a build/deploy time) would incorrectly change many URLs at once.
 $urls = [
-    sitemap_url(CATALOG_SITE_URL . '/', $lastModified),
-    sitemap_url(CATALOG_SITE_URL . '/ogrod', $lastModified),
-    sitemap_url(CATALOG_SITE_URL . '/dom', $lastModified),
+    sitemap_url(CATALOG_SITE_URL . '/'),
+    sitemap_url(CATALOG_SITE_URL . '/ogrod'),
+    sitemap_url(CATALOG_SITE_URL . '/dom'),
     sitemap_url(CATALOG_SITE_URL . '/poradnik/'),
     sitemap_url(CATALOG_SITE_URL . '/poradnik/figury-i-dekoracje-w-ogrodzie-jak-je-dobrac/'),
     sitemap_url(CATALOG_SITE_URL . '/poradnik/czym-jest-outlet-meblowy/'),
@@ -54,7 +34,7 @@ $urls = [
     sitemap_url(CATALOG_SITE_URL . '/poradnik/zakup-produktu-outletowego-z-dostawa/'),
     sitemap_url(CATALOG_SITE_URL . '/outlet-meblowy-wroclaw/'),
     sitemap_url(CATALOG_SITE_URL . '/meble-ogrodowe-wroclaw/'),
-    sitemap_url(CATALOG_SITE_URL . '/sklep/figury-ogrodowe', $lastModified),
+    sitemap_url(CATALOG_SITE_URL . '/sklep/figury-ogrodowe'),
 ];
 
 foreach (catalog_products_with_slugs() as $product) {
@@ -62,17 +42,14 @@ foreach (catalog_products_with_slugs() as $product) {
         continue;
     }
 
-    $urls[] = sitemap_url(CATALOG_SITE_URL . catalog_figure_shop_product_url($product), $lastModified);
+    $urls[] = sitemap_url(CATALOG_SITE_URL . catalog_figure_shop_product_url($product));
 }
 
 foreach (catalog_products_with_slugs() as $product) {
     if (!catalog_is_public($product) || catalog_is_figure_shop_product($product)) {
         continue;
     }
-    $urls[] = sitemap_url(
-        CATALOG_SITE_URL . '/produkt/' . rawurlencode((string)$product['_publicSlug']),
-        $lastModified
-    );
+    $urls[] = sitemap_url(CATALOG_SITE_URL . '/produkt/' . rawurlencode((string)$product['_publicSlug']));
 }
 
 echo '<?xml version="1.0" encoding="UTF-8"?>' . PHP_EOL;
