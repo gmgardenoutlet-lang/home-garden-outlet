@@ -97,6 +97,11 @@ const isActiveFigureShopProduct = (product) => product.saleType === "garden_figu
 
 const isFigureShopProduct = (product) => product.saleType === "garden_figure";
 
+const isLegacyDecorativeSculpture = (product) => normalize(product.productType) === "rzezba ogrodowa"
+  || product._publicSlug === "figurki-ogrodowe-dekoracyjne-styl-kamienny";
+
+const byCatalogOrder = (left, right) => (Number(left.order) || 0) - (Number(right.order) || 0);
+
 const matchesCategory = (productCategory, pageCategory) => {
   const category = normalize(productCategory);
   const page = normalize(pageCategory);
@@ -159,6 +164,9 @@ const productCategoryLinks = (product) => {
 };
 
 const isOutletHomeOrGardenProduct = (product) => {
+  if (isFigureShopProduct(product)) {
+    return false;
+  }
   const category = String(product.category || "")
     .normalize("NFD")
     .replace(/[\u0300-\u036f]/g, "")
@@ -185,13 +193,15 @@ const productDeliveryInfo = (product) => {
 
 const productCard = (product) => {
   const name = hasValue(product.name) ? product.name : "Produkt outletowy";
-  const category = readableCategory(product.category);
+  const category = isFigureShopProduct(product) ? "Figury i dekoracje ogrodowe" : readableCategory(product.category);
   const status = displayStatus(product);
+  const isOnlineFigure = isActiveFigureShopProduct(product);
   const alt = hasValue(product.imageAlt)
     ? product.imageAlt
     : `${name} - ${category}, Home & Garden Outlet Kębłowice pod Wrocławiem`;
   const catalogPrice = hasValue(product.catalogPrice) ? product.catalogPrice : "";
-  const outletPrice = hasValue(product.outletPrice) ? product.outletPrice : "";
+  const outletPriceValue = isFigureShopProduct(product) ? product.grossPrice : product.outletPrice;
+  const outletPrice = hasValue(outletPriceValue) ? outletPriceValue : "";
   const catalogValue = parsePrice(catalogPrice);
   const outletValue = parsePrice(outletPrice);
   const saving = catalogValue && outletValue && catalogValue > outletValue
@@ -201,10 +211,10 @@ const productCard = (product) => {
     catalogPrice
       ? `<span class="catalog-price${outletPrice ? " old-price" : ""}">Cena katalogowa: ${escapeHtml(catalogPrice)}</span>`
       : "",
-    outletPrice ? `<span class="outlet-price">Cena outletowa: ${escapeHtml(outletPrice)}</span>` : "",
+    outletPrice ? `<span class="outlet-price">${isFigureShopProduct(product) ? "Cena" : "Cena outletowa"}: ${escapeHtml(outletPrice)}</span>` : "",
     saving ? `<span class="saving-badge">Oszczędzasz: ${saving} zł</span>` : ""
   ].filter(Boolean).join("");
-  const condition = hasValue(product.condition)
+  const condition = !isFigureShopProduct(product) && hasValue(product.condition)
     ? `<p class="dimensions">Stan: ${escapeHtml(product.condition)}</p>`
     : "";
   const dimensions = hasValue(product.dimensions)
@@ -226,9 +236,9 @@ const productCard = (product) => {
             <span class="badge">${escapeHtml(status)}</span>
           </div>
           <div class="product-body">
-            <div class="product-meta"><span>${escapeHtml(category)}</span><span>${escapeHtml(status)}</span></div>
+            <div class="product-meta"><span>${escapeHtml(category)}</span><span>${isOnlineFigure ? "Zakup online" : "Dostępny lokalnie"}</span></div>
             <h3><a class="product-title-link" href="${escapeHtml(detailUrl)}">${escapeHtml(name)}</a></h3>
-            ${prices ? `<div class="price-row${outletPrice ? " has-outlet" : ""}">${prices}</div>` : '<p class="price-note">Zapytaj o cenę.</p>'}
+            ${prices ? `<div class="price-row${outletPrice ? " has-outlet" : ""}">${prices}</div>` : `<p class="price-note">${catalogPrice ? "Zapytaj o cenę outletową." : "Zapytaj o cenę."}</p>`}
             <div class="product-description-wrap">
               <p class="product-description">${escapeHtml(productDescription)}</p>
               <button class="description-toggle" type="button" aria-expanded="false" hidden>Więcej</button>
@@ -238,7 +248,7 @@ const productCard = (product) => {
             ${productCategoryLinks(product)}
             ${productDeliveryInfo(product)}
             <div class="product-actions">
-              <a class="btn btn-primary" href="${escapeHtml(detailUrl)}">Zobacz produkt</a>
+              <a class="btn btn-primary" href="${escapeHtml(detailUrl)}">${isOnlineFigure ? "Kup online" : "Zobacz produkt"}</a>
               <a class="btn btn-outline" href="tel:+48577210777">Zapytaj o dostępność</a>
             </div>
           </div>
@@ -287,11 +297,12 @@ async function updatePage(file, pageProducts) {
 }
 
 await updatePage("index.html", homepageProducts());
-await updatePage("dom.html", products.filter(isPublic).filter((product) => !isSold(product)).filter((product) => matchesCategory(product.category, "Wyposażenie domu")));
+await updatePage("dom.html", products.filter(isPublic).filter((product) => !isSold(product)).filter((product) => matchesCategory(product.category, "Wyposażenie domu")).sort(byCatalogOrder));
 await updatePage("ogrod.html", products
   .filter(isPublic)
   .filter((product) => !isSold(product))
   .filter((product) => matchesCategory(product.category, "Wyposażenie ogrodu"))
-  .filter((product) => !isActiveFigureShopProduct(product)));
+  .filter((product) => !isActiveFigureShopProduct(product) && !isLegacyDecorativeSculpture(product))
+  .sort(byCatalogOrder));
 
 console.log(`Wygenerowano statyczny katalog z ${products.length} produktów.`);

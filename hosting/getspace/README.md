@@ -60,3 +60,30 @@ Nie publikuje:
 - produkcyjnych zdjęć w `uploads`,
 - sekretów, zamówień, statystyk i pozostałych plików `admin/storage`,
 - plików Netlify `_headers`, `_redirects` i `netlify.toml`.
+
+## Lokalny podgląd aktualnego katalogu
+
+Serwerowy `data/products.json` pozostaje źródłem prawdy. Repozytoryjny plik
+zawiera starszy katalog i nie jest używany do przygotowania kart w paczce.
+Przed buildem pobierz wyłącznie publiczne pola z `/products-public.php`:
+
+```sh
+node scripts/fetch-public-products.mjs
+node scripts/build-getspace.mjs
+SITE_ROOT=publish node scripts/prerender-products.mjs
+php -S 127.0.0.1:4173 -t publish tests/local-preview-router.php
+```
+
+Na Windows ustaw `SITE_ROOT=publish` w środowisku procesu zamiast używać
+składni powłoki Unix. Podgląd jest pod `http://127.0.0.1:4173/`, `/dom` i
+`/ogrod`. Brakujące lokalnie zdjęcia z `uploads` są w podglądzie kierowane do
+publicznych plików produkcyjnych. Lokalna migawka jest w
+`.local-cache/products-public.json` (ignorowana przez Git). Jej kopia w
+`publish/data/products.json` służy tylko lokalnemu PHP i prerenderowi; oba
+pliki są wykluczone z FTPS. Nie zawiera pól administracyjnych ani notatek.
+
+Pobieranie nie wymaga stałej liczby produktów. Błąd HTTP lub pusta/niepoprawna
+odpowiedź nie nadpisuje ostatniej poprawnej migawki i zatrzymuje workflow.
+Build bez migawki nie wraca po cichu do starszych 55 rekordów. Optymalizacja
+zdjęć z repo nie działa na tej migawce: mogłaby zmienić adresy zdjęć, których
+workflow celowo nie przesyła na serwer.

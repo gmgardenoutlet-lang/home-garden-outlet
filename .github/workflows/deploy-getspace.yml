@@ -49,6 +49,7 @@ jobs:
           php tests/catalog-presentation-tests.php
           php tests/owner-decisions-migration-tests.php
           node tests/prerender-privacy-tests.mjs
+          node tests/public-products-snapshot-tests.mjs
           HGO_SHOP_SALES_ENABLED=true php tests/paynow-v3-tests.php
           php tests/codex-draft-tests.php
           php tests/admin-figure-entry-tests.php
@@ -58,16 +59,17 @@ jobs:
           HGO_STORAGE_DIR="$(mktemp -d)" php tests/diagnostic-events-tests.php
           php -m | grep -qi '^zip$'
 
+      - name: Pobierz wyłącznie publiczną migawkę katalogu
+        run: node scripts/fetch-public-products.mjs
+
       - name: Przygotuj paczkę Getspace
         run: node scripts/build-getspace.mjs
 
-      - name: Zoptymalizuj zdjęcia produktów
-        run: |
-          python -m pip install --disable-pip-version-check Pillow
-          python scripts/optimize-getspace-images.py publish
-
       - name: Wygeneruj statyczne karty produktów
         run: SITE_ROOT=publish node scripts/prerender-products.mjs
+
+      - name: Sprawdź publiczne identyfikatory i karty w artefakcie
+        run: node tests/public-artifact-tests.mjs
 
       - name: Sprawdz pliki PHP Getspace
         run: find publish -name "*.php" -print0 | xargs -0 -n1 php -l
@@ -154,6 +156,16 @@ jobs:
           echo "Kopia kodu i danych: $backup_dir" >> "$GITHUB_STEP_SUMMARY"
           echo "Produkty przed wdrozeniem: $product_count" >> "$GITHUB_STEP_SUMMARY"
 
+      - name: Porównaj migawkę z kopią katalogu przed wysyłką
+        run: |
+          set -euo pipefail
+          snapshot='.local-cache/products-public.json'
+          snapshot_count="$(php -r '$data=json_decode(file_get_contents($argv[1]),true,512,JSON_THROW_ON_ERROR); echo count($data["products"] ?? []);' "$snapshot")"
+          snapshot_hash="$(php -r '$data=json_decode(file_get_contents($argv[1]),true,512,JSON_THROW_ON_ERROR); $s=array_map(static fn($p)=>(string)($p["slug"]??""),$data["products"]??[]); sort($s,SORT_STRING); echo hash("sha256",implode("\n",$s));' "$snapshot")"
+          test "$snapshot_count" = '${{ steps.backup.outputs.product_count }}'
+          test "$snapshot_hash" = '${{ steps.backup.outputs.slug_hash }}'
+          echo "Migawka i kopia produkcji mają ten sam zestaw identyfikatorów: $snapshot_count" >> "$GITHUB_STEP_SUMMARY"
+
       - name: Sprawdz migracje na kopii produkcji
         run: |
           set -euo pipefail
@@ -178,6 +190,7 @@ jobs:
             **/.git*
             **/.git*/**
             data/products.json
+            .local-cache/**
             data/google-reviews.json
             data/shipping-profiles.json
             uploads/**/*.jpg
@@ -271,6 +284,8 @@ jobs:
           done
           raw_status="$(curl --silent --output /dev/null --write-out '%{http_code}' --max-time 20 https://mgoutlet.pl/data/products.json)"
           test "$raw_status" = "403"
+          snapshot_status="$(curl --silent --output /dev/null --write-out '%{http_code}' --max-time 20 https://mgoutlet.pl/.local-cache/products-public.json)"
+          test "$snapshot_status" = "403" -o "$snapshot_status" = "404"
           for url in \
             https://mgoutlet.pl/ \
             https://mgoutlet.pl/dom \
@@ -385,7 +400,7 @@ jobs:
           echo "Kontrola produkcji: PASS" >> "$GITHUB_STEP_SUMMARY"
 
       - name: Przywroc poprzedni kod po krytycznej awarii
-        if: ${{ always() && steps.backup.outcome == 'success' && (steps.deploy.outcome == 'failure' || steps.smoke.outcome == 'failure') }}
+        if: ${{ always() && steps.backup.outcome == 'success' && (steps.deploy.outcome == 'failure' || steps.migration.outcome == 'failure' || steps.smoke.outcome == 'failure') }}
         run: |
           set -euo pipefail
           public_dir='${{ steps.paths.outputs.public_dir }}'

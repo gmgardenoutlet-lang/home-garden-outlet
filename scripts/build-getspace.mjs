@@ -1,4 +1,4 @@
-import { cp, mkdir, readFile, rm } from "node:fs/promises";
+import { cp, mkdir, readFile, rm, stat } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
 import path from "node:path";
 
@@ -46,8 +46,12 @@ const publicDirectories = [
   "hosting/getspace/stats"
 ];
 
-const data = JSON.parse(await readFile(path.join(root, "data", "products.json"), "utf8"));
-const products = Array.isArray(data.products) ? data.products : [];
+const snapshot = path.resolve(process.env.HGO_PUBLIC_PRODUCTS_SNAPSHOT || path.join(root, ".local-cache", "products-public.json"));
+const data = JSON.parse(await readFile(snapshot, "utf8"));
+if (!Array.isArray(data.products) || data.products.length === 0) {
+  throw new Error("Brak poprawnej publicznej migawki; artefakt nie może korzystać ze starego katalogu.");
+}
+const products = data.products;
 const uploadPaths = new Set();
 const staticUploadPaths = [];
 
@@ -85,7 +89,8 @@ for (const directory of publicDirectories) {
 }
 
 await mkdir(path.join(publish, "data"), { recursive: true });
-await cp(path.join(root, "data", "products.json"), path.join(publish, "data", "products.json"));
+// This copy exists only for local PHP preview and prerendering. FTP excludes it.
+await cp(snapshot, path.join(publish, "data", "products.json"));
 await cp(path.join(root, "data", "google-reviews.json"), path.join(publish, "data", "google-reviews.json"));
 await cp(path.join(root, "data", "shipping-profiles.json"), path.join(publish, "data", "shipping-profiles.json"));
 
@@ -95,6 +100,10 @@ await cp(path.join(root, "hosting", "getspace", "uploads", ".htaccess"), path.jo
 for (const relativePath of uploadPaths) {
   const source = path.join(root, relativePath);
   const destination = path.join(publish, relativePath);
+  if (!(await stat(source).catch(() => null))?.isFile()) {
+    // New production images are served by Getspace and excluded from deployment.
+    continue;
+  }
   await mkdir(path.dirname(destination), { recursive: true });
   await cp(source, destination);
 }

@@ -5,7 +5,7 @@ $root = rtrim((string)($_SERVER['DOCUMENT_ROOT'] ?? ''), DIRECTORY_SEPARATOR);
 $path = rawurldecode((string)(parse_url((string)($_SERVER['REQUEST_URI'] ?? '/'), PHP_URL_PATH) ?: '/'));
 $staticPath = realpath($root . str_replace('/', DIRECTORY_SEPARATOR, $path));
 
-if ($path === '/data/products.json') {
+if (preg_match('#^/data(?:/|$)#i', $path) === 1) {
     http_response_code(403);
     header('Content-Type: text/plain; charset=utf-8');
     echo 'Forbidden';
@@ -14,6 +14,18 @@ if ($path === '/data/products.json') {
 
 if ($staticPath !== false && str_starts_with($staticPath, $root . DIRECTORY_SEPARATOR) && is_file($staticPath)) {
     return false;
+}
+
+// The public snapshot can reference newer production uploads that are not
+// stored in Git. Preview those public images without copying server files.
+$rawPath = (string)(parse_url((string)($_SERVER['REQUEST_URI'] ?? '/'), PHP_URL_PATH) ?: '/');
+if (preg_match('#^/uploads/[a-zA-Z0-9_./%~-]+\.(?:jpe?g|png|webp|gif)$#i', $rawPath) === 1
+    && strpos($rawPath, '..') === false
+    && strpos($path, '..') === false
+    && strpos($rawPath, '//') === false
+    && in_array((string)($_SERVER['REQUEST_METHOD'] ?? 'GET'), ['GET', 'HEAD'], true)) {
+    header('Location: https://mgoutlet.pl' . $rawPath, true, 302);
+    return true;
 }
 
 if (in_array($path, ['/sklep/shop.css', '/sklep/shop.js'], true)) {
