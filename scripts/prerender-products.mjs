@@ -5,8 +5,18 @@ import path from "node:path";
 const root = process.env.SITE_ROOT
   ? path.resolve(process.env.SITE_ROOT)
   : path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
-const data = JSON.parse(await readFile(path.join(root, "data", "products.json"), "utf8"));
-const rawProducts = Array.isArray(data.products) ? data.products : [];
+// The source checkout contains a historical catalogue. Only an explicit build
+// root may use data/products.json, copied there from the public snapshot.
+const source = process.env.HGO_PUBLIC_PRODUCTS_SNAPSHOT
+  ? path.resolve(process.env.HGO_PUBLIC_PRODUCTS_SNAPSHOT)
+  : process.env.SITE_ROOT
+    ? path.join(root, "data", "products.json")
+    : path.join(root, ".local-cache", "products-public.json");
+const data = JSON.parse(await readFile(source, "utf8"));
+if (!Array.isArray(data.products) || data.products.length === 0) {
+  throw new Error("Brak niepustej publicznej migawki; szablony pozostają bez zmian.");
+}
+const rawProducts = data.products;
 
 const escapeHtml = (value) => String(value ?? "")
   .replace(/&/g, "&amp;")
@@ -88,7 +98,7 @@ const isSold = (product) => ["sprzedany", "sprzedane"].includes(normalize(displa
 
 // Keep the outlet catalogue separate from the active online figure shop. This
 // mirrors hosting/getspace/shop-test/lib.php::shop_test_is_figure(), so older
-// showroom figures that are not active shop products remain on /ogrod.
+// showroom sculptures are excluded separately by isLegacyDecorativeSculpture.
 const isActiveFigureShopProduct = (product) => product.saleType === "garden_figure"
   && Boolean(product.shopVisible)
   && product.shopStatus === "Dostępny"
@@ -99,6 +109,13 @@ const isFigureShopProduct = (product) => product.saleType === "garden_figure";
 
 const isLegacyDecorativeSculpture = (product) => normalize(product.productType) === "rzezba ogrodowa"
   || product._publicSlug === "figurki-ogrodowe-dekoracyjne-styl-kamienny";
+
+const isLegacyFigureListingRecord = (product) => [
+  "rzezba-ogrodowa-twarz-mala-dostepne-w-roznych-barwach",
+  "rzezba-betonowa-do-ogrodu-dekoracyjna-glowa-120-cm",
+  "rzezba-betonowa-do-ogrodu-z-siedziskiem-dekoracyjna-glowa-120-cm",
+  "lezaca-rzezba-betonowa-do-ogrodu-dekoracyjna-twarz"
+].includes(product._publicSlug);
 
 const byCatalogOrder = (left, right) => (Number(left.order) || 0) - (Number(right.order) || 0);
 
@@ -256,9 +273,11 @@ const productCard = (product) => {
 };
 
 const homepageProducts = () => {
-  const publicProducts = products.filter(isPublic).filter((product) => !isSold(product));
+  const publicProducts = products.filter(isPublic).filter((product) => !isSold(product) && !isLegacyFigureListingRecord(product));
   const featured = publicProducts.filter((product) => product.featured !== false);
-  const selected = featured.slice(0, 6);
+  const figure = featured.find(isActiveFigureShopProduct);
+  const selected = figure ? [figure, ...featured.filter((product) => !isFigureShopProduct(product)).slice(0, 5)] : [];
+  selected.push(...featured.filter((product) => !selected.includes(product)).slice(0, 6 - selected.length));
 
   if (selected.length < 6) {
     selected.push(...publicProducts

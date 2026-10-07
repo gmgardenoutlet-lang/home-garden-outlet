@@ -191,8 +191,17 @@ $catalogData = is_file(CATALOG_PRODUCTS_FILE)
 $catalogIsAvailable = is_array($catalogData) && isset($catalogData['products']) && is_array($catalogData['products']);
 $homepageProducts = $catalogIsAvailable ? catalog_products_with_slugs() : [];
 
-$homepageProducts = array_values(array_filter($homepageProducts, static function (array $product): bool {
-    return catalog_is_public($product) && !homepage_is_sold($product);
+$legacyFigureSlugs = [
+    'rzezba-ogrodowa-twarz-mala-dostepne-w-roznych-barwach',
+    'rzezba-betonowa-do-ogrodu-dekoracyjna-glowa-120-cm',
+    'rzezba-betonowa-do-ogrodu-z-siedziskiem-dekoracyjna-glowa-120-cm',
+    'lezaca-rzezba-betonowa-do-ogrodu-dekoracyjna-twarz',
+];
+// Three records redirect to owner-approved shop cards. The lying face retains
+// its outlet detail page but is not listed or promoted until a future decision.
+$homepageProducts = array_values(array_filter($homepageProducts, static function (array $product) use ($legacyFigureSlugs): bool {
+    return catalog_is_public($product) && !homepage_is_sold($product)
+        && !in_array((string)$product['_publicSlug'], $legacyFigureSlugs, true);
 }));
 
 $featuredProducts = array_values(array_filter($homepageProducts, static function (array $product): bool {
@@ -201,7 +210,19 @@ $featuredProducts = array_values(array_filter($homepageProducts, static function
 $remainingProducts = array_values(array_filter($homepageProducts, static function (array $product): bool {
     return ($product['featured'] ?? null) === false;
 }));
-$selectedProducts = array_slice(homepage_shuffle($featuredProducts), 0, 6);
+$eligibleFigures = homepage_shuffle(array_values(array_filter($featuredProducts, 'catalog_is_active_figure_shop_product')));
+$selectedProducts = [];
+if ($eligibleFigures !== []) {
+    $selectedProducts[] = $eligibleFigures[0];
+    $outletFeatured = array_values(array_filter($featuredProducts, static function (array $product): bool {
+        return !catalog_is_figure_shop_product($product);
+    }));
+    $selectedProducts = array_merge($selectedProducts, array_slice(homepage_shuffle($outletFeatured), 0, 5));
+}
+$unusedFeatured = array_values(array_filter($featuredProducts, static function (array $product) use ($selectedProducts): bool {
+    return !in_array($product, $selectedProducts, true);
+}));
+$selectedProducts = array_merge($selectedProducts, array_slice(homepage_shuffle($unusedFeatured), 0, 6 - count($selectedProducts)));
 
 if (count($selectedProducts) < 6) {
     $selectedProducts = array_merge(

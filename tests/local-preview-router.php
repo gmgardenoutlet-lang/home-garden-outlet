@@ -12,6 +12,11 @@ if (preg_match('#^/data(?:/|$)#i', $path) === 1) {
     return true;
 }
 
+if ($path === '/sitemap.xml') {
+    require $root . DIRECTORY_SEPARATOR . 'sitemap.php';
+    return true;
+}
+
 if ($staticPath !== false && str_starts_with($staticPath, $root . DIRECTORY_SEPARATOR) && is_file($staticPath)) {
     return false;
 }

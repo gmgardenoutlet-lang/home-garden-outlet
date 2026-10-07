@@ -372,6 +372,15 @@ function isLegacyDecorativeSculpture(product) {
     || product._publicSlug === "figurki-ogrodowe-dekoracyjne-styl-kamienny";
 }
 
+function isLegacyFigureListingRecord(product) {
+  return [
+    "rzezba-ogrodowa-twarz-mala-dostepne-w-roznych-barwach",
+    "rzezba-betonowa-do-ogrodu-dekoracyjna-glowa-120-cm",
+    "rzezba-betonowa-do-ogrodu-z-siedziskiem-dekoracyjna-glowa-120-cm",
+    "lezaca-rzezba-betonowa-do-ogrodu-dekoracyjna-twarz"
+  ].includes(product._publicSlug || product.slug || "");
+}
+
 function isExcludedFromGardenListing(product) {
   return normalizeText(product.category) === "figury i dekoracje ogrodowe"
     || isActiveFigureShopProduct(product)
@@ -904,7 +913,7 @@ function getHomepageStaticCardSlugs() {
 
   return [...productGrid.querySelectorAll(".product-card-static")].map((card) => {
     const href = card.querySelector(".product-image-link")?.getAttribute("href") || "";
-    const match = href.match(/^\/produkt\/([^/?#]+)$/);
+    const match = href.match(/^\/(?:sklep\/figury-ogrodowe\/)?produkt\/([^/?#]+)$/);
 
     return match ? createProductSlug(match[1]) : "";
   });
@@ -925,16 +934,21 @@ function canKeepHomepageStaticCards() {
   const eligibleSlugs = new Set(products
     .filter(isProductPublic)
     .filter((product) => !isSoldProduct(product))
+    .filter((product) => !isLegacyFigureListingRecord(product))
     .map((product) => getProductSeo(product).slug));
 
   return selectedSlugs.every((slug) => eligibleSlugs.has(slug));
 }
 
 function pickRandomHomepageProducts(items, limit = homepageProductLimit) {
-  const availableItems = items.filter((product) => !isSoldProduct(product));
+  const availableItems = items.filter((product) => !isSoldProduct(product) && !isLegacyFigureListingRecord(product));
   const featured = availableItems.filter((product) => product.featured !== false);
   const remaining = availableItems.filter((product) => product.featured === false);
-  const selected = shuffleProducts(featured).slice(0, limit);
+  const figure = shuffleProducts(featured.filter(isActiveFigureShopProduct))[0];
+  const selected = figure && limit > 0
+    ? [figure, ...shuffleProducts(featured.filter((product) => !isFigureShopProduct(product))).slice(0, limit - 1)]
+    : [];
+  selected.push(...shuffleProducts(featured.filter((product) => !selected.includes(product))).slice(0, limit - selected.length));
 
   if (selected.length < limit) {
     selected.push(...shuffleProducts(remaining).slice(0, limit - selected.length));
@@ -948,7 +962,7 @@ function pickHomepageProducts(items, selectedSlugs = null) {
     return pickRandomHomepageProducts(items);
   }
 
-  const availableItems = items.filter((product) => !isSoldProduct(product));
+  const availableItems = items.filter((product) => !isSoldProduct(product) && !isLegacyFigureListingRecord(product));
   const productsBySlug = new Map(availableItems.map((product) => [getProductSeo(product).slug, product]));
   const selected = selectedSlugs
     .map((slug) => productsBySlug.get(slug))
@@ -956,10 +970,16 @@ function pickHomepageProducts(items, selectedSlugs = null) {
     .slice(0, homepageProductLimit);
   const selectedSlugSet = new Set(selected.map((product) => getProductSeo(product).slug));
 
-  return selected.concat(pickRandomHomepageProducts(
+  const result = selected.concat(pickRandomHomepageProducts(
     availableItems.filter((product) => !selectedSlugSet.has(getProductSeo(product).slug)),
     homepageProductLimit - selected.length
   ));
+  const eligibleFigure = availableItems.find((product) => product.featured !== false && isActiveFigureShopProduct(product));
+  if (eligibleFigure && !result.some((product) => product.featured !== false && isActiveFigureShopProduct(product))) {
+    if (result.length >= homepageProductLimit) result.pop();
+    result.push(eligibleFigure);
+  }
+  return result;
 }
 
 function normalizeProductCount(count) {
@@ -1016,7 +1036,8 @@ function renderProducts(filter = "all") {
     return;
   }
 
-  const publicProducts = products.filter(isProductPublic).filter((product) => !isSoldProduct(product));
+  const publicProducts = products.filter(isProductPublic).filter((product) => !isSoldProduct(product))
+    .filter((product) => isCategoryPage || !isLegacyFigureListingRecord(product));
   const filters = getDiscoveryFilters();
   if (filter !== "all" && filters.category === "all") {
     filters.category = filter;

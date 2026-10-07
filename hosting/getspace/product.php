@@ -7,6 +7,20 @@ $slug = (string)($_GET['slug'] ?? '');
 $product = $slug !== '' ? catalog_find_product($slug) : null;
 $productRecord = $slug !== '' ? catalog_find_product_record($slug) : null;
 
+$approvedFigureSlug = catalog_legacy_figure_shop_slug($slug);
+if ($approvedFigureSlug !== null) {
+    header('Location: ' . CATALOG_SITE_URL . '/sklep/figury-ogrodowe/produkt/' . $approvedFigureSlug, true, 301);
+    exit;
+}
+
+$oldCaptainSlug = 'krzeslo-biurowe-captain-jasnobezowe-2';
+$newCaptainSlug = 'krzeslo-biurowe-captain-jasnobezowe';
+// Owner-confirmed duplicate; the canonical record keeps its current status.
+if ($slug === $oldCaptainSlug && catalog_find_product($newCaptainSlug) !== null) {
+    header('Location: ' . CATALOG_SITE_URL . '/produkt/' . $newCaptainSlug, true, 301);
+    exit;
+}
+
 $oldMatinoSlug = 'lawka-schowek-matino-z-drewna-akacjowego-w-brazowym-kolorze-praktyczne-siedzisko-schowek-i-polki-do-ogrodu-na-taras-lub-balkon';
 $newMatinoSlug = 'lawka-schowek-matino';
 if ($slug === $oldMatinoSlug && catalog_find_product($newMatinoSlug) !== null) {

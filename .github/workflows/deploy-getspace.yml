@@ -357,14 +357,21 @@ jobs:
           root = ET.fromstring(sitemap_bytes)
           sitemap_urls = [element.text for element in root.findall("{http://www.sitemaps.org/schemas/sitemap/0.9}url/{http://www.sitemaps.org/schemas/sitemap/0.9}loc") if element.text]
           expected = []
+          redirected_figures = {
+              "rzezba-ogrodowa-twarz-mala-dostepne-w-roznych-barwach",
+              "rzezba-betonowa-do-ogrodu-dekoracyjna-glowa-120-cm",
+              "rzezba-betonowa-do-ogrodu-z-siedziskiem-dekoracyjna-glowa-120-cm",
+          }
           for product in source_products:
               status = str(product.get("productStatus", "")).strip().lower()
               if product.get("saleType") == "garden_figure":
                   if product.get("shopVisible") and product.get("shopStatus") == "Dostępny" and status != "ukryty":
                       expected.append("https://mgoutlet.pl/sklep/figury-ogrodowe/produkt/" + urllib.parse.quote(str(product["slug"])))
-              elif product.get("visible", True) is not False and status != "ukryty":
+              elif product.get("visible", True) is not False and status != "ukryty" and product.get("slug") not in redirected_figures:
                   expected.append("https://mgoutlet.pl/produkt/" + urllib.parse.quote(str(product["slug"])))
           missing = sorted(set(expected) - set(sitemap_urls))
+          if any("https://mgoutlet.pl/produkt/" + slug in sitemap_urls for slug in redirected_figures):
+              raise SystemExit("Mapa witryny zawiera stare przekierowane twarze")
           if missing:
               raise SystemExit(f"Mapa witryny nie zawiera {len(missing)} publicznych produktow, np. {missing[0]}")
 

@@ -391,6 +391,16 @@ function catalog_load(): array
         : [];
 }
 
+// Explicit owner-approved aliases; never infer identity from similar names.
+function catalog_legacy_figure_shop_slug(string $slug): ?string
+{
+    return [
+        'rzezba-ogrodowa-twarz-mala-dostepne-w-roznych-barwach' => 'figura-ogrodowa-twarz-czarna-artystyczne-wykonczenie',
+        'rzezba-betonowa-do-ogrodu-dekoracyjna-glowa-120-cm' => 'figura-ogrodowa-twarz-kobiety-114-cm-czarna-z-miedzianym-motywem-winorosli',
+        'rzezba-betonowa-do-ogrodu-z-siedziskiem-dekoracyjna-glowa-120-cm' => 'figura-ogrodowa-twarz-kobiety-z-zamknietymi-oczami-i-siedziskiem-114-cm-szaro-brazowa',
+    ][$slug] ?? null;
+}
+
 function catalog_is_public(array $product): bool
 {
     return ($product['visible'] ?? true) !== false

@@ -87,6 +87,15 @@ for (const { file, html } of pages) {
       throw new Error(`Karty w ${file} nie odpowiadają migawce: brak ${missing.join(", ")}; nadmiar ${unexpected.join(", ")}.`);
     }
   }
+  if (file === 'index.html') {
+    const eligibleFigure = snapshot.products.some(p => p.saleType === 'garden_figure'
+      && p.visible !== false && p.featured !== false && p.shopVisible && p.shopStatus === 'Dostępny'
+      && !['Ukryty', 'Sprzedany'].includes(p.productStatus) && !['Sprzedane', 'Sprzedany'].includes(p.status));
+    if (eligibleFigure && ![...pageUrls].some(url => figureUrls.has(url))) throw new Error('Missing eligible recommended figure.');
+    if (cards.length !== 6) throw new Error('Current snapshot should generate six unique recommendations.');
+    const legacy = ['rzezba-ogrodowa-twarz-mala-dostepne-w-roznych-barwach', 'rzezba-betonowa-do-ogrodu-dekoracyjna-glowa-120-cm', 'rzezba-betonowa-do-ogrodu-z-siedziskiem-dekoracyjna-glowa-120-cm', 'lezaca-rzezba-betonowa-do-ogrodu-dekoracyjna-twarz'];
+    if (legacy.some(slug => pageUrls.has('/produkt/' + slug))) throw new Error('Legacy face promoted.');
+  }
   if (html.includes("internalNote") || html.includes("futureAdminSecret")) {
     throw new Error(`${file} zawiera pole administracyjne.`);
   }

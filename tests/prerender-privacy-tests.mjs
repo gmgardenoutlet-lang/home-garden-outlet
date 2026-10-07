@@ -40,6 +40,20 @@ try {
     }
   }
 
+  const before = await readFile(path.join(temp, "dom.html"), "utf8");
+  await writeFile(path.join(temp, "data", "products.json"), JSON.stringify({ products: [] }), "utf8");
+  let rejected = false;
+  try {
+    await execFileAsync(process.execPath, [path.join(repo, "scripts", "prerender-products.mjs")], {
+      env: { ...process.env, SITE_ROOT: temp },
+    });
+  } catch {
+    rejected = true;
+  }
+  if (!rejected || await readFile(path.join(temp, "dom.html"), "utf8") !== before) {
+    throw new Error("Pusta migawka nie zatrzymała generatora lub nadpisała poprawny szablon.");
+  }
+
   console.log("PASS: prerender privacy tests");
 } finally {
   await rm(temp, { recursive: true, force: true });

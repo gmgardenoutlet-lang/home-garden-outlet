@@ -46,7 +46,8 @@ foreach (catalog_products_with_slugs() as $product) {
 }
 
 foreach (catalog_products_with_slugs() as $product) {
-    if (!catalog_is_public($product) || catalog_is_figure_shop_product($product)) {
+    if (!catalog_is_public($product) || catalog_is_figure_shop_product($product)
+        || catalog_legacy_figure_shop_slug((string)$product['_publicSlug']) !== null) {
         continue;
     }
     $urls[] = sitemap_url(CATALOG_SITE_URL . '/produkt/' . rawurlencode((string)$product['_publicSlug']));
