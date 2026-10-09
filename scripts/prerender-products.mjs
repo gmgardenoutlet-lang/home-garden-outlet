@@ -208,10 +208,27 @@ const productDeliveryInfo = (product) => {
             </section>`;
 };
 
+const listingStateNotes = (product) => {
+  let longDescription = String(product.longDescription || '');
+  if (product.slug === 'wanna-hawes-hydromasaz-led-czarna') {
+    longDescription = longDescription
+      .replaceAll(' Te informacje powinny pozostać widoczne w opisie dla klienta.', '')
+      .replaceAll('- stan: outletowy, z widocznymi defektami', '');
+  }
+  const pattern = /uszkod|defekt|ubyt|pękni|pekni|odprysk|wgniec|zarys|przetar|otarci|wad[ayę]|napraw|niespraw|ślad|slad|ekspozy|zmontowan|\bnowe\b/iu;
+  return [...new Set(longDescription.trim().split(/\r?\n\s*\r?\n/u)
+    .flatMap(paragraph => /^Dodatkowe informacje\s*:/iu.test(paragraph) ? paragraph.split(/\r?\n/u) : [paragraph])
+    .map(part => part.trim()).filter(part => pattern.test(part) && !String(product.description || '').includes(part)))].join('\n\n');
+};
+
 const productCard = (product) => {
   const name = hasValue(product.name) ? product.name : "Produkt outletowy";
   const category = isFigureShopProduct(product) ? "Figury i dekoracje ogrodowe" : readableCategory(product.category);
   const status = displayStatus(product);
+  const images = [...new Set([product.image, ...(Array.isArray(product.gallery) ? product.gallery.map(item => typeof item === 'string' ? item : item?.image) : [])]
+    .filter(hasValue).map(value => /^https?:\/\//i.test(String(value)) ? String(value) : imagePath({ image: value })))];
+  const galleryData = escapeHtml(JSON.stringify(images.length ? images : [imagePath(product)]));
+  const badgeClass = status === 'Rezerwacja' ? 'reserved' : ['Sprzedane', 'Sprzedany'].includes(status) ? 'sold' : '';
   const isOnlineFigure = isActiveFigureShopProduct(product);
   const alt = hasValue(product.imageAlt)
     ? product.imageAlt
@@ -232,11 +249,9 @@ const productCard = (product) => {
     saving ? `<span class="saving-badge">Oszczędzasz: ${saving} zł</span>` : ""
   ].filter(Boolean).join("");
   const condition = !isFigureShopProduct(product) && hasValue(product.condition)
-    ? `<p class="dimensions">Stan: ${escapeHtml(product.condition)}</p>`
+    ? `<p class="product-condition">Stan: ${escapeHtml(product.condition)}</p>`
     : "";
-  const dimensions = hasValue(product.dimensions)
-    ? `<p class="dimensions">${escapeHtml(product.dimensions)}</p>`
-    : "";
+  const stateNotes = listingStateNotes(product);
   const productDescription = String(product.description || "Produkt dostępny do obejrzenia na miejscu.")
     .replace(/\s+/g, " ")
     .trim();
@@ -245,29 +260,27 @@ const productCard = (product) => {
     : `/produkt/${encodeURIComponent(product._publicSlug)}`;
 
   return `
-        <article class="product-card product-card-static">
+        <article class="product-card product-card-static product-card-compact">
           <div class="product-image">
-            <a class="product-image-link" href="${escapeHtml(detailUrl)}" aria-label="Zobacz produkt: ${escapeHtml(name)}">
+            <a class="product-image-link" href="${escapeHtml(detailUrl)}" data-gallery="${galleryData}" data-gallery-name="${escapeHtml(name)}" data-gallery-alt="${escapeHtml(alt)}" aria-label="Zobacz produkt: ${escapeHtml(name)}">
               <img src="${escapeHtml(imagePath(product))}" width="600" height="450" loading="lazy" alt="${escapeHtml(alt)}">
             </a>
-            <span class="badge">${escapeHtml(status)}</span>
+            <span class="badge ${badgeClass}">${escapeHtml(status)}</span>
+            ${images.length > 1 ? `<span class="gallery-count">${images.length} zdjęć</span>` : ''}
           </div>
           <div class="product-body">
             <div class="product-meta"><span>${escapeHtml(category)}</span><span>${isOnlineFigure ? "Zakup online" : "Dostępny lokalnie"}</span></div>
             <h3><a class="product-title-link" href="${escapeHtml(detailUrl)}">${escapeHtml(name)}</a></h3>
             ${prices ? `<div class="price-row${outletPrice ? " has-outlet" : ""}">${prices}</div>` : `<p class="price-note">${catalogPrice ? "Zapytaj o cenę outletową." : "Zapytaj o cenę."}</p>`}
-            <div class="product-description-wrap">
-              <p class="product-description">${escapeHtml(productDescription)}</p>
-              <button class="description-toggle" type="button" aria-expanded="false" hidden>Więcej</button>
-            </div>
-            ${condition}
-            ${dimensions}
-            ${productCategoryLinks(product)}
-            ${productDeliveryInfo(product)}
             <div class="product-actions">
               <a class="btn btn-primary" href="${escapeHtml(detailUrl)}">${isOnlineFigure ? "Kup online" : "Zobacz produkt"}</a>
               <a class="btn btn-outline" href="tel:+48577210777">Zapytaj o dostępność</a>
             </div>
+            <div class="product-description-wrap">
+              <p class="product-description">${escapeHtml(productDescription)}</p>
+            </div>
+            ${condition}
+            ${stateNotes ? `<p class="product-state-notes">${escapeHtml(stateNotes)}</p>` : ''}
           </div>
         </article>`;
 };

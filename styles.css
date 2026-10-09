@@ -1056,6 +1056,24 @@ body.gallery-open {
   overflow: visible;
 }
 
+/* Opt-in listing cards only: no effect on product detail or the figure shop. */
+.product-card-compact .product-body { padding: 20px; }
+.product-card-compact .product-meta { margin-bottom: 10px; font-size: 12px; }
+.product-card-compact h3 { margin-bottom: 12px; overflow-wrap: anywhere; }
+.product-card-compact .price-row { gap: 6px; margin-bottom: 12px; }
+.product-card-compact .outlet-price { order: -1; }
+.product-card-compact .saving-badge { font-size: 12px; padding: 4px 8px; }
+.product-card-compact .product-actions { margin: 0 0 14px; }
+.product-card-compact .product-description {
+  display: block; overflow: visible; -webkit-line-clamp: unset;
+  margin: 0; font-size: 14px; line-height: 1.55; white-space: pre-line;
+}
+.product-card-compact .product-condition { margin: 10px 0 0; font-size: 14px; font-weight: 700; }
+.product-card-compact .product-state-notes {
+  margin: 10px 0 0; padding-left: 12px; border-left: 3px solid var(--wood);
+  font-size: 14px; line-height: 1.55; white-space: pre-line; overflow-wrap: anywhere;
+}
+
 .description-toggle {
   margin-top: 7px;
   padding: 0;

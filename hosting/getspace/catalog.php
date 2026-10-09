@@ -312,6 +312,12 @@ function catalog_apply_reviewed_product_fixes(array $product): array
             'longDescription' => [[
                 'Przed sprzedażą należy potwierdzić działanie hydromasażu, LED, panelu sterowania, baterii, odpływu oraz szczelność instalacji. Jeżeli wanna nie była testowana z wodą, warto oznaczyć ją jako technicznie niesprawdzoną.',
                 'Elementy hydromasażu i oświetlenia LED są nowe.',
+            ], [
+                ' Te informacje powinny pozostać widoczne w opisie dla klienta.',
+                '',
+            ], [
+                '- stan: outletowy, z widocznymi defektami',
+                '',
             ]],
         ],
         'wentylator-sufitowy-zarqa-oswietlenie-led' => [
@@ -361,6 +367,31 @@ function catalog_apply_reviewed_product_fixes(array $product): array
     }
 
     return $product;
+}
+
+// Listing cards retain complete public condition paragraphs, without truncation.
+// Technical bullet lists contribute only their condition lines, not dimensions.
+function catalog_listing_state_notes(array $product): string
+{
+    // Apply only the two approved HAWES copy removals to raw build snapshots too.
+    if (($product['slug'] ?? '') === 'wanna-hawes-hydromasaz-led-czarna') {
+        $product['longDescription'] = str_replace([
+            ' Te informacje powinny pozostać widoczne w opisie dla klienta.',
+            '- stan: outletowy, z widocznymi defektami',
+        ], '', (string)($product['longDescription'] ?? ''));
+    }
+    $pattern = '/uszkod|defekt|ubyt|pękni|pekni|odprysk|wgniec|zarys|przetar|otarci|wad[ayę]|napraw|niespraw|ślad|slad|ekspozy|zmontowan|\bnowe\b/iu';
+    $notes = [];
+    foreach (preg_split('/\r?\n\s*\r?\n/u', trim((string)($product['longDescription'] ?? ''))) ?: [] as $paragraph) {
+        $parts = preg_match('/^Dodatkowe informacje\s*:/iu', $paragraph) === 1
+            ? (preg_split('/\r?\n/u', $paragraph) ?: []) : [$paragraph];
+        foreach ($parts as $part) {
+            if (preg_match($pattern, $part) === 1 && !str_contains((string)($product['description'] ?? ''), trim($part))) {
+                $notes[] = trim($part);
+            }
+        }
+    }
+    return implode("\n\n", array_unique($notes));
 }
 
 function catalog_sale_price_text(array $product): string

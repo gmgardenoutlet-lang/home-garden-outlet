@@ -56,6 +56,34 @@ $exactRoutes = [
 ];
 
 if (isset($exactRoutes[$path])) {
+    // Local-only reproducible card comparison; never copied into publish.
+    if ($path === '/' && isset($_GET['preview-products'])) {
+        ob_start();
+        require $root . DIRECTORY_SEPARATOR . 'homepage.php';
+        $page = (string)ob_get_clean();
+        $requested = explode(',', (string)$_GET['preview-products']);
+        $bySlug = array_column($homepageProducts, null, '_publicSlug');
+        $pinned = [];
+        foreach (array_unique($requested) as $slug) {
+            if (isset($bySlug[$slug]) && ($bySlug[$slug]['featured'] ?? null) !== false) {
+                $pinned[] = $bySlug[$slug];
+            }
+        }
+        if (count($pinned) !== 6 || !array_filter($pinned, 'catalog_is_active_figure_shop_product')) {
+            http_response_code(400);
+            echo 'Preview requires six eligible products including an active figure.';
+            return true;
+        }
+        $cards = str_replace('\\n', "\n", implode('', array_map('homepage_card', $pinned)));
+        $page = preg_replace('/<!-- STATIC_PRODUCTS_START -->.*<!-- STATIC_PRODUCTS_END -->/s', '<!-- STATIC_PRODUCTS_START -->' . $cards . '<!-- STATIC_PRODUCTS_END -->', $page, 1);
+        $slugs = catalog_e((string)json_encode(array_column($pinned, '_publicSlug')));
+        $page = preg_replace('/data-homepage-selected-slugs="[^"]*"/', 'data-homepage-selected-slugs="' . $slugs . '"', $page, 1);
+        if (isset($_GET['preview-nojs'])) {
+            $page = preg_replace('#<script src="/script\.js[^\"]*"></script>#', '', $page);
+        }
+        echo $page;
+        return true;
+    }
     require $root . DIRECTORY_SEPARATOR . str_replace('/', DIRECTORY_SEPARATOR, $exactRoutes[$path]);
     return true;
 }

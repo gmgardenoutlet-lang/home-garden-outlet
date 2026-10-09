@@ -139,11 +139,8 @@ function homepage_card(array $product): string
     if ($isFigure) {
         $category = 'Figury i dekoracje ogrodowe';
     }
-    $dimensions = homepage_has_display_value($product['dimensions'] ?? '')
-        ? '<p class="dimensions">' . catalog_e($product['dimensions']) . '</p>'
-        : '';
     $condition = !$isFigure && homepage_has_display_value($product['condition'] ?? '')
-        ? '<p class="dimensions">Stan: ' . catalog_e($product['condition']) . '</p>'
+        ? '<p class="product-condition">Stan: ' . catalog_e($product['condition']) . '</p>'
         : '';
     $hasCatalogPrice = homepage_has_display_value($product['catalogPrice'] ?? '');
     $salePrice = catalog_sale_price_text($product);
@@ -170,9 +167,11 @@ function homepage_card(array $product): string
         : '';
     $priceNote = $hasOutletPrice ? '' : '<p class="price-note">' . ($hasCatalogPrice ? 'Zapytaj o cenę outletową.' : 'Zapytaj o cenę.') . '</p>';
     $description = (string)($product['description'] ?? '') ?: 'Produkt dostępny do obejrzenia na miejscu.';
+    $stateNotes = catalog_listing_state_notes($product);
+    $stateNote = $stateNotes !== '' ? '<p class="product-state-notes">' . catalog_e($stateNotes) . '</p>' : '';
     $galleryCount = count($images) > 1 ? '<span class="gallery-count">' . count($images) . ' zdjęć</span>' : '';
 
-    return '\n    <article class="product-card product-card-static">\n      <div class="product-image">\n        <a class="product-image-link" href="' . catalog_e($detailUrl) . '" data-gallery="' . $galleryData . '" data-gallery-name="' . catalog_e($name) . '" data-gallery-alt="' . catalog_e($imageAlt) . '" aria-label="Zobacz produkt: ' . catalog_e($name) . '">\n          <img src="' . catalog_e($images[0]) . '" width="600" height="450" loading="lazy" alt="' . catalog_e($imageAlt) . '">\n        </a>\n        <span class="badge ' . $badgeClass . '">' . catalog_e($status) . '</span>\n        ' . $galleryCount . '\n      </div>\n      <div class="product-body">\n        <div class="product-meta">\n          <span>' . catalog_e($category) . '</span>\n          <span>' . ($isOnlineFigure ? 'Zakup online' : 'Dostępny lokalnie') . '</span>\n        </div>\n        <h3><a class="product-title-link" href="' . catalog_e($detailUrl) . '">' . catalog_e($name) . '</a></h3>\n        ' . $priceRow . '\n        ' . $priceNote . '\n        <div class="product-description-wrap">\n          <p class="product-description">' . catalog_e($description) . '</p>\n          <button class="description-toggle" type="button" aria-expanded="false" hidden>Więcej</button>\n        </div>\n        ' . $condition . '\n        ' . $dimensions . '\n        <div class="product-card-links" aria-label="Powiązane kategorie">\n          ' . homepage_category_links($product) . '\n        </div>\n        <div class="product-actions">\n          <a class="btn btn-primary" href="' . catalog_e($detailUrl) . '">' . ($isOnlineFigure ? 'Kup online' : 'Zobacz produkt') . '</a>\n          <a class="btn btn-outline" href="tel:+48577210777">Zapytaj o dostępność</a>\n        </div>\n      </div>\n    </article>';
+    return '\n    <article class="product-card product-card-static product-card-compact">\n      <div class="product-image">\n        <a class="product-image-link" href="' . catalog_e($detailUrl) . '" data-gallery="' . $galleryData . '" data-gallery-name="' . catalog_e($name) . '" data-gallery-alt="' . catalog_e($imageAlt) . '" aria-label="Zobacz produkt: ' . catalog_e($name) . '">\n          <img src="' . catalog_e($images[0]) . '" width="600" height="450" loading="lazy" alt="' . catalog_e($imageAlt) . '">\n        </a>\n        <span class="badge ' . $badgeClass . '">' . catalog_e($status) . '</span>\n        ' . $galleryCount . '\n      </div>\n      <div class="product-body">\n        <div class="product-meta">\n          <span>' . catalog_e($category) . '</span>\n          <span>' . ($isOnlineFigure ? 'Zakup online' : 'Dostępny lokalnie') . '</span>\n        </div>\n        <h3><a class="product-title-link" href="' . catalog_e($detailUrl) . '">' . catalog_e($name) . '</a></h3>\n        ' . $priceRow . '\n        ' . $priceNote . '\n        <div class="product-actions">\n          <a class="btn btn-primary" href="' . catalog_e($detailUrl) . '">' . ($isOnlineFigure ? 'Kup online' : 'Zobacz produkt') . '</a>\n          <a class="btn btn-outline" href="tel:+48577210777">Zapytaj o dostępność</a>\n        </div>\n        <div class="product-description-wrap">\n          <p class="product-description">' . catalog_e($description) . '</p>\n        </div>\n        ' . $condition . '\n        ' . $stateNote . '\n      </div>\n    </article>';
 }
 
 function homepage_shuffle(array $products): array

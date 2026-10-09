@@ -72,6 +72,17 @@ jobs:
       - name: Sprawdź publiczne identyfikatory i karty w artefakcie
         run: node tests/public-artifact-tests.mjs
 
+      - name: Sprawdź zgodność kompaktowych kart PHP, JavaScript i generatora
+        run: |
+          php -S 127.0.0.1:4173 -t publish tests/local-preview-router.php > "$RUNNER_TEMP/cards-preview.log" 2>&1 &
+          preview_pid=$!
+          trap 'kill "$preview_pid"' EXIT
+          for attempt in $(seq 1 20); do
+            if curl --silent --fail http://127.0.0.1:4173/ -o /dev/null; then break; fi
+            sleep 1
+          done
+          node tests/compact-listing-cards-tests.mjs
+
       - name: Sprawdz pliki PHP Getspace
         run: find publish -name "*.php" -print0 | xargs -0 -n1 php -l
 
@@ -230,6 +241,10 @@ jobs:
             --products="$input_dir/products.json" \
             --shipping="$input_dir/shipping-profiles.json" \
             --write --backup-dir="$backup_local"
+          # This release deploys presentation code only. Never upload catalogue
+          # or shipping data; a pending migration must stop and trigger rollback.
+          cmp "$backup_local/products.json.pre-migration" "$input_dir/products.json"
+          cmp "$backup_local/shipping-profiles.json.pre-migration" "$input_dir/shipping-profiles.json"
           lftp -u "$FTP_USERNAME,$FTP_PASSWORD" "ftp://$FTP_SERVER:21" <<LFTP
           set ftp:ssl-force true
           set ftp:ssl-protect-data true
@@ -241,15 +256,7 @@ jobs:
           LFTP
           cmp "$backup_local/products.json.pre-migration" "$check_dir/products.json"
           cmp "$backup_local/shipping-profiles.json.pre-migration" "$check_dir/shipping-profiles.json"
-          lftp -u "$FTP_USERNAME,$FTP_PASSWORD" "ftp://$FTP_SERVER:21" <<LFTP
-          set ftp:ssl-force true
-          set ftp:ssl-protect-data true
-          set ssl:verify-certificate true
-          set xfer:clobber true
-          put "$input_dir/products.json" -o "$public_dir/data/products.json"
-          put "$input_dir/shipping-profiles.json" -o "$public_dir/data/shipping-profiles.json"
-          bye
-          LFTP
+          echo "Wdrożenie wyłącznie kodu: bez wysyłania katalogu i profili dostawy." >> "$GITHUB_STEP_SUMMARY"
           mkdir -p "$migration_local/after-upload"
           lftp -u "$FTP_USERNAME,$FTP_PASSWORD" "ftp://$FTP_SERVER:21" <<LFTP
           set ftp:ssl-force true

@@ -725,6 +725,19 @@ function hydrateProductDetailDelivery() {
   }
 }
 
+function getListingStateNotes(product) {
+  let longDescription = String(product.longDescription || '');
+  if (product.slug === 'wanna-hawes-hydromasaz-led-czarna') {
+    longDescription = longDescription
+      .replaceAll(' Te informacje powinny pozostać widoczne w opisie dla klienta.', '')
+      .replaceAll('- stan: outletowy, z widocznymi defektami', '');
+  }
+  const pattern = /uszkod|defekt|ubyt|pękni|pekni|odprysk|wgniec|zarys|przetar|otarci|wad[ayę]|napraw|niespraw|ślad|slad|ekspozy|zmontowan|\bnowe\b/iu;
+  return [...new Set(longDescription.trim().split(/\r?\n\s*\r?\n/u)
+    .flatMap(paragraph => /^Dodatkowe informacje\s*:/iu.test(paragraph) ? paragraph.split(/\r?\n/u) : [paragraph])
+    .map(part => part.trim()).filter(part => pattern.test(part) && !String(product.description || '').includes(part)))].join('\n\n');
+}
+
 function productTemplate(product) {
   const name = product.name || "Produkt outletowy";
   const category = isFigureShopProduct(product)
@@ -740,9 +753,8 @@ function productTemplate(product) {
     ? `<span class="gallery-count">${images.length} zdjęć</span>`
     : "";
   const badgeClass = statusClasses[status] || "";
-  const dimensions = hasDisplayValue(product.dimensions) ? `<p class="dimensions">${escapeHtml(product.dimensions)}</p>` : "";
   const isOnlineFigure = isActiveFigureShopProduct(product);
-  const condition = !isFigureShopProduct(product) && hasDisplayValue(product.condition) ? `<p class="dimensions">Stan: ${escapeHtml(product.condition)}</p>` : "";
+  const condition = !isFigureShopProduct(product) && hasDisplayValue(product.condition) ? `<p class="product-condition">Stan: ${escapeHtml(product.condition)}</p>` : "";
   const hasCatalogPrice = hasDisplayValue(product.catalogPrice);
   const salePrice = getProductSalePrice(product);
   const hasOutletPrice = hasDisplayValue(salePrice);
@@ -761,9 +773,10 @@ function productTemplate(product) {
     ? ""
     : `<p class="price-note">${hasCatalogPrice ? "Zapytaj o cenę outletową." : "Zapytaj o cenę."}</p>`;
   const description = product.description || "Produkt dostępny do obejrzenia na miejscu.";
+  const stateNotes = getListingStateNotes(product);
 
   return `
-    <article class="product-card">
+    <article class="product-card product-card-compact">
       <div class="product-image">
         <a class="product-image-link" href="${escapeHtml(detailUrl)}" data-gallery="${galleryData}" data-gallery-name="${escapeHtml(name)}" data-gallery-alt="${escapeHtml(seo.imageAlt)}" aria-label="Zobacz produkt: ${escapeHtml(name)}">
           <img src="${escapeHtml(image)}" width="600" height="450" loading="lazy" alt="${escapeHtml(seo.imageAlt)}">
@@ -779,18 +792,15 @@ function productTemplate(product) {
         <h3><a class="product-title-link" href="${escapeHtml(detailUrl)}">${escapeHtml(name)}</a></h3>
         ${priceRow}
         ${priceNote}
-        <div class="product-description-wrap">
-          <p class="product-description">${escapeHtml(description)}</p>
-          <button class="description-toggle" type="button" aria-expanded="false" hidden>Więcej</button>
-        </div>
-        ${condition}
-        ${dimensions}
-        ${productCategoryLinks(product)}
-        ${productDeliveryInfo(product, detailUrl)}
         <div class="product-actions">
           <a class="btn btn-primary" href="${escapeHtml(detailUrl)}">${isOnlineFigure ? "Kup online" : "Zobacz produkt"}</a>
           <a class="btn btn-outline" href="tel:+48577210777">Zapytaj o dostępność</a>
         </div>
+        <div class="product-description-wrap">
+          <p class="product-description">${escapeHtml(description)}</p>
+        </div>
+        ${condition}
+        ${stateNotes ? `<p class="product-state-notes">${escapeHtml(stateNotes)}</p>` : ''}
       </div>
     </article>
   `;

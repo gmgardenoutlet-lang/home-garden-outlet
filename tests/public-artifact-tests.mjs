@@ -44,7 +44,7 @@ const pages = await Promise.all(["index.html", "dom.html", "ogrod.html"].map(asy
   html: await readFile(path.join(publish, file), "utf8"),
 })));
 for (const { file, html } of pages) {
-  const cards = [...html.matchAll(/<article class="product-card product-card-static">[\s\S]*?<\/article>/g)].map((match) => match[0]);
+  const cards = [...html.matchAll(/<article class="product-card product-card-static(?: product-card-compact)?">[\s\S]*?<\/article>/g)].map((match) => match[0]);
   if (cards.length === 0) throw new Error(`Brak kart w ${file}.`);
   const pageUrls = new Set();
   for (const card of cards) {
