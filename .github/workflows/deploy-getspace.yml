@@ -51,6 +51,7 @@ jobs:
           php tests/owner-decisions-migration-tests.php
           node tests/prerender-privacy-tests.mjs
           node tests/public-products-snapshot-tests.mjs
+          node tests/homepage-figure-price-filter-tests.mjs
           HGO_SHOP_SALES_ENABLED=true php tests/paynow-v3-tests.php
           php tests/codex-draft-tests.php
           php tests/admin-figure-entry-tests.php

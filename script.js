@@ -457,6 +457,9 @@ function getProductSearchText(product) {
 }
 
 function getProductPriceValue(product) {
+  if (isFigureShopProduct(product)) {
+    return parsePrice(product.grossPrice);
+  }
   return parsePrice(product.outletPrice) || parsePrice(product.catalogPrice);
 }
 
