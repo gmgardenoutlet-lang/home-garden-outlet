@@ -40,6 +40,11 @@ jobs:
       - name: Zainstaluj zależności PHP do artefaktu
         run: composer install --no-dev --prefer-dist --no-interaction --optimize-autoloader
 
+      - name: Sprawdź zakres optymalizacji banerów i fontów
+        run: |
+          git fetch --no-tags --depth=1 origin 3129a98f435fc75c6a6a12862889abd9b8892959
+          node tests/catalog-performance-tests.mjs
+
       - name: Sprawdź składnię i logikę przyszłych zamówień
         run: |
           find hosting/getspace -name "*.php" -print0 | xargs -0 -n1 php -l

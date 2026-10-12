@@ -29,10 +29,10 @@
   <meta name="twitter:description" content="Meble do domu i ogrodu dostępne od ręki w Home & Garden Outlet w Kębłowicach pod Wrocławiem." />
   <meta name="twitter:image" content="https://mgoutlet.pl/showroom-best-optimized.jpg" />
   <title>Home & Garden Outlet | Outlet mebli do domu i ogrodu pod Wrocławiem</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com" />
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@600;700&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <link rel="preload" href="/assets/fonts/manrope-latin.woff2" as="font" type="font/woff2" crossorigin />
+  <link rel="preload" href="/assets/fonts/cormorant-garamond-latin.woff2" as="font" type="font/woff2" crossorigin />
   <link rel="stylesheet" href="/styles.css?v=20261007-cards1" />
+  <link rel="stylesheet" href="/assets/catalog-performance.css?v=20261010-perf1" />
   <script type="application/ld+json">
     {
       "@context": "https://schema.org",
@@ -213,7 +213,7 @@
   <main id="start">
     <section class="hero">
       <div class="hero-media" aria-label="Showroom z meblami domowymi i ogrodowymi">
-        <img src="showroom-best-optimized.jpg" width="1400" height="933" alt="Showroom Home & Garden Outlet z meblami w Kębłowicach pod Wrocławiem" />
+        <img src="/assets/images/banners/showroom-1400.webp" srcset="/assets/images/banners/showroom-960.webp 960w, /assets/images/banners/showroom-1100.webp 1100w, /assets/images/banners/showroom-1400.webp 1400w" sizes="(max-width: 640px) 1100px, 100vw" fetchpriority="high" width="1400" height="933" alt="Showroom Home & Garden Outlet z meblami w Kębłowicach pod Wrocławiem" />
       </div>
       <div class="hero-content">
         <p class="eyebrow">Outlet mebli pod Wrocławiem</p>

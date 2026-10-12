@@ -29,7 +29,7 @@ $catalogBreadcrumbs = ['@context' => 'https://schema.org', '@type' => 'Breadcrum
   <meta property="og:image" content="https://mgoutlet.pl/assets/images/figury-ogrodowe-hero.webp">
   <script type="application/ld+json"><?= json_encode($catalogSchema, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?></script>
   <script type="application/ld+json"><?= json_encode($catalogBreadcrumbs, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?></script>
-  <?php shop_test_stylesheets(); ?>
+  <?php shop_test_stylesheets(true); ?>
 </head>
 <body>
   <?php shop_test_header('figures'); ?>
@@ -48,7 +48,7 @@ $catalogBreadcrumbs = ['@context' => 'https://schema.org', '@type' => 'Breadcrum
         <p><a href="/sklep/figury-ogrodowe/dostawa-i-platnosci">Dostawa i płatności</a> · <a href="/sklep/figury-ogrodowe/zwroty-i-reklamacje">Zwroty i reklamacje</a> · <a href="/sklep/figury-ogrodowe/formularz-odstapienia">Formularz odstąpienia</a></p>
       </div>
       <div class="shop-hero-media">
-        <img src="/assets/images/figury-ogrodowe-hero.webp" width="1600" height="900" alt="Figury ogrodowe i dekoracje w showroomie Home & Garden Outlet">
+        <img src="/assets/images/banners/figury-960.webp" srcset="/assets/images/banners/figury-640.webp 640w, /assets/images/banners/figury-960.webp 960w, /assets/images/banners/figury-1280.webp 1280w, /assets/images/banners/figury-1600.webp 1600w" sizes="(max-width: 680px) max(540px, calc(100vw - 80px)), (max-width: 980px) calc(100vw - 100px), 820px" fetchpriority="high" width="1600" height="900" alt="Figury ogrodowe i dekoracje w showroomie Home & Garden Outlet">
       </div>
       <div class="hero-badges" aria-label="Najważniejsze informacje">
         <span>Ręczne malowanie</span>

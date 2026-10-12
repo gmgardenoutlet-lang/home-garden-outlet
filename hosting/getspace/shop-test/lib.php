@@ -313,10 +313,20 @@ function shop_test_product_url(string $slug): string
     return shop_figure_product_url($slug);
 }
 
-function shop_test_stylesheets(): void
+function shop_test_stylesheets(bool $catalogPerformance = false): void
 {
+    if ($catalogPerformance) {
+        echo '<link rel="preload" href="/assets/fonts/manrope-latin.woff2" as="font" type="font/woff2" crossorigin>' . PHP_EOL;
+        echo '<link rel="preload" href="/assets/fonts/cormorant-garamond-latin.woff2" as="font" type="font/woff2" crossorigin>' . PHP_EOL;
+    } else {
+        // Other shop routes retain their existing fonts without a blocking CSS @import.
+        echo '<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@600;700&amp;family=Manrope:wght@400;600;700;800&amp;display=swap">' . PHP_EOL;
+    }
     echo '<link rel="stylesheet" href="/styles.css?v=20260811-footer1">' . PHP_EOL;
-    echo '  <link rel="stylesheet" href="/sklep/shop.css?v=20260811-gallery1">' . PHP_EOL;
+    echo '  <link rel="stylesheet" href="/sklep/shop.css?v=20261010-fonts1">' . PHP_EOL;
+    if ($catalogPerformance) {
+        echo '<link rel="stylesheet" href="/assets/catalog-performance.css?v=20261010-perf1">' . PHP_EOL;
+    }
 }
 
 function shop_test_header(string $active = ''): void

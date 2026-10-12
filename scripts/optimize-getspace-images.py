@@ -6,6 +6,31 @@ from pathlib import Path
 from PIL import Image, ImageOps
 
 
+if "--banners" in sys.argv:
+    # Explicit allowlist: this mode never reads or writes the product catalogue.
+    banner_root = Path(__file__).resolve().parent.parent
+    output = banner_root / "assets" / "images" / "banners"
+    output.mkdir(parents=True, exist_ok=True)
+    sources = {
+        "showroom": ("showroom-best-optimized.jpg", (960, 1100, 1400)),
+        "dom": ("dom-optimized.jpg", (480, 768, 1086)),
+        "ogrod": ("ogrod-optimized.jpg", (480, 768, 1086)),
+        "figury": ("assets/images/figury-ogrodowe-hero.webp", (640, 960, 1280, 1600)),
+    }
+    for name, (source, widths) in sources.items():
+        with Image.open(banner_root / source) as original:
+            image = ImageOps.exif_transpose(original).convert("RGB")
+            for width in widths:
+                width = min(width, image.width)
+                height = round(image.height * width / image.width)
+                target = output / f"{name}-{width}.webp"
+                image.resize((width, height), Image.Resampling.LANCZOS).save(
+                    target, "WEBP", quality=84, method=6
+                )
+                print(f"{target.relative_to(banner_root)}: {width}x{height}, {target.stat().st_size} B")
+    raise SystemExit(0)
+
+
 root = Path(sys.argv[1] if len(sys.argv) > 1 else "publish").resolve()
 products_path = root / "data" / "products.json"
 data = json.loads(products_path.read_text(encoding="utf-8"))
