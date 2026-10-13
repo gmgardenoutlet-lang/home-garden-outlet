@@ -208,17 +208,94 @@ const productDeliveryInfo = (product) => {
             </section>`;
 };
 
-const listingStateNotes = (product) => {
+const listingStateNotes = (product, review = false) => {
   let longDescription = String(product.longDescription || '');
   if (product.slug === 'wanna-hawes-hydromasaz-led-czarna') {
     longDescription = longDescription
       .replaceAll(' Te informacje powinny pozostać widoczne w opisie dla klienta.', '')
       .replaceAll('- stan: outletowy, z widocznymi defektami', '');
   }
-  const pattern = /uszkod|defekt|ubyt|pękni|pekni|odprysk|wgniec|zarys|przetar|otarci|wad[ayę]|napraw|niespraw|ślad|slad|ekspozy|zmontowan|\bnowe\b/iu;
-  return [...new Set(longDescription.trim().split(/\r?\n\s*\r?\n/u)
-    .flatMap(paragraph => /^Dodatkowe informacje\s*:/iu.test(paragraph) ? paragraph.split(/\r?\n/u) : [paragraph])
-    .map(part => part.trim()).filter(part => pattern.test(part) && !String(product.description || '').includes(part)))].join('\n\n');
+  // Parse structure first. A match never promotes an entire list or paragraph.
+  // Keep unclear condition-bearing units intact; review metadata is never rendered.
+  const canonical = text => String(text).toLowerCase().replace(/\s+/gu, ' ').replace(/[.!?]+$/u, '').trim();
+  const technicalKey = /^(?:model|typ|kształt|kolor(?: .*)?|materiał(?:y)?(?: .*)?|wykończenie(?: .*)?|waga(?: .*)?|maksymalne obciążenie(?: .*)?|wymiary|długość(?: .*)?|szerokość(?: .*)?|wysokość(?: .*)?|głębokość(?: .*)?|montaż(?: .*)?|w zestawie(?: .*)?|liczba(?: .*)?|miejsce(?: .*)?|pojemność|napięcie|pobór mocy|ogrzewanie|pompa(?: .*)?|poziom hałasu|dysze(?: .*)?|numer artykułu(?: .*)?|tapicerka|skład(?: .*)?|wypełnienie|konstrukcja(?: .*)?|nóżki|podłokietniki|oparcie|wzór|gęstość(?: .*)?|mechanizm(?: .*)?|funkcja(?: .*)?|cechy dodatkowe|zawartość zestawu|odporność|przeznaczenie|styl|forma|orientacja|wykonanie|sposób zawieszenia|elementy ozdobne|szuflada|otwarte półki|otwarta półka(?: .*)?|obrót|regulacja(?: .*)?|podstawa(?: .*)?|automatyczna blokada(?: .*)?|sztaplowane|zestaw|element \d+)$/iu;
+  const stateKey = /^(?:stan|wady|wada|defekt|uszkodzenia|braki|uwaga o stanie|użytkowanie|historia egzemplarza)$/iu;
+  const damage = /uszkod|defekt|ubyt|pękni|pekni|odprysk|wgniec|otarci|zarys|przybrudz|zabrudz|przebarwi|plam|urwan|złaman|wyłaman|wybrak|niekompletn|niespraw|nie działa|nie dziala|\bwad[ayę]\b/iu;
+  const missing = /brakuje|brakują|brakujace|brakujące|\bbrak\s+(?!wad\b|uszkodzeń\b|defektów\b)\S+/iu;
+  const ambiguousWord = /\brys(?:y|ami|ach)\b|przetar|napraw|\bwad[ayę]\b/iu;
+  const conditionEvidence = /ślady|śladów|slady|sladow|(?:Oferowan\S*|Ten egzemplarz|Jest to egzemplarz|Produkt|Komplet|Egzemplarz)[^.!?]*(?:outletow|ekspozycyjn)|różnice w fakturze, kolorze lub kształcie|(?:elementy|egzemplarz|produkt|części|część|oświetlenie|LED)[^.!?]*(?:są nowe|jest now[yae]|są now[ey])|(?:egzemplarz|komplet)[^.!?]*zmontowan/iu;
+  const continuation = /^(?:Na (?:zdjęciach|przesłanych zdjęciach)|Zdjęcia przedstawiają|Możliwe są|Widoczne|W przypadku weluru|Welur może|Część tych|Wady |Brak ten|Nie (?:wpływa|przeszkadza)|Defekt został|Przed zakupem|Jest to naturalna cecha)/iu;
+  const pureInstruction = /^(?:(?:Krzesła|Stół|Fotel|Produkt|Model|Sofa|Mebel|Zestaw) (?:są|jest) częściowo zmontowan|(?:Według (?:danych|producenta|strony źródłowej)|Skład tapicerki|Montaż |Wymaga (?:kompletnego )?montażu))/iu;
+  const manufacturerProtection = /^Model został zaprojektowany do użytkowania na zewnątrz, a producent deklaruje odporność na wodę, zabrudzenia, promieniowanie UV oraz wiatr\.$/iu;
+  const promotional = /^(?:To (?:dobry wybór|propozycja)|(?:Ławka|Model|Dekoracja|Donica|Figura|Stół|Fotel) (?:dobrze |może |sprawdzi)|Dzięki temu|Stonowane wykończenie|Kontrastowe wykończenie)/iu;
+  const generic = /^(?:outletowy|outletowa|outletowe|outletowy\s*\/\s*ekspozycyjny|outletowa\s*\/\s*ekspozycyjna|ekspozycyjny)$/iu;
+  const existing = [String(product.description || ''), String(product.condition || '')];
+  const selected = [], ambiguous = [], excluded = [];
+  let technicalSection = false;
+  longDescription.replace(/\r\n?/gu, '\n').trim().split(/\n\s*\n/u).forEach((paragraph, paragraphIndex) => {
+    let context = false;
+    paragraph.split('\n').forEach((line, lineIndex) => {
+      const trimmed = line.trim().replace(/^[-•]\s*/u, '');
+      if (!trimmed) return;
+      if (/^(?:Dodatkowe informacje|Najważniejsze cechy|W zestawie)\s*:$/iu.test(trimmed)) {
+        technicalSection = true;
+        return;
+      }
+      // Semicolons and sentence boundaries are safe divisions; never split damage lists on commas.
+      trimmed.split(/;\s*|(?<=[.!?])\s+(?=[A-ZĄĆĘŁŃÓŚŹŻ])/u).forEach(unit => {
+        const text = unit.trim();
+        if (!text) return;
+        const pair = text.match(/^([^:]{1,90}):\s*(.*)$/u);
+        const key = pair ? pair[1].trim() : '';
+        const value = pair ? pair[2].trim() : text;
+        const technical = !!pair && technicalKey.test(key);
+        const state = !!pair && stateKey.test(key);
+        // A named colour is not a broken part (e.g. "złamana biel").
+        const scan = text.replace(/złaman(?:a|ej|ą|e)\s+biel(?:i|ą)?/giu, '');
+        const hard = damage.test(scan) || missing.test(scan);
+        const evidence = hard || conditionEvidence.test(text) || state;
+        const unclear = ambiguousWord.test(text);
+        const physicalDamage = missing.test(scan) || damage.test(scan.replace(/zarys\S*|\brysy\b/giu, ''));
+        // These are positive descriptions of the design, not claims about a damaged specimen.
+        const specimenClaim = /widoczn[^.!?]*(?:rysy|zarys|przetar)|(?:ma|posiada|występują|są)\s+(?:rysy|zarysowania|przetarcia)/iu.test(text);
+        const design = !physicalDamage && !specimenClaim && ((/^(?:.*(?:kolorystyka|wykończenie|kolorystyce)|Powierzchni[aeę]|Brązow[ae]|Szaro-czarn[ae]|Szare|Grafitowa|Ciemnoszaro-beżowe)/iu.test(text) && /przetar|zarys/iu.test(text) && /podkreśl|nadaj|zdobi|wykończ/iu.test(text)) || (/\brysy\s+(?:kobiecej\s+)?(?:twarzy|pyska)\b|spokojne rysy|zarysowane usta/iu.test(text) && /łagodne|delikatnie|harmonijn|starannie|dekoracyjn|spokojne|wyraziste|artystyczn|rzeźbiarsk|podkreśl|nadaj/iu.test(text)) || /chronią?[^.!?]*przed zarysowaniem\.?$/iu.test(text));
+        if (design || manufacturerProtection.test(text) || (technical && !evidence && !unclear && !/\bnow[yae]\b/iu.test(value)) || (pureInstruction.test(text) && !evidence && !unclear)) {
+          excluded.push({text, reason: design ? 'design' : 'technical'});
+          return;
+        }
+        if (!evidence && !unclear && !(context && continuation.test(text))) {
+          if (context && !technicalSection && !promotional.test(text)) {
+            ambiguous.push({text, reason: 'Unclassified continuation of a condition statement'});
+          } else {
+            excluded.push({text, reason: 'Not specimen-condition information'});
+            return;
+          }
+        }
+        // Do not discard a protection/design sentence that also reports real damage.
+        if (technical && (evidence || unclear || /\bnow[yae]\b/iu.test(value))) ambiguous.push({text, reason: 'Technical field also carries condition information; retained intact'});
+        else if (unclear && !evidence) ambiguous.push({text, reason: 'Ambiguous condition wording; retained intact'});
+        const normal = canonical(value);
+        const present = existing.concat(selected.map(x => x.text));
+        const exactRepeat = present.some(x => x.split(/\n+|;\s*|(?<=[.!?])\s+(?=[A-ZĄĆĘŁŃÓŚŹŻ])/u).some(part => canonical(part.replace(/^[-•]\s*/u, '')) === canonical(text)));
+        const genericRepeat = generic.test(value) && (present.some(x => canonical(x) === normal) || (/outletow/iu.test(value) && /ekspozycyjn/iu.test(value) && present.some(x => /outletow/iu.test(x) && /ekspozycyjn/iu.test(x))));
+        const proseRepeat = /^(?:Produkt (?:jest )?outletowy|Jest to egzemplarz outletowy)\.?$/iu.test(text) && existing.some(x => canonical(x) === 'outletowy');
+        // This explicit same-module fact repeats the full, already selected statement.
+        const moduleClaim = state && value.match(/^(?:w jednym module|jeden z modułów) brakuje (.+?), co (nie przeszkadza w użytkowaniu)\.?$/iu);
+        const statementParagraphs = [...new Set(selected.map(x => x.group.split(':')[0]))].map(group => selected.filter(x => x.group.startsWith(group + ':')).map(x => x.text).join(' '));
+        const moduleRepeat = moduleClaim && existing.concat(statementParagraphs).some(x => /jeden z modułów|w jednym module/iu.test(x) && canonical(x).includes(canonical('brakuje ' + moduleClaim[1])) && canonical(x).includes(canonical(moduleClaim[2])));
+        if (exactRepeat || genericRepeat || proseRepeat || moduleRepeat) { excluded.push({text, reason: 'Duplicate already visible on the card'}); context = true; return; }
+        selected.push({text, group: `${paragraphIndex}:${lineIndex}`, bullet: /^[-•]\s*/u.test(line.trim())});
+        context = true;
+      });
+    });
+  });
+  const groups = [];
+  selected.forEach(item => {
+    if (groups.at(-1)?.group === item.group) groups.at(-1).text += ' ' + item.text;
+    else groups.push({...item});
+  });
+  const text = groups.map(x => (x.bullet ? '- ' : '') + x.text).join('\n\n');
+  return review === true ? {text, ambiguous, excluded} : text;
 };
 
 const productCard = (product) => {

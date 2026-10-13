@@ -42,7 +42,7 @@ jobs:
 
       - name: Sprawdź zakres optymalizacji banerów i fontów
         run: |
-          git fetch --no-tags --depth=1 origin 3129a98f435fc75c6a6a12862889abd9b8892959
+          git fetch --no-tags --depth=1 origin 3129a98f435fc75c6a6a12862889abd9b8892959 54c4a6a5b3c212ec6556e5d9454cbd89fe1dfbbd
           node tests/catalog-performance-tests.mjs
 
       - name: Sprawdź składnię i logikę przyszłych zamówień
@@ -88,6 +88,7 @@ jobs:
             sleep 1
           done
           node tests/compact-listing-cards-tests.mjs
+          node tests/listing-state-notes-tests.mjs
 
       - name: Sprawdz pliki PHP Getspace
         run: find publish -name "*.php" -print0 | xargs -0 -n1 php -l

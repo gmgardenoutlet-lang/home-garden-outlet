@@ -371,27 +371,124 @@ function catalog_apply_reviewed_product_fixes(array $product): array
 
 // Listing cards retain complete public condition paragraphs, without truncation.
 // Technical bullet lists contribute only their condition lines, not dimensions.
-function catalog_listing_state_notes(array $product): string
+function catalog_listing_state_notes(array $product, bool $review = false): string|array
 {
-    // Apply only the two approved HAWES copy removals to raw build snapshots too.
+    // Presentation only: never modify the record or its owner-written description.
+    $longDescription = (string)($product['longDescription'] ?? '');
     if (($product['slug'] ?? '') === 'wanna-hawes-hydromasaz-led-czarna') {
-        $product['longDescription'] = str_replace([
+        $longDescription = str_replace([
             ' Te informacje powinny pozostać widoczne w opisie dla klienta.',
             '- stan: outletowy, z widocznymi defektami',
-        ], '', (string)($product['longDescription'] ?? ''));
+        ], '', $longDescription);
     }
-    $pattern = '/uszkod|defekt|ubyt|pękni|pekni|odprysk|wgniec|zarys|przetar|otarci|wad[ayę]|napraw|niespraw|ślad|slad|ekspozy|zmontowan|\bnowe\b/iu';
-    $notes = [];
-    foreach (preg_split('/\r?\n\s*\r?\n/u', trim((string)($product['longDescription'] ?? ''))) ?: [] as $paragraph) {
-        $parts = preg_match('/^Dodatkowe informacje\s*:/iu', $paragraph) === 1
-            ? (preg_split('/\r?\n/u', $paragraph) ?: []) : [$paragraph];
-        foreach ($parts as $part) {
-            if (preg_match($pattern, $part) === 1 && !str_contains((string)($product['description'] ?? ''), trim($part))) {
-                $notes[] = trim($part);
+    $canonical = static function (string $text): string {
+        $text = strtolower(strtr($text, ['Ą'=>'ą','Ć'=>'ć','Ę'=>'ę','Ł'=>'ł','Ń'=>'ń','Ó'=>'ó','Ś'=>'ś','Ź'=>'ź','Ż'=>'ż']));
+        return trim(preg_replace('/[.!?]+$/u', '', preg_replace('/\s+/u', ' ', $text) ?? $text) ?? $text);
+    };
+    $matches = static fn(string $pattern, string $text): bool => preg_match($pattern, $text) === 1;
+    $technicalKey = '/^(?:model|typ|kształt|kolor(?: .*)?|materiał(?:y)?(?: .*)?|wykończenie(?: .*)?|waga(?: .*)?|maksymalne obciążenie(?: .*)?|wymiary|długość(?: .*)?|szerokość(?: .*)?|wysokość(?: .*)?|głębokość(?: .*)?|montaż(?: .*)?|w zestawie(?: .*)?|liczba(?: .*)?|miejsce(?: .*)?|pojemność|napięcie|pobór mocy|ogrzewanie|pompa(?: .*)?|poziom hałasu|dysze(?: .*)?|numer artykułu(?: .*)?|tapicerka|skład(?: .*)?|wypełnienie|konstrukcja(?: .*)?|nóżki|podłokietniki|oparcie|wzór|gęstość(?: .*)?|mechanizm(?: .*)?|funkcja(?: .*)?|cechy dodatkowe|zawartość zestawu|odporność|przeznaczenie|styl|forma|orientacja|wykonanie|sposób zawieszenia|elementy ozdobne|szuflada|otwarte półki|otwarta półka(?: .*)?|obrót|regulacja(?: .*)?|podstawa(?: .*)?|automatyczna blokada(?: .*)?|sztaplowane|zestaw|element \d+)$/iu';
+    $stateKey = '/^(?:stan|wady|wada|defekt|uszkodzenia|braki|uwaga o stanie|użytkowanie|historia egzemplarza)$/iu';
+    $damage = '/uszkod|defekt|ubyt|pękni|pekni|odprysk|wgniec|otarci|zarys|przybrudz|zabrudz|przebarwi|plam|urwan|złaman|wyłaman|wybrak|niekompletn|niespraw|nie działa|nie dziala|\bwad[ayę]\b/iu';
+    $missing = '/brakuje|brakują|brakujace|brakujące|\bbrak\s+(?!wad\b|uszkodzeń\b|defektów\b)\S+/iu';
+    $ambiguousWord = '/\brys(?:y|ami|ach)\b|przetar|napraw|\bwad[ayę]\b/iu';
+    $conditionEvidence = '/ślady|śladów|slady|sladow|(?:Oferowan\S*|Ten egzemplarz|Jest to egzemplarz|Produkt|Komplet|Egzemplarz)[^.!?]*(?:outletow|ekspozycyjn)|różnice w fakturze, kolorze lub kształcie|(?:elementy|egzemplarz|produkt|części|część|oświetlenie|LED)[^.!?]*(?:są nowe|jest now[yae]|są now[ey])|(?:egzemplarz|komplet)[^.!?]*zmontowan/iu';
+    $continuation = '/^(?:Na (?:zdjęciach|przesłanych zdjęciach)|Zdjęcia przedstawiają|Możliwe są|Widoczne|W przypadku weluru|Welur może|Część tych|Wady |Brak ten|Nie (?:wpływa|przeszkadza)|Defekt został|Przed zakupem|Jest to naturalna cecha)/iu';
+    $pureInstruction = '/^(?:(?:Krzesła|Stół|Fotel|Produkt|Model|Sofa|Mebel|Zestaw) (?:są|jest) częściowo zmontowan|(?:Według (?:danych|producenta|strony źródłowej)|Skład tapicerki|Montaż |Wymaga (?:kompletnego )?montażu))/iu';
+    $manufacturerProtection = '/^Model został zaprojektowany do użytkowania na zewnątrz, a producent deklaruje odporność na wodę, zabrudzenia, promieniowanie UV oraz wiatr\.$/iu';
+    $promotional = '/^(?:To (?:dobry wybór|propozycja)|(?:Ławka|Model|Dekoracja|Donica|Figura|Stół|Fotel) (?:dobrze |może |sprawdzi)|Dzięki temu|Stonowane wykończenie|Kontrastowe wykończenie)/iu';
+    $generic = '/^(?:outletowy|outletowa|outletowe|outletowy\s*\/\s*ekspozycyjny|outletowa\s*\/\s*ekspozycyjna|ekspozycyjny)$/iu';
+    $existing = [(string)($product['description'] ?? ''), (string)($product['condition'] ?? '')];
+    $selected = $ambiguous = $excluded = [];
+    $technicalSection = false;
+    $paragraphs = preg_split('/\n\s*\n/u', trim(str_replace(["\r\n", "\r"], "\n", $longDescription))) ?: [];
+    foreach ($paragraphs as $paragraphIndex => $paragraph) {
+        $context = false;
+        foreach (explode("\n", $paragraph) as $lineIndex => $line) {
+            $trimmed = preg_replace('/^[-•]\s*/u', '', trim($line)) ?? trim($line);
+            if ($trimmed === '') continue;
+            if ($matches('/^(?:Dodatkowe informacje|Najważniejsze cechy|W zestawie)\s*:$/iu', $trimmed)) {
+                $technicalSection = true;
+                continue;
+            }
+            foreach (preg_split('/;\s*|(?<=[.!?])\s+(?=[A-ZĄĆĘŁŃÓŚŹŻ])/u', $trimmed) ?: [] as $unit) {
+                $text = trim($unit);
+                if ($text === '') continue;
+                $pair = [];
+                $paired = preg_match('/^([^:]{1,90}):\s*(.*)$/u', $text, $pair) === 1;
+                $key = $paired ? trim($pair[1]) : '';
+                $value = $paired ? trim($pair[2]) : $text;
+                $technical = $paired && $matches($technicalKey, $key);
+                $state = $paired && $matches($stateKey, $key);
+                $scan = preg_replace('/złaman(?:a|ej|ą|e)\s+biel(?:i|ą)?/iu', '', $text) ?? $text;
+                $hard = $matches($damage, $scan) || $matches($missing, $scan);
+                $evidence = $hard || $matches($conditionEvidence, $text) || $state;
+                $unclear = $matches($ambiguousWord, $text);
+                $physicalDamage = $matches($missing, $scan) || $matches($damage, preg_replace('/zarys\S*|\brysy\b/iu', '', $scan) ?? $scan);
+                $specimenClaim = $matches('/widoczn[^.!?]*(?:rysy|zarys|przetar)|(?:ma|posiada|występują|są)\s+(?:rysy|zarysowania|przetarcia)/iu', $text);
+                $design = !$physicalDamage && !$specimenClaim && (
+                    ($matches('/^(?:.*(?:kolorystyka|wykończenie|kolorystyce)|Powierzchni[aeę]|Brązow[ae]|Szaro-czarn[ae]|Szare|Grafitowa|Ciemnoszaro-beżowe)/iu', $text) && $matches('/przetar|zarys/iu', $text) && $matches('/podkreśl|nadaj|zdobi|wykończ/iu', $text))
+                    || ($matches('/\brysy\s+(?:kobiecej\s+)?(?:twarzy|pyska)\b|spokojne rysy|zarysowane usta/iu', $text) && $matches('/łagodne|delikatnie|harmonijn|starannie|dekoracyjn|spokojne|wyraziste|artystyczn|rzeźbiarsk|podkreśl|nadaj/iu', $text))
+                    || $matches('/chronią?[^.!?]*przed zarysowaniem\.?$/iu', $text)
+                );
+                if ($design || $matches($manufacturerProtection, $text) || ($technical && !$evidence && !$unclear && !$matches('/\bnow[yae]\b/iu', $value)) || ($matches($pureInstruction, $text) && !$evidence && !$unclear)) {
+                    $excluded[] = ['text'=>$text, 'reason'=>$design ? 'design' : 'technical'];
+                    continue;
+                }
+                if (!$evidence && !$unclear && !($context && $matches($continuation, $text))) {
+                    if ($context && !$technicalSection && !$matches($promotional, $text)) {
+                        $ambiguous[] = ['text'=>$text, 'reason'=>'Unclassified continuation of a condition statement'];
+                    } else {
+                        $excluded[] = ['text'=>$text, 'reason'=>'Not specimen-condition information'];
+                        continue;
+                    }
+                }
+                if ($technical && ($evidence || $unclear || $matches('/\bnow[yae]\b/iu', $value))) {
+                    $ambiguous[] = ['text'=>$text, 'reason'=>'Technical field also carries condition information; retained intact'];
+                } elseif ($unclear && !$evidence) {
+                    $ambiguous[] = ['text'=>$text, 'reason'=>'Ambiguous condition wording; retained intact'];
+                }
+                $normal = $canonical($value);
+                $present = array_merge($existing, array_column($selected, 'text'));
+                $exactRepeat = $genericRepeat = false;
+                foreach ($present as $already) {
+                    foreach (preg_split('/\n+|;\s*|(?<=[.!?])\s+(?=[A-ZĄĆĘŁŃÓŚŹŻ])/u', $already) ?: [] as $part) {
+                        if ($canonical(preg_replace('/^[-•]\s*/u', '', $part) ?? $part) === $canonical($text)) $exactRepeat = true;
+                    }
+                    if ($matches($generic, $value) && ($canonical($already) === $normal
+                        || ($matches('/outletow/iu', $value) && $matches('/ekspozycyjn/iu', $value) && $matches('/outletow/iu', $already) && $matches('/ekspozycyjn/iu', $already)))) $genericRepeat = true;
+                }
+                $proseRepeat = $matches('/^(?:Produkt (?:jest )?outletowy|Jest to egzemplarz outletowy)\.?$/iu', $text)
+                    && in_array('outletowy', array_map($canonical, $existing), true);
+                $moduleClaim = [];
+                $moduleRepeat = false;
+                if ($state && preg_match('/^(?:w jednym module|jeden z modułów) brakuje (.+?), co (nie przeszkadza w użytkowaniu)\.?$/iu', $value, $moduleClaim) === 1) {
+                    $statementParagraphs = [];
+                    foreach ($selected as $item) {
+                        $group = explode(':', $item['group'])[0];
+                        $statementParagraphs[$group] = trim(($statementParagraphs[$group] ?? '') . ' ' . $item['text']);
+                    }
+                    foreach (array_merge($existing, array_values($statementParagraphs)) as $already) {
+                        if ($matches('/jeden z modułów|w jednym module/iu', $already) && str_contains($canonical($already), $canonical('brakuje ' . $moduleClaim[1])) && str_contains($canonical($already), $canonical($moduleClaim[2]))) $moduleRepeat = true;
+                    }
+                }
+                if ($exactRepeat || $genericRepeat || $proseRepeat || $moduleRepeat) {
+                    $excluded[] = ['text'=>$text, 'reason'=>'Duplicate already visible on the card'];
+                    $context = true;
+                    continue;
+                }
+                $selected[] = ['text'=>$text, 'group'=>"$paragraphIndex:$lineIndex", 'bullet'=>$matches('/^[-•]\s*/u', trim($line))];
+                $context = true;
             }
         }
     }
-    return implode("\n\n", array_unique($notes));
+    $groups = [];
+    foreach ($selected as $item) {
+        $last = count($groups) - 1;
+        if ($last >= 0 && $groups[$last]['group'] === $item['group']) $groups[$last]['text'] .= ' ' . $item['text'];
+        else $groups[] = $item;
+    }
+    $text = implode("\n\n", array_map(static fn(array $x): string => ($x['bullet'] ? '- ' : '') . $x['text'], $groups));
+    return $review ? ['text'=>$text, 'ambiguous'=>$ambiguous, 'excluded'=>$excluded] : $text;
 }
 
 function catalog_sale_price_text(array $product): string

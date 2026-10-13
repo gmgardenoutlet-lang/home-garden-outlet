@@ -42,8 +42,21 @@ for (const name of ['Manrope-OFL.txt','CormorantGaramond-OFL.txt']) {
 }
 for (const filename of ['script.js','styles.css','hosting/getspace/catalog.php','scripts/prerender-products.mjs','data/products.json']) {
   try {
-    const old = execFileSync('git', ['show', `3129a98:${filename}`]);
-    assert.equal((await readFile(filename,'utf8')).replaceAll('\r\n','\n'), old.toString().replaceAll('\r\n','\n'), `${filename}: unrelated source must not change`);
+    // The accepted state-note fix may change only its own function. Keep the
+    // remaining presentation, selectors, prices and data frozen at deployment.
+    const old = execFileSync('git', ['show', `54c4a6a:${filename}`]);
+    const stripStateNotes = source => {
+      let text = source.replaceAll('\r\n', '\n');
+      const pattern = filename === 'script.js' ? /function getListingStateNotes\([^]*?\n\}/
+        : filename === 'scripts/prerender-products.mjs' ? /const listingStateNotes =[^]*?\n\};/
+        : filename === 'hosting/getspace/catalog.php' ? /function catalog_listing_state_notes\([^]*?\n\}(?=\n\nfunction catalog_sale_price_text)/ : null;
+      if (pattern) {
+        assert.ok(pattern.test(text), `${filename}: state-note function must exist`);
+        text = text.replace(pattern, '/* accepted listing-state-notes function */');
+      }
+      return text;
+    };
+    assert.equal(stripStateNotes(await readFile(filename,'utf8')), stripStateNotes(old.toString()), `${filename}: unrelated source must not change`);
   } catch (e) {
     if (e.status === 128) continue; // optional workflow filename varies between installations
     throw e;
@@ -51,6 +64,7 @@ for (const filename of ['script.js','styles.css','hosting/getspace/catalog.php',
 }
 const workflow = await readFile('.github/workflows/deploy-getspace.yml', 'utf8');
 const baselineWorkflow = execFileSync('git', ['show', '3129a98:.github/workflows/deploy-getspace.yml'], {encoding: 'utf8'});
-const withoutPerformanceStep = workflow.replace(/      - name: Sprawdź zakres optymalizacji banerów i fontów\r?\n        run: \|\r?\n          git fetch --no-tags --depth=1 origin 3129a98f435fc75c6a6a12862889abd9b8892959\r?\n          node tests\/catalog-performance-tests\.mjs\r?\n\r?\n/, '');
-assert.equal(withoutPerformanceStep.replaceAll('\r\n','\n'), baselineWorkflow.replaceAll('\r\n','\n'), 'Only the performance CI check may change; FTPS exclusions, backup and rollback stay intact');
+const withoutPerformanceStep = workflow.replace(/      - name: Sprawdź zakres optymalizacji banerów i fontów\r?\n        run: \|\r?\n          git fetch --no-tags --depth=1 origin 3129a98f435fc75c6a6a12862889abd9b8892959(?: 54c4a6a5b3c212ec6556e5d9454cbd89fe1dfbbd)?\r?\n          node tests\/catalog-performance-tests\.mjs\r?\n\r?\n/, '')
+  .replace(/          node tests\/listing-state-notes-tests\.mjs\r?\n/, '');
+assert.equal(withoutPerformanceStep.replaceAll('\r\n','\n'), baselineWorkflow.replaceAll('\r\n','\n'), 'Only performance/state-note CI checks may change; FTPS exclusions, backup and rollback stay intact');
 console.log('PASS: performance assets, scoped layout, original content/SEO/cards/data, font licences');

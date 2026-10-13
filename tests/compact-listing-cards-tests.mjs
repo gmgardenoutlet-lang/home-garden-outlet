@@ -5,7 +5,8 @@ import { promisify } from 'node:util';
 import vm from 'node:vm';
 
 const exec = promisify(execFile);
-const products = JSON.parse(await readFile('.local-cache/products-public.json', 'utf8')).products;
+const snapshot = process.env.HGO_PUBLIC_PRODUCTS_SNAPSHOT || '.local-cache/products-public.json';
+const products = JSON.parse(await readFile(snapshot, 'utf8')).products;
 const script = await readFile('script.js', 'utf8');
 const generator = await readFile('scripts/prerender-products.mjs', 'utf8');
 const jsFn = script.match(/function getListingStateNotes\([^]*?\n\}/)[0];
@@ -13,7 +14,7 @@ const genFn = generator.match(/const listingStateNotes =[^]*?\n\};/)[0];
 const jsNotes = Array.from(vm.runInNewContext(`${jsFn}; products.map(getListingStateNotes)`, { products }));
 const genNotes = Array.from(vm.runInNewContext(`${genFn}; products.map(listingStateNotes)`, { products }));
 const php = process.env.HGO_PHP_BINARY || 'php';
-const result = await exec(php, ['-r', 'require "hosting/getspace/catalog.php"; $p=json_decode(file_get_contents(".local-cache/products-public.json"),true)["products"]; echo json_encode(array_map("catalog_listing_state_notes",$p));']);
+const result = await exec(php, ['-r', 'require "hosting/getspace/catalog.php"; $p=json_decode(file_get_contents($argv[1]),true)["products"]; echo json_encode(array_map("catalog_listing_state_notes",$p));', snapshot]);
 assert.deepEqual(jsNotes, JSON.parse(result.stdout));
 assert.deepEqual(jsNotes, genNotes);
 const damaged = products.findIndex(p => p.slug === 'wanna-hawes-hydromasaz-led-czarna');
@@ -27,7 +28,7 @@ for (const text of ['rysy', 'ślady ekspozycyjne', 'zarysowania elementów chrom
 }
 const ownerEdit = { ...products[damaged], longDescription: 'Nowszy opis właściciela: rysy wyłącznie na boku. Elementy LED są nowe.' };
 assert.equal(vm.runInNewContext(`${jsFn}; getListingStateNotes(product)`, { product: ownerEdit }), ownerEdit.longDescription);
-const publicCopy = await exec(php, ['-r', 'require "hosting/getspace/catalog.php"; $p=json_decode(file_get_contents(".local-cache/products-public.json"),true)["products"]; foreach($p as $v) { if(($v["slug"]??"")==="wanna-hawes-hydromasaz-led-czarna") { echo catalog_apply_reviewed_product_fixes($v)["longDescription"]; }}']);
+const publicCopy = await exec(php, ['-r', 'require "hosting/getspace/catalog.php"; $p=json_decode(file_get_contents($argv[1]),true)["products"]; foreach($p as $v) { if(($v["slug"]??"")==="wanna-hawes-hydromasaz-led-czarna") { echo catalog_apply_reviewed_product_fixes($v)["longDescription"]; }}', snapshot]);
 assert.ok(!publicCopy.stdout.includes('Te informacje powinny pozostać widoczne'));
 assert.ok(!publicCopy.stdout.includes('- stan: outletowy, z widocznymi defektami'));
 assert.ok(publicCopy.stdout.includes('Elementy hydromasażu i oświetlenia LED są nowe.'));
