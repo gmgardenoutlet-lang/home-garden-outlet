@@ -30,6 +30,7 @@ AddType application/manifest+json .webmanifest
 
   # Dynamiczna mapa strony i automatyczne podstrony produktow.
   RewriteRule ^sitemap\.xml$ sitemap.php [L]
+  RewriteRule ^google-merchant-feed\.xml$ google-merchant-feed.php [L]
   RewriteRule ^polityka-prywatnosci$ polityka-prywatnosci/index.html [L]
   RewriteRule ^produkt/([a-z0-9-]+)/?$ product.php?slug=$1 [L,QSA]
   # Publiczny katalog: produkty można oglądać, ale sprzedaż jest centralnie wyłączona.
@@ -126,6 +127,9 @@ AddType application/manifest+json .webmanifest
   </FilesMatch>
 
   <Files "products-public.php">
+    Header set Cache-Control "no-store, max-age=0"
+  </Files>
+  <Files "google-merchant-feed.php">
     Header set Cache-Control "no-store, max-age=0"
   </Files>
 </IfModule>

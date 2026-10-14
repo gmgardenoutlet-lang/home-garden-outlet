@@ -70,7 +70,8 @@ jobs:
         run: node scripts/fetch-public-products.mjs
 
       - name: Przygotuj paczkę Getspace
-        run: node scripts/build-getspace.mjs
+        # Merchant tests use only the just-fetched public snapshot, never old repo data.
+        run: HGO_SHOP_SALES_ENABLED=true php tests/merchant-feed-tests.php && node scripts/build-getspace.mjs
 
       - name: Wygeneruj statyczne karty produktów
         run: SITE_ROOT=publish node scripts/prerender-products.mjs

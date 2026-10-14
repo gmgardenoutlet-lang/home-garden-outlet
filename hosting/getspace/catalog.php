@@ -545,6 +545,9 @@ function catalog_is_active_figure_shop_product(array $product): bool
     return catalog_is_figure_shop_product($product)
         && !empty($product['shopVisible'])
         && ($product['shopStatus'] ?? '') === 'Dostępny'
+        && (($product['merchantSupplyModel'] ?? '') !== 'supplier' || ($product['producerAvailability'] ?? '') === 'Dostępny u producenta')
+        && catalog_normalize((string)($product['productStatus'] ?? '')) !== 'rezerwacja'
+        && catalog_normalize((string)($product['status'] ?? '')) !== 'rezerwacja'
         && !in_array((string)($product['productStatus'] ?? ''), ['Sprzedany', 'Ukryty'], true)
         && !in_array((string)($product['status'] ?? ''), ['Sprzedane', 'Sprzedany'], true);
 }

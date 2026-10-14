@@ -47,6 +47,14 @@ for (const filename of ['script.js','styles.css','hosting/getspace/catalog.php',
     const old = execFileSync('git', ['show', `54c4a6a:${filename}`]);
     const stripStateNotes = source => {
       let text = source.replaceAll('\r\n', '\n');
+      // Merchant availability adds only these confirmed-supplier/reservation
+      // predicates. Its behavior is covered by merchant-feed-tests.php.
+      if (filename === 'hosting/getspace/catalog.php') {
+        text = text
+          .replace("        && (($product['merchantSupplyModel'] ?? '') !== 'supplier' || ($product['producerAvailability'] ?? '') === 'Dostępny u producenta')\n", '')
+          .replace("        && catalog_normalize((string)($product['productStatus'] ?? '')) !== 'rezerwacja'\n", '')
+          .replace("        && catalog_normalize((string)($product['status'] ?? '')) !== 'rezerwacja'\n", '');
+      }
       const pattern = filename === 'script.js' ? /function getListingStateNotes\([^]*?\n\}/
         : filename === 'scripts/prerender-products.mjs' ? /const listingStateNotes =[^]*?\n\};/
         : filename === 'hosting/getspace/catalog.php' ? /function catalog_listing_state_notes\([^]*?\n\}(?=\n\nfunction catalog_sale_price_text)/ : null;
@@ -65,6 +73,8 @@ for (const filename of ['script.js','styles.css','hosting/getspace/catalog.php',
 const workflow = await readFile('.github/workflows/deploy-getspace.yml', 'utf8');
 const baselineWorkflow = execFileSync('git', ['show', '3129a98:.github/workflows/deploy-getspace.yml'], {encoding: 'utf8'});
 const withoutPerformanceStep = workflow.replace(/      - name: Sprawdź zakres optymalizacji banerów i fontów\r?\n        run: \|\r?\n          git fetch --no-tags --depth=1 origin 3129a98f435fc75c6a6a12862889abd9b8892959(?: 54c4a6a5b3c212ec6556e5d9454cbd89fe1dfbbd)?\r?\n          node tests\/catalog-performance-tests\.mjs\r?\n\r?\n/, '')
-  .replace(/          node tests\/listing-state-notes-tests\.mjs\r?\n/, '');
+  .replace(/          node tests\/listing-state-notes-tests\.mjs\r?\n/, '')
+  .replace(/        # Merchant tests use only the just-fetched public snapshot, never old repo data\.\r?\n/, '')
+  .replace('run: HGO_SHOP_SALES_ENABLED=true php tests/merchant-feed-tests.php && node scripts/build-getspace.mjs', 'run: node scripts/build-getspace.mjs');
 assert.equal(withoutPerformanceStep.replaceAll('\r\n','\n'), baselineWorkflow.replaceAll('\r\n','\n'), 'Only performance/state-note CI checks may change; FTPS exclusions, backup and rollback stay intact');
 console.log('PASS: performance assets, scoped layout, original content/SEO/cards/data, font licences');

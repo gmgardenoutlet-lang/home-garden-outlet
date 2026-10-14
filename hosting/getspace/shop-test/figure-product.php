@@ -2,6 +2,8 @@
 declare(strict_types=1);
 
 require __DIR__ . '/lib.php';
+require_once __DIR__ . '/../lib/merchant.php';
+header('Cache-Control: no-store, max-age=0');
 shop_test_boot();
 
 $slug = (string)($_GET['slug'] ?? '');
@@ -44,13 +46,21 @@ if ($showProduct && $view) {
             'image' => array_map(static fn(string $image): string => preg_match('#^https?://#i', $image) ? $image : 'https://mgoutlet.pl' . shop_test_image_url($image), $images),
             'description' => $view['shortDescription'], 'url' => $productUrl,
             'offers' => ['@type' => 'Offer', 'url' => $productUrl, 'price' => number_format((float)$view['price'], 2, '.', ''), 'priceCurrency' => $offerCurrency,
-                'availability' => $isAvailable && $view['canBuy'] ? 'https://schema.org/InStock' : 'https://schema.org/OutOfStock',
+                'availability' => shop_sales_enabled() && $isAvailable && $view['canBuy'] ? 'https://schema.org/InStock' : 'https://schema.org/OutOfStock',
                 'seller' => ['@type' => 'FurnitureStore', 'name' => 'Home & Garden Outlet']]];
         if ($view['sku'] !== '') { $productSchema['sku'] = $view['sku']; }
         if ($productBrand !== '') { $productSchema['brand'] = ['@type' => 'Brand', 'name' => $productBrand]; }
+        $merchantCondition = merchant_condition($product);
+        if ($merchantCondition !== '') {
+            $productSchema['offers']['itemCondition'] = 'https://schema.org/' . ['new'=>'NewCondition','used'=>'UsedCondition','refurbished'=>'RefurbishedCondition'][$merchantCondition];
+        }
+        foreach (['gtin','mpn'] as $identifier) {
+            if (trim((string)($product[$identifier] ?? '')) !== '') $productSchema[$identifier] = trim((string)$product[$identifier]);
+        }
     }
 }
 $details = $product ? array_filter([
+    'Stan produktu' => ['new'=>'Nowy','used'=>'Używany','refurbished'=>'Odnowiony'][merchant_condition($product)] ?? '',
     'SKU' => $product['sku'] ?? '',
     'Materiał' => $product['material'] ?? '',
     'Kolor' => $product['color'] ?? '',

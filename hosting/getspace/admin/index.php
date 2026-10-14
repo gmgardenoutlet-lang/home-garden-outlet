@@ -2,6 +2,7 @@
 declare(strict_types=1);
 
 require __DIR__ . '/lib.php';
+require_once __DIR__ . '/../lib/merchant.php';
 boot_admin();
 
 function image_url(string $path): string
@@ -116,6 +117,13 @@ try {
     if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         require_csrf();
         $action = post_text('action');
+        if ($action === 'prepare_merchant_figures') {
+            require_login();
+            $catalog = merchant_prepare_figures(load_catalog(), post_text('merchant_scope'), post_text('merchant_content_source'));
+            save_catalog($catalog);
+            header('Location: /admin/?figures=1');
+            exit;
+        }
 
         if ($action === 'setup' && credentials() === null) {
             $password = (string)($_POST['password'] ?? '');
@@ -407,7 +415,8 @@ try {
                 'height', 'width', 'depth', 'weight', 'packageDimensions', 'packageWeight',
                 'packageLengthCm', 'packageWidthCm', 'packageHeightCm', 'producerAvailability', 'leadTime',
                 'condition', 'status', 'productStatus', 'seoTitle', 'seoDescription', 'slug',
-                'googleStatus', 'googleSentAt', 'googleMediaId', 'googlePostId', 'googleText', 'googleError'
+                'googleStatus', 'googleSentAt', 'googleMediaId', 'googlePostId', 'googleText', 'googleError',
+                'merchantCondition', 'merchantIdentifiers', 'merchantContentSource', 'merchantSupplyModel', 'merchantGroupId', 'gtin', 'mpn'
             ];
             foreach ($textFields as $field) {
                 $product[$field] = post_text($field);
@@ -426,6 +435,15 @@ try {
             $product['heavyProduct'] = isset($_POST['heavyProduct']);
             $product['oversizedProduct'] = isset($_POST['oversizedProduct']);
             $product['googleManualProduct'] = isset($_POST['googleManualProduct']);
+            $product['merchantEnabled'] = isset($_POST['merchantEnabled']);
+            foreach (['merchantCondition' => ['','new','used','refurbished'], 'merchantIdentifiers' => ['','none','assigned'],
+                'merchantContentSource' => ['','human','ai'], 'merchantSupplyModel' => ['','supplier']] as $key => $allowed) {
+                if (!in_array($product[$key], $allowed, true)) throw new RuntimeException('Nieprawidłowa wartość pola Google: ' . $key);
+            }
+            // Immutable ID survives changes of name, SKU, slug, price and availability.
+            if ($product['saleType'] === 'garden_figure' && empty($product['merchantId'])) {
+                $product['merchantId'] = 'fig-' . bin2hex(random_bytes(16));
+            }
             $product['order'] = (int)($_POST['order'] ?? 0);
             $product['currency'] = 'PLN';
             $product['shopStatus'] = $product['shopStatus'] !== '' ? $product['shopStatus'] : 'Ukryty';
@@ -1539,6 +1557,17 @@ if ($showStats) {
           <div class="field field-full"><label for="seoDescription">Opis SEO</label><textarea id="seoDescription" name="seoDescription"><?= e($product['seoDescription']) ?></textarea><small>Zalecane około 140–160 znaków.</small></div>
           <div class="field field-full"><label for="slug">Adres produktu / slug</label><input id="slug" name="slug" value="<?= e($product['slug']) ?>" placeholder="Utworzy się automatycznie z nazwy"><small>Zostaw puste, a panel sam przygotuje czytelny adres strony produktu.</small></div>
 
+          <div class="section-title shop-fields" data-shop-fields>Google Merchant Center — figury online</div>
+          <div class="field shop-fields" data-shop-fields><label class="check-line"><input type="checkbox" name="merchantEnabled"<?= !empty($product['merchantEnabled']) ? ' checked' : '' ?>> Publikuj w Google (bezpłatne oferty)</label></div>
+          <div class="field shop-fields" data-shop-fields><label for="merchantCondition">Potwierdzony stan Google</label><select id="merchantCondition" name="merchantCondition"><?php foreach ([''=>'Nie potwierdzono','new'=>'Nowy','used'=>'Używany','refurbished'=>'Odnowiony'] as $value=>$label): ?><option value="<?= e($value) ?>"<?= ($product['merchantCondition'] ?? '') === $value ? ' selected' : '' ?>><?= e($label) ?></option><?php endforeach; ?></select></div>
+          <div class="field shop-fields" data-shop-fields><label for="merchantIdentifiers">Identyfikatory producenta</label><select id="merchantIdentifiers" name="merchantIdentifiers"><?php foreach ([''=>'Nie potwierdzono','none'=>'Producent nie nadaje marki, GTIN ani MPN','assigned'=>'Producent nadaje identyfikatory'] as $value=>$label): ?><option value="<?= e($value) ?>"<?= ($product['merchantIdentifiers'] ?? '') === $value ? ' selected' : '' ?>><?= e($label) ?></option><?php endforeach; ?></select></div>
+          <div class="field shop-fields" data-shop-fields><label for="gtin">GTIN / EAN (jeśli nadany)</label><input id="gtin" name="gtin" value="<?= e($product['gtin'] ?? '') ?>"></div>
+          <div class="field shop-fields" data-shop-fields><label for="mpn">MPN producenta (jeśli nadany)</label><input id="mpn" name="mpn" value="<?= e($product['mpn'] ?? '') ?>"></div>
+          <div class="field shop-fields" data-shop-fields><label for="merchantSupplyModel">Sposób realizacji</label><select id="merchantSupplyModel" name="merchantSupplyModel"><?php foreach ([''=>'Nie potwierdzono','supplier'=>'Wysyłka bezpośrednio od producenta'] as $value=>$label): ?><option value="<?= e($value) ?>"<?= ($product['merchantSupplyModel'] ?? '') === $value ? ' selected' : '' ?>><?= e($label) ?></option><?php endforeach; ?></select><small>Przy braku towaru zmień dostępność u producenta lub status produktu.</small></div>
+          <div class="field shop-fields" data-shop-fields><label for="merchantContentSource">Pochodzenie nazwy i opisu</label><select id="merchantContentSource" name="merchantContentSource"><?php foreach ([''=>'Nie potwierdzono','human'=>'Własne / od producenta','ai'=>'Przygotowane lub zmienione przez AI'] as $value=>$label): ?><option value="<?= e($value) ?>"<?= ($product['merchantContentSource'] ?? '') === $value ? ' selected' : '' ?>><?= e($label) ?></option><?php endforeach; ?></select></div>
+          <div class="field shop-fields" data-shop-fields><label for="merchantGroupId">Grupa rzeczywistych wariantów (opcjonalnie)</label><input id="merchantGroupId" name="merchantGroupId" maxlength="50" value="<?= e($product['merchantGroupId'] ?? '') ?>"><small>Wpisuj wspólne ID wyłącznie dla tego samego modelu w różnych kolorach. Każdy wariant zachowuje własną cenę i zdjęcie.</small></div>
+          <div class="field field-full shop-fields" data-shop-fields><strong>Kontrola publikacji</strong><p>Stałe ID: <?= e($product['merchantId'] ?? '') ?>. Feed: <a href="/google-merchant-feed.xml" target="_blank" rel="noopener">/google-merchant-feed.xml</a></p><?php $merchantCheck = merchant_evaluate($product); ?><?php if ($merchantCheck['errors']): ?><ul><?php foreach ($merchantCheck['errors'] as $issue): ?><li><?= e($issue) ?></li><?php endforeach; ?></ul><?php else: ?><p>Gotowy do feedu — <?= e($merchantCheck['item']['availability']) ?>. Sprawdzana jest zapisana wersja produktu.</p><?php endif; ?></div>
+
           <div class="section-title">Google Business Profile</div>
           <div class="field field-full google-helper">
             <strong>Ręczne dodanie do wizytówki Google</strong>
@@ -1621,6 +1650,21 @@ if ($showStats) {
           <button class="btn" type="submit">Filtruj</button>
         </div>
       </form>
+      <?php if ($showFigures): ?>
+      <?php $merchantReport = merchant_catalog_report($catalog['products']); $merchantReady = count(array_filter($merchantReport, static fn(array $row): bool => !$row['errors'])); ?>
+      <section class="card">
+        <h2>Google Merchant Center — kontrola figur</h2>
+        <p>Gotowe: <?= $merchantReady ?>. Pominięte: <?= count($merchantReport) - $merchantReady ?>. <a href="/google-merchant-feed.xml" target="_blank" rel="noopener">Otwórz feed XML</a></p>
+        <form method="post">
+          <input type="hidden" name="csrf" value="<?= e(csrf_token()) ?>"><input type="hidden" name="action" value="prepare_merchant_figures">
+          <p>Przygotowanie poniżej potwierdza: figury są nowe, producent nie nadaje marki, GTIN ani MPN, wysyłka bezpośrednio od producenta. Nie zmienia cen, opisów ani dostawy.</p>
+          <label>Pochodzenie nazw i opisów <select name="merchant_content_source"><option value="">Wybierz</option><option value="human">Własne / od producenta</option><option value="ai">Przygotowane lub zmienione przez AI</option></select></label>
+          <button class="btn btn-secondary btn-small" name="merchant_scope" value="pilot" type="submit">Przygotuj pierwsze 3 figury</button>
+          <button class="btn btn-secondary btn-small" name="merchant_scope" value="all" type="submit">Przygotuj obecne figury</button>
+        </form>
+        <details><summary>Problemy wymagające uzupełnienia</summary><ul><?php foreach ($merchantReport as $row): ?><?php if ($row['errors']): ?><li><a href="/admin/?figures=1&amp;q=<?= rawurlencode($row['name']) ?>"><?= e($row['name']) ?></a>: <?= e(implode(' ', $row['errors'])) ?></li><?php endif; ?><?php endforeach; ?></ul></details>
+      </section>
+      <?php endif; ?>
       <section class="product-list">
         <?php $shown = 0; foreach ($filteredProducts as $index => $item): $shown++; ?>
           <article class="product-row">
