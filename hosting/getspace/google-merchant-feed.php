@@ -6,7 +6,9 @@ header('Cache-Control: no-store, max-age=0');
 header('X-Content-Type-Options: nosniff');
 try {
     // Do not use repository snapshots, sessions or cached generated artefacts.
-    $data = json_decode((string)file_get_contents(PRODUCTS_FILE), true, 512, JSON_THROW_ON_ERROR);
+    $catalogueJson = @file_get_contents(PRODUCTS_FILE);
+    if ($catalogueJson === false) throw new RuntimeException('Catalogue source unavailable');
+    $data = json_decode($catalogueJson, true, 512, JSON_THROW_ON_ERROR);
     if (!is_array($data['products'] ?? null)) throw new RuntimeException('Invalid catalogue');
     if (!load_shipping_profiles_for_shop()) throw new RuntimeException('Shipping source unavailable');
     echo merchant_xml(merchant_catalog_report($data['products']));
