@@ -4,6 +4,8 @@
 
 Docelowy adres po wdrożeniu: `https://mgoutlet.pl/google-merchant-feed.xml`.
 
+Właściciel potwierdził dla obecnych figur: 3 dni robocze przygotowania, 1–2 dni robocze transportu, oba od poniedziałku do piątku. Te wartości należy wpisać podczas przygotowania obecnych figur. Feed przekazuje terminy bezpośrednio razem z ceną dostawy: cena na poziomie produktu zastępuje także terminy ustawione na koncie Google. Nowy produkt wymaga własnego potwierdzenia tych pól.
+
 ## Uruchomienie
 
 1. W panelu, na liście figur, wybierz pochodzenie nazw/opisów. Dla figur przygotowanych przez Codexa wybierz AI. „Przygotuj pierwsze 3 figury” zapisuje potwierdzone dane: nowy stan, brak nadanych identyfikatorów, wysyłka od producenta oraz stałe losowe ID. Nie zmienia ceny, opisu ani dostawy. Przygotowanie wymaga zalogowania i CSRF.

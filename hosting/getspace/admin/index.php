@@ -119,7 +119,9 @@ try {
         $action = post_text('action');
         if ($action === 'prepare_merchant_figures') {
             require_login();
-            $catalog = merchant_prepare_figures(load_catalog(), post_text('merchant_scope'), post_text('merchant_content_source'));
+            $merchantTiming = [];
+            foreach (['merchantHandlingDays','merchantTransitMinDays','merchantTransitMaxDays','merchantHandlingWeek','merchantTransitWeek'] as $field) $merchantTiming[$field] = post_text($field);
+            $catalog = merchant_prepare_figures(load_catalog(), post_text('merchant_scope'), post_text('merchant_content_source'), $merchantTiming);
             save_catalog($catalog);
             header('Location: /admin/?figures=1');
             exit;
@@ -416,7 +418,8 @@ try {
                 'packageLengthCm', 'packageWidthCm', 'packageHeightCm', 'producerAvailability', 'leadTime',
                 'condition', 'status', 'productStatus', 'seoTitle', 'seoDescription', 'slug',
                 'googleStatus', 'googleSentAt', 'googleMediaId', 'googlePostId', 'googleText', 'googleError',
-                'merchantCondition', 'merchantIdentifiers', 'merchantContentSource', 'merchantSupplyModel', 'merchantGroupId', 'gtin', 'mpn'
+                'merchantCondition', 'merchantIdentifiers', 'merchantContentSource', 'merchantSupplyModel', 'merchantGroupId', 'gtin', 'mpn',
+                'merchantHandlingDays','merchantTransitMinDays','merchantTransitMaxDays','merchantHandlingWeek','merchantTransitWeek'
             ];
             foreach ($textFields as $field) {
                 $product[$field] = post_text($field);
@@ -1568,9 +1571,11 @@ if ($showStats) {
           <div class="field shop-fields" data-shop-fields><label for="merchantGroupId">Grupa rzeczywistych wariantów (opcjonalnie)</label><input id="merchantGroupId" name="merchantGroupId" maxlength="50" value="<?= e($product['merchantGroupId'] ?? '') ?>"><small>Wpisuj wspólne ID wyłącznie dla tego samego modelu w różnych kolorach. Każdy wariant zachowuje własną cenę i zdjęcie.</small></div>
           <div class="field field-full shop-fields" data-shop-fields><strong>Kontrola publikacji</strong><p>Stałe ID: <?= e($product['merchantId'] ?? '') ?>. Feed: <a href="/google-merchant-feed.xml" target="_blank" rel="noopener">/google-merchant-feed.xml</a></p><?php $merchantCheck = merchant_evaluate($product); ?><?php if ($merchantCheck['errors']): ?><ul><?php foreach ($merchantCheck['errors'] as $issue): ?><li><?= e($issue) ?></li><?php endforeach; ?></ul><?php else: ?><p>Gotowy do feedu — <?= e($merchantCheck['item']['availability']) ?>. Sprawdzana jest zapisana wersja produktu.</p><?php endif; ?></div>
 
-          <div class="section-title">Google Business Profile</div>
+          <div class="section-title shop-fields" data-shop-fields>Terminy dostawy figur — Google</div>
+          <?php foreach (['merchantHandlingDays'=>'Przygotowanie — dni robocze','merchantTransitMinDays'=>'Transport — minimum dni roboczych','merchantTransitMaxDays'=>'Transport — maksimum dni roboczych'] as $field=>$label): ?><div class="field shop-fields" data-shop-fields><label for="<?= e($field) ?>"><?= e($label) ?></label><input id="<?= e($field) ?>" name="<?= e($field) ?>" type="number" min="0" max="60" value="<?= e($product[$field] ?? '') ?>"></div><?php endforeach; ?>
+          <?php foreach (['merchantHandlingWeek'=>'Dni przygotowania','merchantTransitWeek'=>'Dni transportu'] as $field=>$label): ?><div class="field shop-fields" data-shop-fields><label for="<?= e($field) ?>"><?= e($label) ?></label><select id="<?= e($field) ?>" name="<?= e($field) ?>"><?php foreach ([''=>'Nie potwierdzono','mon-fri'=>'Poniedziałek–piątek','mon-sat'=>'Poniedziałek–sobota'] as $value=>$option): ?><option value="<?= e($value) ?>"<?= ($product[$field] ?? '') === $value ? ' selected' : '' ?>><?= e($option) ?></option><?php endforeach; ?></select></div><?php endforeach; ?>
           <div class="field field-full google-helper">
-            <strong>Ręczne dodanie do wizytówki Google</strong>
+            <strong>Google Business Profile — ręczne dodanie do wizytówki Google</strong>
             <p>Google może nie pozwalać na automatyczne dodawanie produktów przez API. Ten blok przygotowuje opis do skopiowania, a po uzupełnieniu tajnej konfiguracji serwera może też wysłać zdjęcie lub utworzyć post w Google Business Profile.</p>
           </div>
           <div class="field"><label class="check-line"><input type="checkbox" name="googleManualProduct"<?= !empty($product['googleManualProduct']) ? ' checked' : '' ?>> Dodane ręcznie do Produktów Google</label></div>
@@ -1660,6 +1665,8 @@ if ($showStats) {
           <p>Przygotowanie poniżej potwierdza: figury są nowe, producent nie nadaje marki, GTIN ani MPN, wysyłka bezpośrednio od producenta. Nie zmienia cen, opisów ani dostawy.</p>
           <label>Pochodzenie nazw i opisów <select name="merchant_content_source"><option value="">Wybierz</option><option value="human">Własne / od producenta</option><option value="ai">Przygotowane lub zmienione przez AI</option></select></label>
           <button class="btn btn-secondary btn-small" name="merchant_scope" value="pilot" type="submit">Przygotuj pierwsze 3 figury</button>
+          <?php foreach (['merchantHandlingDays'=>'Przygotowanie (dni robocze)','merchantTransitMinDays'=>'Transport minimum (dni robocze)','merchantTransitMaxDays'=>'Transport maksimum (dni robocze)'] as $field=>$label): ?><label><?= e($label) ?> <input type="number" name="<?= e($field) ?>" min="0" max="60" required></label><?php endforeach; ?>
+          <?php foreach (['merchantHandlingWeek'=>'Dni przygotowania','merchantTransitWeek'=>'Dni transportu'] as $field=>$label): ?><label><?= e($label) ?> <select name="<?= e($field) ?>" required><option value="">Wybierz</option><option value="mon-fri">Poniedziałek–piątek</option><option value="mon-sat">Poniedziałek–sobota</option></select></label><?php endforeach; ?>
           <button class="btn btn-secondary btn-small" name="merchant_scope" value="all" type="submit">Przygotuj obecne figury</button>
         </form>
         <details><summary>Problemy wymagające uzupełnienia</summary><ul><?php foreach ($merchantReport as $row): ?><?php if ($row['errors']): ?><li><a href="/admin/?figures=1&amp;q=<?= rawurlencode($row['name']) ?>"><?= e($row['name']) ?></a>: <?= e(implode(' ', $row['errors'])) ?></li><?php endif; ?><?php endforeach; ?></ul></details>

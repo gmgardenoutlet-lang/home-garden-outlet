@@ -10,6 +10,9 @@ $product = array_merge(product_defaults(), ['name'=>'Żółw & ogród <szary>', 
     'description'=>'Żółw do ogrodu & tarasu.', 'merchantEnabled'=>true, 'merchantId'=>'fig-' . str_repeat('a',32),
     'merchantCondition'=>'new', 'merchantIdentifiers'=>'none', 'merchantSupplyModel'=>'supplier', 'merchantContentSource'=>'ai',
     'internalNote'=>'SECRET-INTERNAL-NOTE', 'googleText'=>'SECRET-GOOGLE-TEXT']);
+$timing = ['merchantHandlingDays'=>'3','merchantTransitMinDays'=>'1','merchantTransitMaxDays'=>'2',
+    'merchantHandlingWeek'=>'mon-fri','merchantTransitWeek'=>'mon-fri'];
+$product = array_merge($product, $timing);
 $evaluate = static fn(array $p): array => merchant_evaluate($p, $methods);
 $ready = $evaluate($product);
 merchant_assert(!$ready['errors'], implode(' ', $ready['errors']));
@@ -20,6 +23,8 @@ $g = $parsed->channel->item->children('http://base.google.com/ns/1.0');
 merchant_assert((string)$g->structured_title->children('http://base.google.com/ns/1.0')->content === $product['name'], 'Polish characters/XML escaping');
 merchant_assert((string)$g->price === '90.50 PLN', 'Actual shop gross price');
 merchant_assert((string)$g->identifier_exists === 'false', 'Confirmed lack of identifiers');
+merchant_assert((string)$g->shipping->children('http://base.google.com/ns/1.0')->max_handling_time === '3', 'Handling days');
+merchant_assert((string)$g->shipping_transit_business_days === 'Mon-Fri', 'Business days');
 merchant_assert(!str_contains($xml,'SECRET') && !str_contains($xml,'internalNote'), 'Private field leak');
 $changed = $product;
 $changed['grossPrice'] = '125 zł'; $changed['slug']='zolw-inny-adres'; $changed['name']='Zmieniona nazwa';
@@ -48,10 +53,15 @@ merchant_assert((bool)$quote['errors'], 'Unconfirmed shipping accepted');
 $pickup=merchant_evaluate($product,[['type'=>'odbior_osobisty','label'=>'Odbiór','costNumber'=>0]]);
 merchant_assert((bool)$pickup['errors'], 'Pickup-only item accepted');
 $sample=json_decode((string)file_get_contents(__DIR__.'/../.local-cache/products-public.json'),true,512,JSON_THROW_ON_ERROR);
-$pilot=merchant_prepare_figures($sample,'pilot','ai');
+$pilot=merchant_prepare_figures($sample,'pilot','ai',$timing);
 merchant_assert(count(array_filter($pilot['products'],static fn($p)=>!empty($p['merchantEnabled'])))===3,'Pilot is not 3 figures');
-$all=merchant_prepare_figures($pilot,'all','ai');
-$repeat=merchant_prepare_figures($all,'all','ai');
+$all=merchant_prepare_figures($pilot,'all','ai',$timing);
+$repeat=merchant_prepare_figures($all,'all','ai',$timing);
+merchant_assert(merchant_delivery_timing($product+[])!==[],'Confirmed delivery timing');
+$invalidTiming=$product; $invalidTiming['merchantTransitMinDays']='4';
+merchant_assert(merchant_delivery_timing($invalidTiming)===[] && (bool)$evaluate($invalidTiming)['errors'],'Inverted transport range');
+$missingTiming=$product; $missingTiming['merchantHandlingDays']='';
+merchant_assert(merchant_delivery_timing($missingTiming)===[] && (bool)$evaluate($missingTiming)['errors'],'Missing preparation days');
 merchant_assert($all===$repeat,'Initialization changed stable IDs');
 foreach ($sample['products'] as $index=>$original) {
     if (!catalog_is_figure_shop_product($original)) merchant_assert($all['products'][$index]===$original,'Furniture modified');

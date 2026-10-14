@@ -40,6 +40,22 @@ function merchant_gtin_valid(string $value): bool
 }
 
 /** One evaluator shared by the public feed and the authenticated admin diagnostics. */
+function merchant_delivery_timing(array $product): array
+{
+    $result = [];
+    foreach (['merchantHandlingDays','merchantTransitMinDays','merchantTransitMaxDays'] as $field) {
+        $number = filter_var($product[$field] ?? '', FILTER_VALIDATE_INT, ['options'=>['min_range'=>0,'max_range'=>60]]);
+        if ($number === false) return [];
+        $result[$field] = $number;
+    }
+    if ($result['merchantTransitMinDays'] > $result['merchantTransitMaxDays']) return [];
+    foreach (['merchantHandlingWeek','merchantTransitWeek'] as $field) {
+        if (!in_array($product[$field] ?? '', ['mon-fri','mon-sat'], true)) return [];
+        $result[$field] = $product[$field];
+    }
+    return $result;
+}
+
 function merchant_evaluate(array $product, ?array $methods = null): array
 {
     $errors = [];
@@ -84,6 +100,8 @@ function merchant_evaluate(array $product, ?array $methods = null): array
         $errors[] = 'Potwierdź sprzedaż z wysyłką od producenta; własny magazyn wymaga obsługi ilości.';
     }
     if (trim((string)($product['leadTime'] ?? '')) === '') $errors[] = 'Brak potwierdzonego czasu realizacji.';
+    $timing = merchant_delivery_timing($product);
+    if (!$timing) $errors[] = 'Podaj potwierdzone dni przygotowania, transportu i tygodnia pracy.';
     $methods ??= shop_test_delivery_methods($product);
     $shipping = [];
     foreach ($methods as $method) {
@@ -92,6 +110,12 @@ function merchant_evaluate(array $product, ?array $methods = null): array
             || (float)$method['costNumber'] < 0) continue;
         $shipping[] = ['country' => 'PL', 'service' => (string)$method['label'],
             'price' => number_format((float)$method['costNumber'], 2, '.', '') . ' PLN'];
+        if ($timing) {
+            $shipping[count($shipping)-1] += ['min_handling_time'=>(string)$timing['merchantHandlingDays'],
+                'max_handling_time'=>(string)$timing['merchantHandlingDays'],
+                'min_transit_time'=>(string)$timing['merchantTransitMinDays'],
+                'max_transit_time'=>(string)$timing['merchantTransitMaxDays']];
+        }
     }
     if (!$shipping) $errors[] = 'Brak dostawy w Polsce z ustaloną ceną, bez indywidualnej wyceny.';
     $sold = in_array(catalog_normalize((string)($product['productStatus'] ?? '')), ['sprzedany', 'rezerwacja'], true)
@@ -102,6 +126,11 @@ function merchant_evaluate(array $product, ?array $methods = null): array
         'price' => $price === null ? '' : number_format($price, 2, '.', '') . ' PLN',
         'availability' => $sold || $supplierUnavailable ? 'out_of_stock' : 'in_stock', 'condition' => $condition];
     if ($identifierMode === 'none') $item['identifier_exists'] = 'false';
+    if ($timing) {
+        foreach (['shipping_handling_business_days'=>'merchantHandlingWeek','shipping_transit_business_days'=>'merchantTransitWeek'] as $key=>$field) {
+            $item[$key] = $timing[$field] === 'mon-fri' ? 'Mon-Fri' : 'Mon-Sat';
+        }
+    }
     foreach (['brand' => $brand, 'gtin' => $gtin, 'mpn' => $mpn, 'color' => trim((string)($product['color'] ?? ''))] as $key => $value) {
         if ($value !== '') $item[$key] = $value;
     }
@@ -135,12 +164,13 @@ function merchant_catalog_report(array $products): array
 }
 
 /** Explicit administrator action, never run on a public read or on future products. */
-function merchant_prepare_figures(array $catalog, string $scope, string $contentSource): array
+function merchant_prepare_figures(array $catalog, string $scope, string $contentSource, array $shippingTiming): array
 {
     if (!in_array($scope, ['pilot', 'all'], true) || !in_array($contentSource, ['human','ai'], true)) {
         throw new RuntimeException('Wybierz zakres i pochodzenie treści.');
     }
     $prepared = 0;
+    if (!merchant_delivery_timing($shippingTiming)) throw new RuntimeException('Potwierdź terminy i dni robocze dostawy.');
     foreach ($catalog['products'] as &$product) {
         if (!is_array($product) || !catalog_is_figure_shop_product($product)) continue;
         if ($scope === 'pilot' && $prepared >= 3) continue;
@@ -151,6 +181,9 @@ function merchant_prepare_figures(array $catalog, string $scope, string $content
         $product['merchantSupplyModel'] = 'supplier';
         $product['merchantContentSource'] = $contentSource;
         $product['merchantEnabled'] = true;
+        foreach (['merchantHandlingDays','merchantTransitMinDays','merchantTransitMaxDays','merchantHandlingWeek','merchantTransitWeek'] as $field) {
+            $product[$field] = (string)$shippingTiming[$field];
+        }
         $prepared++;
     }
     unset($product);
