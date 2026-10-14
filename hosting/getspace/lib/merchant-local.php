@@ -38,7 +38,7 @@ function merchant_local_evaluate(array $product): array
     if ($condition === 'new' && empty($product['localMerchantIdentifiersChecked'])) $errors[] = 'Sprawdź identyfikatory producenta nowego produktu.';
     $status = catalog_normalize((string)($product['status'] ?? ''));
     $productStatus = catalog_normalize((string)($product['productStatus'] ?? ''));
-    $unavailable = in_array($status, ['sprzedane','sprzedany','rezerwacja'], true) || in_array($productStatus, ['sprzedany','rezerwacja'], true);
+    $unavailable = in_array($status, ['sprzedane','sprzedany','rezerwacja','zarezerwowane','zarezerwowany'], true) || in_array($productStatus, ['sprzedany','rezerwacja'], true);
     if (!$unavailable && !in_array($status, ['dostepne','dostępne','nowosc','nowość','ostatnia sztuka'], true)) $errors[] = 'Niepotwierdzony status dostępności.';
     $availability = $unavailable ? 'out_of_stock' : 'limited_availability';
     $item = ['id'=>$id,'title'=>$name,'description'=>$description,'link'=>'https://mgoutlet.pl/produkt/'.$slug,

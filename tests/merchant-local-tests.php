@@ -22,7 +22,7 @@ local_assert(str_contains($inventory,'limited_availability'),'Conservative local
 $updated=$product; $updated['outletPrice']='390 zł';
 local_assert(merchant_local_evaluate($updated)['item']['price']==='390.00 PLN','Panel price update');
 local_assert(merchant_local_evaluate($updated)['item']['id']===$row['item']['id'],'Stable ID');
-foreach (['Sprzedane','Rezerwacja'] as $status) {
+foreach (['Sprzedane','Rezerwacja','Zarezerwowane'] as $status) {
     $updated=$product; $updated['status']=$status;
     local_assert(merchant_local_evaluate($updated)['inventory']['availability']==='out_of_stock','Sold/reserved unavailable');
 }

@@ -87,7 +87,7 @@ $saving = $catalogValue !== null && $outletValue !== null && $catalogValue > $ou
 $isSold = in_array(catalog_normalize($status), ['sprzedane', 'sprzedany'], true);
 $localCondition = !empty($productRecord['localMerchantEnabled']) ? (string)($productRecord['localMerchantCondition'] ?? '') : '';
 $localConditionLabels = ['new'=>'Nowy','used'=>'Używany / otwarte lub brak oryginalnego opakowania','refurbished'=>'Profesjonalnie odnowiony z gwarancją'];
-$localUnavailable = $isSold || catalog_normalize($status) === 'rezerwacja'
+$localUnavailable = $isSold || in_array(catalog_normalize($status), ['rezerwacja','zarezerwowane','zarezerwowany'], true)
     || in_array(catalog_normalize((string)($productRecord['productStatus'] ?? '')), ['sprzedany','rezerwacja'], true);
 $productBrand = $product ? catalog_confirmed_brand($product) : '';
 $offerCurrency = $product && preg_match('/^[A-Z]{3}$/', strtoupper(trim((string)($product['currency'] ?? ''))))
