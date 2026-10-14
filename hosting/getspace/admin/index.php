@@ -419,7 +419,8 @@ try {
                 'condition', 'status', 'productStatus', 'seoTitle', 'seoDescription', 'slug',
                 'googleStatus', 'googleSentAt', 'googleMediaId', 'googlePostId', 'googleText', 'googleError',
                 'merchantCondition', 'merchantIdentifiers', 'merchantContentSource', 'merchantSupplyModel', 'merchantGroupId', 'gtin', 'mpn',
-                'merchantHandlingDays','merchantTransitMinDays','merchantTransitMaxDays','merchantHandlingWeek','merchantTransitWeek'
+                'merchantHandlingDays','merchantTransitMinDays','merchantTransitMaxDays','merchantHandlingWeek','merchantTransitWeek',
+                'localMerchantCondition','localMerchantContentSource','localMerchantGtin','localMerchantMpn'
             ];
             foreach ($textFields as $field) {
                 $product[$field] = post_text($field);
@@ -439,6 +440,12 @@ try {
             $product['oversizedProduct'] = isset($_POST['oversizedProduct']);
             $product['googleManualProduct'] = isset($_POST['googleManualProduct']);
             $product['merchantEnabled'] = isset($_POST['merchantEnabled']);
+            $product['localMerchantEnabled'] = isset($_POST['localMerchantEnabled']);
+            $product['localMerchantInStoreConfirmed'] = isset($_POST['localMerchantInStoreConfirmed']);
+            $product['localMerchantIdentifiersChecked'] = isset($_POST['localMerchantIdentifiersChecked']);
+            if (!in_array($product['localMerchantCondition'], ['','new','used','refurbished'], true)
+                || !in_array($product['localMerchantContentSource'], ['','human','ai'], true)) throw new RuntimeException('Nieprawidłowe dane Google showroom.');
+            if ($product['saleType'] === 'showroom' && empty($product['localMerchantId'])) $product['localMerchantId'] = 'loc-' . bin2hex(random_bytes(16));
             foreach (['merchantCondition' => ['','new','used','refurbished'], 'merchantIdentifiers' => ['','none','assigned'],
                 'merchantContentSource' => ['','human','ai'], 'merchantSupplyModel' => ['','supplier']] as $key => $allowed) {
                 if (!in_array($product[$key], $allowed, true)) throw new RuntimeException('Nieprawidłowa wartość pola Google: ' . $key);
@@ -1561,6 +1568,18 @@ if ($showStats) {
           <div class="field field-full"><label for="slug">Adres produktu / slug</label><input id="slug" name="slug" value="<?= e($product['slug']) ?>" placeholder="Utworzy się automatycznie z nazwy"><small>Zostaw puste, a panel sam przygotuje czytelny adres strony produktu.</small></div>
 
           <div class="section-title shop-fields" data-shop-fields>Google Merchant Center — figury online</div>
+          <?php if (($product['saleType'] ?? 'showroom') === 'showroom'): ?>
+          <div class="section-title">Google — bezpłatne oferty showroomu</div>
+          <div class="field field-full"><p>Zakup stacjonarny w Kębłowicach. Dane nie trafiają do ofert online. Stałe ID: <?= e($product['localMerchantId'] ?? '') ?>.</p></div>
+          <div class="field"><label class="check-line"><input type="checkbox" name="localMerchantEnabled"<?= !empty($product['localMerchantEnabled']) ? ' checked' : '' ?>> Publikuj jako ofertę showroomu</label></div>
+          <div class="field"><label class="check-line"><input type="checkbox" name="localMerchantInStoreConfirmed"<?= !empty($product['localMerchantInStoreConfirmed']) ? ' checked' : '' ?>> Potwierdzam zakup na miejscu za cenę outletową</label></div>
+          <div class="field"><label for="localMerchantCondition">Stan produktu showroomu — Google</label><select id="localMerchantCondition" name="localMerchantCondition"><?php foreach ([''=>'Nie potwierdzono','new'=>'Nowy, nieużywany w zamkniętym oryginalnym opakowaniu','used'=>'Używany / otwarte lub brak oryginalnego opakowania','refurbished'=>'Profesjonalnie odnowiony z gwarancją'] as $value=>$label): ?><option value="<?= e($value) ?>"<?= ($product['localMerchantCondition'] ?? '') === $value ? ' selected' : '' ?>><?= e($label) ?></option><?php endforeach; ?></select></div>
+          <div class="field"><label for="localMerchantContentSource">Pochodzenie nazwy i opisu showroomu</label><select id="localMerchantContentSource" name="localMerchantContentSource"><?php foreach ([''=>'Nie potwierdzono','human'=>'Własne / od producenta','ai'=>'Przygotowane lub zmienione przez AI'] as $value=>$label): ?><option value="<?= e($value) ?>"<?= ($product['localMerchantContentSource'] ?? '') === $value ? ' selected' : '' ?>><?= e($label) ?></option><?php endforeach; ?></select></div>
+          <div class="field"><label for="localMerchantGtin">GTIN / EAN producenta — showroom</label><input id="localMerchantGtin" name="localMerchantGtin" value="<?= e($product['localMerchantGtin'] ?? '') ?>"></div>
+          <div class="field"><label for="localMerchantMpn">Numer modelu producenta — showroom</label><input id="localMerchantMpn" name="localMerchantMpn" value="<?= e($product['localMerchantMpn'] ?? '') ?>"></div>
+          <div class="field field-full"><label class="check-line"><input type="checkbox" name="localMerchantIdentifiersChecked"<?= !empty($product['localMerchantIdentifiersChecked']) ? ' checked' : '' ?>> Sprawdziłem markę i identyfikatory producenta; podane dane są rzeczywiste</label></div>
+          <div class="field field-full"><?php require_once __DIR__ . '/../lib/merchant-local.php'; $localCheck=merchant_local_evaluate($product); ?><strong>Kontrola oferty showroomu</strong><?php if ($localCheck['errors']): ?><ul><?php foreach ($localCheck['errors'] as $issue): ?><li><?= e($issue) ?></li><?php endforeach; ?></ul><?php else: ?><p>Gotowy do lokalnego feedu. Dostępność: <?= e($localCheck['inventory']['availability']) ?>.</p><?php endif; ?></div>
+          <?php endif; ?>
           <div class="field shop-fields" data-shop-fields><label class="check-line"><input type="checkbox" name="merchantEnabled"<?= !empty($product['merchantEnabled']) ? ' checked' : '' ?>> Publikuj w Google (bezpłatne oferty)</label></div>
           <div class="field shop-fields" data-shop-fields><label for="merchantCondition">Potwierdzony stan Google</label><select id="merchantCondition" name="merchantCondition"><?php foreach ([''=>'Nie potwierdzono','new'=>'Nowy','used'=>'Używany','refurbished'=>'Odnowiony'] as $value=>$label): ?><option value="<?= e($value) ?>"<?= ($product['merchantCondition'] ?? '') === $value ? ' selected' : '' ?>><?= e($label) ?></option><?php endforeach; ?></select></div>
           <div class="field shop-fields" data-shop-fields><label for="merchantIdentifiers">Identyfikatory producenta</label><select id="merchantIdentifiers" name="merchantIdentifiers"><?php foreach ([''=>'Nie potwierdzono','none'=>'Producent nie nadaje marki, GTIN ani MPN','assigned'=>'Producent nadaje identyfikatory'] as $value=>$label): ?><option value="<?= e($value) ?>"<?= ($product['merchantIdentifiers'] ?? '') === $value ? ' selected' : '' ?>><?= e($label) ?></option><?php endforeach; ?></select></div>

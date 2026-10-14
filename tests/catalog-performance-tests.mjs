@@ -75,6 +75,6 @@ const baselineWorkflow = execFileSync('git', ['show', '3129a98:.github/workflows
 const withoutPerformanceStep = workflow.replace(/      - name: Sprawdź zakres optymalizacji banerów i fontów\r?\n        run: \|\r?\n          git fetch --no-tags --depth=1 origin 3129a98f435fc75c6a6a12862889abd9b8892959(?: 54c4a6a5b3c212ec6556e5d9454cbd89fe1dfbbd)?\r?\n          node tests\/catalog-performance-tests\.mjs\r?\n\r?\n/, '')
   .replace(/          node tests\/listing-state-notes-tests\.mjs\r?\n/, '')
   .replace(/        # Merchant tests use only the just-fetched public snapshot, never old repo data\.\r?\n/, '')
-  .replace('run: HGO_SHOP_SALES_ENABLED=true php tests/merchant-feed-tests.php && node scripts/build-getspace.mjs', 'run: node scripts/build-getspace.mjs');
+  .replace('run: HGO_SHOP_SALES_ENABLED=true php tests/merchant-feed-tests.php && php tests/merchant-local-tests.php && node scripts/build-getspace.mjs', 'run: node scripts/build-getspace.mjs');
 assert.equal(withoutPerformanceStep.replaceAll('\r\n','\n'), baselineWorkflow.replaceAll('\r\n','\n'), 'Only performance/state-note CI checks may change; FTPS exclusions, backup and rollback stay intact');
 console.log('PASS: performance assets, scoped layout, original content/SEO/cards/data, font licences');

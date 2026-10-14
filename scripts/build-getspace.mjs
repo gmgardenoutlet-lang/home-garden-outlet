@@ -117,6 +117,8 @@ await cp(path.join(root, "hosting", "getspace", ".htaccess"), path.join(publish,
 await cp(path.join(root, "hosting", "getspace", "catalog.php"), path.join(publish, "catalog.php"));
 await cp(path.join(root, "hosting", "getspace", "products-public.php"), path.join(publish, "products-public.php"));
 await cp(path.join(root, "hosting", "getspace", "google-merchant-feed.php"), path.join(publish, "google-merchant-feed.php"));
+await cp(path.join(root, "hosting", "getspace", "google-local-products.php"), path.join(publish, "google-local-products.php"));
+await cp(path.join(root, "hosting", "getspace", "google-local-inventory.php"), path.join(publish, "google-local-inventory.php"));
 await cp(path.join(root, "hosting", "getspace", "product.php"), path.join(publish, "product.php"));
 await cp(path.join(root, "hosting", "getspace", "garden.php"), path.join(publish, "garden.php"));
 await cp(path.join(root, "hosting", "getspace", "home.php"), path.join(publish, "home.php"));

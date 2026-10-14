@@ -2,6 +2,7 @@
 declare(strict_types=1);
 
 require __DIR__ . '/catalog.php';
+header('Cache-Control: no-store, max-age=0');
 
 $slug = (string)($_GET['slug'] ?? '');
 $product = $slug !== '' ? catalog_find_product($slug) : null;
@@ -84,6 +85,10 @@ $saving = $catalogValue !== null && $outletValue !== null && $catalogValue > $ou
     ? round($catalogValue - $outletValue)
     : null;
 $isSold = in_array(catalog_normalize($status), ['sprzedane', 'sprzedany'], true);
+$localCondition = !empty($productRecord['localMerchantEnabled']) ? (string)($productRecord['localMerchantCondition'] ?? '') : '';
+$localConditionLabels = ['new'=>'Nowy','used'=>'Używany / otwarte lub brak oryginalnego opakowania','refurbished'=>'Profesjonalnie odnowiony z gwarancją'];
+$localUnavailable = $isSold || catalog_normalize($status) === 'rezerwacja'
+    || in_array(catalog_normalize((string)($productRecord['productStatus'] ?? '')), ['sprzedany','rezerwacja'], true);
 $productBrand = $product ? catalog_confirmed_brand($product) : '';
 $offerCurrency = $product && preg_match('/^[A-Z]{3}$/', strtoupper(trim((string)($product['currency'] ?? ''))))
     ? strtoupper(trim((string)$product['currency']))
@@ -108,13 +113,14 @@ if ($product !== null && $hasOutletOffer) {
             'url' => $canonical,
             'priceCurrency' => $offerCurrency,
             'price' => number_format($outletValue, 2, '.', ''),
-            'availability' => $isSold ? 'https://schema.org/OutOfStock' : 'https://schema.org/InStock',
+            'availability' => $localUnavailable ? 'https://schema.org/OutOfStock' : 'https://schema.org/InStock',
             'seller' => ['@type' => 'FurnitureStore', 'name' => 'Home & Garden Outlet'],
         ],
     ];
     if ($productBrand !== '') {
         $productSchema['brand'] = ['@type' => 'Brand', 'name' => $productBrand];
     }
+    if (isset($localConditionLabels[$localCondition])) $productSchema['offers']['itemCondition'] = 'https://schema.org/' . ['new'=>'NewCondition','used'=>'UsedCondition','refurbished'=>'RefurbishedCondition'][$localCondition];
 }
 
 $breadcrumbs = [
@@ -217,7 +223,7 @@ $breadcrumbs = [
 
           <?php
           $details = [
-              'Stan produktu' => $product['condition'] ?? '',
+              'Stan produktu' => $localConditionLabels[$localCondition] ?? ($product['condition'] ?? ''),
               'Wymiary' => $product['dimensions'] ?? '',
               'Materiał' => $product['material'] ?? '',
               'Kolor' => $product['color'] ?? '',

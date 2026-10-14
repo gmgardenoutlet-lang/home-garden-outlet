@@ -31,6 +31,8 @@ AddType application/manifest+json .webmanifest
   # Dynamiczna mapa strony i automatyczne podstrony produktow.
   RewriteRule ^sitemap\.xml$ sitemap.php [L]
   RewriteRule ^google-merchant-feed\.xml$ google-merchant-feed.php [L]
+  RewriteRule ^google-local-products\.xml$ google-local-products.php [L]
+  RewriteRule ^google-local-inventory\.xml$ google-local-inventory.php [L]
   RewriteRule ^polityka-prywatnosci$ polityka-prywatnosci/index.html [L]
   RewriteRule ^produkt/([a-z0-9-]+)/?$ product.php?slug=$1 [L,QSA]
   # Publiczny katalog: produkty można oglądać, ale sprzedaż jest centralnie wyłączona.
