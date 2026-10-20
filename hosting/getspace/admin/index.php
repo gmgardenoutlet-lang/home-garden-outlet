@@ -404,6 +404,8 @@ try {
             $isEdit = $indexRaw !== '' && ctype_digit($indexRaw) && isset($catalog['products'][(int)$indexRaw]);
             $index = $isEdit ? (int)$indexRaw : count($catalog['products']);
             $product = $isEdit ? $catalog['products'][$index] : product_defaults();
+            // Never accept identity from POST. Existing records are migrated separately.
+            if (!$isEdit) $product['productId'] = product_id_new($catalog['products']);
 
             $name = post_text('name');
             if ($name === '') {
@@ -838,6 +840,7 @@ if ($showStats) {
       <a class="<?= $activeFiguresTab ? 'active' : '' ?>" href="/admin/?figures=1">Figury ogrodowe / sklep online</a>
       <a class="<?= $showOrders ? 'active' : '' ?>" href="/admin/?orders=1">Zamówienia sklepu</a>
       <a class="<?= $showShipping ? 'active' : '' ?>" href="/admin/?shipping=1">Cennik dostaw</a>
+      <a href="/admin/olx/">OLX</a>
       <a href="/sklep/figury-ogrodowe" target="_blank" rel="noopener">Podgląd sklepu figur</a>
     </nav>
 

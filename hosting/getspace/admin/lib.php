@@ -28,6 +28,7 @@ require_once SITE_ROOT . '/lib/geoip.php';
 require_once SITE_ROOT . '/lib/stats-exclusion.php';
 require_once SITE_ROOT . '/lib/stats-writer.php';
 require_once SITE_ROOT . '/catalog.php';
+require_once __DIR__ . '/product-identity.php';
 require_once __DIR__ . '/../shop-test/config.php';
 
 if (!function_exists('str_contains')) {

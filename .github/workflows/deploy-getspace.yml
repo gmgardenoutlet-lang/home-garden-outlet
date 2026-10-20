@@ -11,7 +11,7 @@ permissions:
 
 concurrency:
   group: getspace-production
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 jobs:
   deploy:
@@ -36,6 +36,7 @@ jobs:
         with:
           php-version: "8.3"
           tools: composer:v2
+          extensions: curl, sodium
 
       - name: Zainstaluj zależności PHP do artefaktu
         run: composer install --no-dev --prefer-dist --no-interaction --optimize-autoloader
@@ -60,6 +61,10 @@ jobs:
           HGO_SHOP_SALES_ENABLED=true php tests/paynow-v3-tests.php
           php tests/codex-draft-tests.php
           php tests/admin-figure-entry-tests.php
+          php tests/olx-oauth-tests.php
+          php tests/product-id-migration-tests.php
+          node tests/olx-http-tests.mjs
+          node tests/olx-identity-verification-tests.mjs
           php tests/location-stats-tests.php
           php tests/stats-browser-exclusion-http-tests.php
           php tests/traffic-chart-stats-tests.php
@@ -105,6 +110,9 @@ jobs:
           done
           sudo apt-get update -qq
           sudo apt-get install -y -qq lftp
+
+      - name: Finalny dry-run OLX na pełnym katalogu produkcyjnym
+        run: node scripts/olx-production-prepare.mjs preflight
 
       - name: Wyznacz prywatny katalog kopii
         id: paths
@@ -193,6 +201,17 @@ jobs:
           php scripts/migrate-owner-decisions-2026-09-14.php \
             --products="$backup_local/data/products.json" \
             --shipping="$backup_local/data/shipping-profiles.json"
+
+      - name: Migruj wyłącznie productId i przygotuj prywatny magazyn OLX
+        id: olx_prepare
+        env:
+          OLX_BACKUP_DIR: ${{ steps.paths.outputs.backup_dir }}
+          OLX_BACKUP_LOCAL: ${{ steps.paths.outputs.backup_local }}
+        run: node scripts/olx-production-prepare.mjs apply
+
+      - name: Usuń ewentualną blokadę zapisów panelu po przygotowaniu OLX
+        if: ${{ always() && steps.olx_prepare.outcome != 'skipped' }}
+        run: node scripts/olx-production-prepare.mjs restore
 
       - name: Wdróż przez bezpieczny FTPS
         id: deploy
