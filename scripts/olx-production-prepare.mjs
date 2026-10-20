@@ -20,8 +20,8 @@ function ftp(commands) {
   for (const name of ['FTP_SERVER', 'FTP_USERNAME', 'FTP_PASSWORD']) if (!env[name] || /[\r\n]/.test(env[name])) throw Error('Missing FTPS configuration');
   const program = ['set cmd:fail-exit yes', 'set ftp:ssl-force true', 'set ftp:ssl-protect-data true',
     'set ssl:verify-certificate true', 'set net:max-retries 2', 'set net:timeout 30', ...commands, 'bye'].join('\n');
-  const result = spawnSync('lftp', ['-u', `${env.FTP_USERNAME},${env.FTP_PASSWORD}`, `ftp://${env.FTP_SERVER}:21`, '-e', program],
-    { encoding: 'utf8', maxBuffer: 16 * 1024 * 1024 });
+  const result = spawnSync('lftp', ['-u', `${env.FTP_USERNAME},${env.FTP_PASSWORD}`, `ftp://${env.FTP_SERVER}:21`],
+    { input: program, encoding: 'utf8', maxBuffer: 16 * 1024 * 1024 });
   // lftp diagnostics contain protocol errors/paths, never transferred file bodies.
   // Redact connection credentials before reporting a failure; do not dump stdout.
   if (result.status !== 0) {
@@ -58,6 +58,7 @@ async function restoreMaintenance() {
 }
 const mode = process.argv[2];
 if (mode === 'preflight') {
+  console.log('FTPS account root (names only):\n' + ftp(['pwd', 'cls -1 -a .']));
   const bytes = await download(`${publicDir}/data/products.json`, saved('products-before.json'));
   const report = { phase: 'FINAL_DRY_RUN', ...identitySummary(JSON.parse(bytes)), sha256_before: sha(bytes) };
   await writeFile(saved('preflight.json'), JSON.stringify(report), { mode: 0o600 });
