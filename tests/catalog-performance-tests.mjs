@@ -75,6 +75,13 @@ const baselineWorkflow = execFileSync('git', ['show', '3129a98:.github/workflows
 const withoutPerformanceStep = workflow.replace(/      - name: Sprawdź zakres optymalizacji banerów i fontów\r?\n        run: \|\r?\n          git fetch --no-tags --depth=1 origin 3129a98f435fc75c6a6a12862889abd9b8892959(?: 54c4a6a5b3c212ec6556e5d9454cbd89fe1dfbbd)?\r?\n          node tests\/catalog-performance-tests\.mjs\r?\n\r?\n/, '')
   .replace(/          node tests\/listing-state-notes-tests\.mjs\r?\n/, '')
   .replace(/        # Merchant tests use only the just-fetched public snapshot, never old repo data\.\r?\n/, '')
-  .replace('run: HGO_SHOP_SALES_ENABLED=true php tests/merchant-feed-tests.php && php tests/merchant-local-tests.php && node scripts/build-getspace.mjs', 'run: node scripts/build-getspace.mjs');
-assert.equal(withoutPerformanceStep.replaceAll('\r\n','\n'), baselineWorkflow.replaceAll('\r\n','\n'), 'Only performance/state-note CI checks may change; FTPS exclusions, backup and rollback stay intact');
+  .replace('run: HGO_SHOP_SALES_ENABLED=true php tests/merchant-feed-tests.php && php tests/merchant-local-tests.php && node scripts/build-getspace.mjs', 'run: node scripts/build-getspace.mjs')
+  // Approved OLX additions run before deployment; keep comparing the remaining
+  // FTPS exclusions, full backup, catalogue safeguards and rollback unchanged.
+  .replace(/          extensions: curl, sodium\r?\n/, '')
+  .replace(/          (?:php tests\/(?:olx-oauth-tests|product-id-migration-tests)\.php|node tests\/(?:olx-http-tests|olx-identity-verification-tests)\.mjs)\r?\n/g, '')
+  .replace('cancel-in-progress: false', 'cancel-in-progress: true')
+  .replace(/      - name: Finalny dry-run OLX na pełnym katalogu produkcyjnym\r?\n        run: node scripts\/olx-production-prepare\.mjs preflight\r?\n\r?\n/, '')
+  .replace(/      - name: Migruj wyłącznie productId i przygotuj prywatny magazyn OLX\r?\n        id: olx_prepare\r?\n        env:\r?\n          OLX_BACKUP_DIR: \$\{\{ steps\.paths\.outputs\.backup_dir \}\}\r?\n          OLX_BACKUP_LOCAL: \$\{\{ steps\.paths\.outputs\.backup_local \}\}\r?\n        run: node scripts\/olx-production-prepare\.mjs apply\r?\n\r?\n      - name: Usuń ewentualną blokadę zapisów panelu po przygotowaniu OLX\r?\n        if: \$\{\{ always\(\) && steps\.olx_prepare\.outcome != 'skipped' \}\}\r?\n        run: node scripts\/olx-production-prepare\.mjs restore\r?\n\r?\n/, '');
+assert.equal(withoutPerformanceStep.replaceAll('\r\n','\n'), baselineWorkflow.replaceAll('\r\n','\n'), 'Only approved performance, Merchant and OLX additions may change; existing FTPS exclusions, full backup and rollback stay intact');
 console.log('PASS: performance assets, scoped layout, original content/SEO/cards/data, font licences');
