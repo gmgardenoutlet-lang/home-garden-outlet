@@ -22,8 +22,14 @@ function ftp(commands) {
     'set ssl:verify-certificate true', 'set net:max-retries 2', 'set net:timeout 30', ...commands, 'bye'].join('\n');
   const result = spawnSync('lftp', ['-u', `${env.FTP_USERNAME},${env.FTP_PASSWORD}`, `ftp://${env.FTP_SERVER}:21`, '-e', program],
     { encoding: 'utf8', maxBuffer: 16 * 1024 * 1024 });
-  // Never return raw errors/commands: the transport handles private catalogue/config files.
-  if (result.status !== 0) throw Error('FTPS operation failed; no remote diagnostic payload was logged');
+  // lftp diagnostics contain protocol errors/paths, never transferred file bodies.
+  // Redact connection credentials before reporting a failure; do not dump stdout.
+  if (result.status !== 0) {
+    let diagnostic = String(result.stderr || result.error?.code || 'No transport diagnostic');
+    for (const name of ['FTP_PASSWORD', 'FTP_USERNAME', 'FTP_SERVER']) diagnostic = diagnostic.replaceAll(env[name], '[REDACTED]');
+    diagnostic = diagnostic.replace(/ftp:\/\/[^\s]+/g, 'ftp://[REDACTED]');
+    throw Error(`FTPS operation failed (${result.status}): ${diagnostic.slice(0, 2000)}`);
+  }
   return result.stdout;
 }
 async function download(remote, local) {
