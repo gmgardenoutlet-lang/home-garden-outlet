@@ -48,10 +48,12 @@ async function restoreMaintenance() {
   let marker;
   try { marker = JSON.parse(await readFile(saved('maintenance-active.json'), 'utf8')); }
   catch (error) { if (error.code === 'ENOENT') return; throw error; }
-  const current = await download(`${publicDir}/.htaccess`, saved('htaccess-current'));
+  const remote = marker.remote || `${publicDir}/.htaccess`;
+  if (![`${publicDir}/.htaccess`, `${publicDir}/admin/.htaccess`].includes(remote)) throw Error('Unexpected maintenance target');
+  const current = await download(remote, saved('htaccess-current'));
   if (sha(current) !== marker.maintenanceHash && sha(current) !== marker.originalHash) throw Error('Unexpected .htaccess change: manual recovery required');
-  uploadAtomic(saved('htaccess-original'), `${publicDir}/.htaccess`, `${publicDir}/.htaccess.olx-restore`);
-  const restored = await download(`${publicDir}/.htaccess`, saved('htaccess-restored'));
+  uploadAtomic(saved('htaccess-original'), remote, `${remote}.olx-restore`);
+  const restored = await download(remote, saved('htaccess-restored'));
   if (sha(restored) !== marker.originalHash) throw Error('Maintenance restoration failed');
   await unlink(saved('maintenance-active.json'));
   console.log('Admin write maintenance removed; original server configuration restored.');
@@ -72,18 +74,23 @@ if (mode === 'preflight') {
   const backupBytes = await readFile(path.join(env.OLX_BACKUP_LOCAL, 'data/products.json'));
   if (sha(beforeBytes) !== sha(backupBytes)) throw Error('Catalogue changed between dry-run and full backup; rerun safely');
   if (identitySummary(JSON.parse(beforeBytes)).missing > 0) {
-  const original = await download(`${publicDir}/.htaccess`, saved('htaccess-original'));
-  const backedHtaccess = await readFile(path.join(env.OLX_BACKUP_LOCAL, '.htaccess'));
+  const maintenanceRemote = `${publicDir}/admin/.htaccess`;
+  const original = await download(maintenanceRemote, saved('htaccess-original'));
+  const backedHtaccess = await readFile(path.join(env.OLX_BACKUP_LOCAL, 'admin/.htaccess'));
   if (sha(original) !== sha(backedHtaccess)) throw Error('Server configuration changed during backup');
   // Only admin mutations can write products in the audited application.
   // Checkout/payment endpoints remain available. No logging directive is changed.
-  const maintenance = Buffer.concat([Buffer.from('<IfModule mod_rewrite.c>\nRewriteEngine On\nRewriteCond %{REQUEST_METHOD} !^(GET|HEAD|OPTIONS)$\nRewriteRule ^admin(?:/|$) - [R=503,L]\n</IfModule>\n'), original]);
+  const maintenance = Buffer.concat([Buffer.from('<IfModule mod_rewrite.c>\nRewriteEngine On\nRewriteCond %{REQUEST_METHOD} !^(GET|HEAD|OPTIONS)$\nRewriteRule ^ - [R=503,L]\n</IfModule>\n'), original]);
   await writeFile(saved('htaccess-maintenance'), maintenance);
-  await writeFile(saved('maintenance-active.json'), JSON.stringify({ originalHash: sha(original), maintenanceHash: sha(maintenance) }), { mode: 0o600 });
+  await writeFile(saved('maintenance-active.json'), JSON.stringify({ remote: maintenanceRemote, originalHash: sha(original), maintenanceHash: sha(maintenance) }), { mode: 0o600 });
   try {
-    uploadAtomic(saved('htaccess-maintenance'), `${publicDir}/.htaccess`, `${publicDir}/.htaccess.olx-maintenance`);
-    const response = await fetch('https://mgoutlet.pl/admin/', { method: 'POST', body: new URLSearchParams({ action: 'olx_maintenance_probe' }), redirect: 'manual' });
-    if (response.status !== 503) throw Error('Admin write maintenance was not confirmed');
+    uploadAtomic(saved('htaccess-maintenance'), maintenanceRemote, `${maintenanceRemote}.olx-maintenance`);
+    const installed = await download(maintenanceRemote, saved('htaccess-installed'));
+    if (sha(installed) !== sha(maintenance)) throw Error('Admin maintenance file verification failed');
+    for (const route of ['/admin/', '/admin/index.php', '/admin/api/google-business.php']) {
+      const response = await fetch('https://mgoutlet.pl' + route, { method: 'POST', body: new URLSearchParams({ action: 'olx_maintenance_probe' }), redirect: 'manual' });
+      if (response.status !== 503) throw Error(`Admin write maintenance was not confirmed for ${route}: HTTP ${response.status}`);
+    }
     if ((await fetch('https://mgoutlet.pl/')).status !== 200) throw Error('Public site unavailable during preparation');
     // Drain requests admitted before the write barrier. No new admin mutation is admitted.
     console.log('Admin writes blocked; waiting for existing requests to finish. Public catalogue stays available.');
