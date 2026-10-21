@@ -73,6 +73,8 @@ for (const filename of ['script.js','styles.css','hosting/getspace/catalog.php',
 const workflow = await readFile('.github/workflows/deploy-getspace.yml', 'utf8');
 const baselineWorkflow = execFileSync('git', ['show', '3129a98:.github/workflows/deploy-getspace.yml'], {encoding: 'utf8'});
 const withoutPerformanceStep = workflow.replace(/      - name: Sprawdź zakres optymalizacji banerów i fontów\r?\n        run: \|\r?\n          git fetch --no-tags --depth=1 origin 3129a98f435fc75c6a6a12862889abd9b8892959(?: 54c4a6a5b3c212ec6556e5d9454cbd89fe1dfbbd)?\r?\n          node tests\/catalog-performance-tests\.mjs\r?\n\r?\n/, '')
+  // GBP diagnostics adds only an isolated mock test, with no network or storage.
+  .replace(/          php -n tests\/google-business-diagnostics-tests\.php\r?\n/, '')
   .replace(/          node tests\/listing-state-notes-tests\.mjs\r?\n/, '')
   .replace(/        # Merchant tests use only the just-fetched public snapshot, never old repo data\.\r?\n/, '')
   .replace('run: HGO_SHOP_SALES_ENABLED=true php tests/merchant-feed-tests.php && php tests/merchant-local-tests.php && node scripts/build-getspace.mjs', 'run: node scripts/build-getspace.mjs')
