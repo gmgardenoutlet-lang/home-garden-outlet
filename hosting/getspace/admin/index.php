@@ -1385,6 +1385,7 @@ if ($showStats) {
         </div>
         <div class="field field-full google-api-actions">
           <button class="btn btn-secondary btn-small" type="button" data-google-action="discover_locations">Pobierz wizytówki z Google</button>
+          <button class="btn btn-secondary btn-small" type="button" data-google-action="read_test">Test odczytu OAuth, wizytówek i opinii</button>
           <button class="btn btn-secondary btn-small" type="button" data-google-action="refresh_reviews">Odśwież opinie z Google</button>
           <small>Po zapisaniu Client ID, Client secret i Refresh token kliknij tutaj. Panel pokaże Account ID i Location ID do wklejenia w pola powyżej.</small>
           <div class="google-api-result" data-google-result hidden></div>
@@ -1615,6 +1616,8 @@ if ($showStats) {
           <div class="field field-full google-api-actions">
             <button class="btn btn-secondary btn-small" type="button" data-google-action="config_status">Sprawdź konfigurację API</button>
             <button class="btn btn-secondary btn-small" type="button" data-google-action="preview">Sprawdź dane do Google</button>
+            <button class="btn btn-secondary btn-small" type="button" data-google-action="preview_photo">Podgląd requestu zdjęcia — bez wysyłki</button>
+            <button class="btn btn-secondary btn-small" type="button" data-google-action="preview_post">Podgląd requestu wpisu — bez wysyłki</button>
             <button class="btn btn-secondary btn-small" type="button" data-google-action="photo_upload">Wyślij zdjęcie do Google</button>
             <button class="btn btn-secondary btn-small" type="button" data-google-action="post_create">Utwórz post Google</button>
             <small>Jeśli tajna konfiguracja Google API nie jest ustawiona, panel pokaże tylko bezpieczny podgląd danych bez wysyłania.</small>

@@ -36,7 +36,7 @@ jobs:
         with:
           php-version: "8.3"
           tools: composer:v2
-          extensions: curl, sodium
+          extensions: curl, sodium, gd
 
       - name: Zainstaluj zależności PHP do artefaktu
         run: composer install --no-dev --prefer-dist --no-interaction --optimize-autoloader
@@ -50,6 +50,7 @@ jobs:
         run: |
           find hosting/getspace -name "*.php" -print0 | xargs -0 -n1 php -l
           php -n tests/google-business-diagnostics-tests.php
+          php tests/google-business-payload-tests.php
           HGO_SHOP_SALES_ENABLED=false HGO_PAYNOW_ENABLED=false php tests/shop-frontend-tests.php disabled
           HGO_STORAGE_DIR="$(mktemp -d)" HGO_SHOP_SALES_ENABLED=true php tests/shop-order-tests.php
           HGO_SHOP_SALES_ENABLED=true HGO_PAYNOW_ENABLED=false php tests/shop-frontend-tests.php enabled

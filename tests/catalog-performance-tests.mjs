@@ -75,12 +75,13 @@ const baselineWorkflow = execFileSync('git', ['show', '3129a98:.github/workflows
 const withoutPerformanceStep = workflow.replace(/      - name: Sprawdź zakres optymalizacji banerów i fontów\r?\n        run: \|\r?\n          git fetch --no-tags --depth=1 origin 3129a98f435fc75c6a6a12862889abd9b8892959(?: 54c4a6a5b3c212ec6556e5d9454cbd89fe1dfbbd)?\r?\n          node tests\/catalog-performance-tests\.mjs\r?\n\r?\n/, '')
   // GBP diagnostics adds only an isolated mock test, with no network or storage.
   .replace(/          php -n tests\/google-business-diagnostics-tests\.php\r?\n/, '')
+  .replace(/          php tests\/google-business-payload-tests\.php\r?\n/, '')
   .replace(/          node tests\/listing-state-notes-tests\.mjs\r?\n/, '')
   .replace(/        # Merchant tests use only the just-fetched public snapshot, never old repo data\.\r?\n/, '')
   .replace('run: HGO_SHOP_SALES_ENABLED=true php tests/merchant-feed-tests.php && php tests/merchant-local-tests.php && node scripts/build-getspace.mjs', 'run: node scripts/build-getspace.mjs')
   // Approved OLX additions run before deployment; keep comparing the remaining
   // FTPS exclusions, full backup, catalogue safeguards and rollback unchanged.
-  .replace(/          extensions: curl, sodium\r?\n/, '')
+  .replace(/          extensions: curl, sodium(?:, gd)?\r?\n/, '')
   .replace(/          (?:php tests\/(?:olx-oauth-tests|product-id-migration-tests)\.php|node tests\/(?:olx-http-tests|olx-identity-verification-tests)\.mjs)\r?\n/g, '')
   .replace('cancel-in-progress: false', 'cancel-in-progress: true')
   .replace(/      - name: Finalny dry-run OLX na pełnym katalogu produkcyjnym\r?\n        run: node scripts\/olx-production-prepare\.mjs preflight\r?\n\r?\n/, '')

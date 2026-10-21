@@ -197,7 +197,7 @@ document.querySelectorAll("[data-google-action]").forEach((button) => {
     const csrf = form?.querySelector('input[name="csrf"]')?.value || "";
     const index = form?.querySelector('input[name="index"]')?.value || "";
     const googleAction = button.dataset.googleAction || "";
-    const needsProduct = !["config_status", "discover_locations", "refresh_reviews"].includes(googleAction);
+    const needsProduct = !["config_status", "discover_locations", "refresh_reviews", "read_test"].includes(googleAction);
     if (!form || !result || csrf === "" || (needsProduct && index === "")) return;
 
     const previousText = button.textContent;
@@ -223,7 +223,8 @@ document.querySelectorAll("[data-google-action]").forEach((button) => {
       const data = await response.json().catch(() => ({}));
       if (!response.ok || data.ok === false) {
         const errorDetails = data.error ? `\n\nSzczegóły: ${data.error}` : "";
-        throw new Error((data.message || "Nie udało się wykonać akcji Google.") + errorDetails);
+        const diagnostic = data.diagnostic ? `\n\nGoogle API error\n${JSON.stringify(data.diagnostic, null, 2)}` : "";
+        throw new Error((data.message || "Nie udało się wykonać akcji Google.") + errorDetails + diagnostic);
       }
 
       const updates = data.productUpdates || {};
@@ -248,7 +249,10 @@ document.querySelectorAll("[data-google-action]").forEach((button) => {
         ? `\n\nBrakuje w konfiguracji: ${data.configStatus.missing.join(", ")}`
         : "";
       result.classList.add(data.dryRun ? "is-warning" : "is-success");
-      result.textContent = `${data.message || "Gotowe."}${missingConfig}${locations}${reviewsInfo}${details}`;
+      const requests = data.requests ? `\n\nRequesty (bez wysyłki w podglądzie):\n${JSON.stringify(data.requests, null, 2)}` : "";
+      const imageInfo = data.image?.conversion
+        ? `\n\nKopia JPG dla Google: ${data.image.prepared ? "istnieje" : "zostanie utworzona dopiero przy publikacji"}. Oryginał WEBP pozostaje bez zmian.` : "";
+      result.textContent = `${data.message || "Gotowe."}${missingConfig}${locations}${reviewsInfo}${details}${requests}${imageInfo}`;
     } catch (error) {
       result.classList.add("is-error");
       result.textContent = error instanceof Error ? error.message : "Nie udało się wykonać akcji Google.";

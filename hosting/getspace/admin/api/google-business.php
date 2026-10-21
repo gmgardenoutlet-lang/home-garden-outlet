@@ -2,6 +2,7 @@
 declare(strict_types=1);
 
 require __DIR__ . '/../lib.php';
+require_once __DIR__ . '/../google-business-support.php';
 boot_admin();
 
 header('Content-Type: application/json; charset=utf-8');
@@ -15,7 +16,9 @@ function gbp_json(int $status, array $payload): void
 
 function gbp_config(): array
 {
-    return load_google_business_config();
+    $config = load_google_business_config();
+    foreach (['client_secret', 'refresh_token'] as $key) gbp_register_secret((string)($config[$key] ?? ''));
+    return $config;
 }
 
 function gbp_clean_url(string $path, string $siteUrl): string
@@ -69,6 +72,12 @@ function gbp_config_status(array $config): array
 
 class GbpRequestException extends RuntimeException
 {
+    public array $diagnostic;
+    public function __construct(string $message, array $diagnostic = [])
+    {
+        parent::__construct($message);
+        $this->diagnostic = gbp_safe($diagnostic);
+    }
 }
 
 function gbp_public_error(Throwable $exception): string
@@ -90,6 +99,11 @@ function gbp_request(string $url, array $options): array
         'mybusinessaccountmanagement.googleapis.com' => 'accounts_list',
         'mybusinessbusinessinformation.googleapis.com' => 'locations_list',
     ][$host] ?? 'business_request';
+    if ($host === 'mybusiness.googleapis.com') {
+        $path = (string)parse_url($url, PHP_URL_PATH);
+        $stage = str_ends_with($path, '/media') ? 'photo_create'
+            : (str_ends_with($path, '/localPosts') ? 'post_create' : 'reviews_list');
+    }
     if (!function_exists('curl_init')) {
         throw new GbpRequestException('Google: etap=' . $stage . '; kod=curl_unavailable');
     }
@@ -118,7 +132,18 @@ function gbp_request(string $url, array $options): array
             'invalid_scope', 'access_denied', 'INVALID_ARGUMENT', 'UNAUTHENTICATED',
             'PERMISSION_DENIED', 'NOT_FOUND', 'RESOURCE_EXHAUSTED', 'UNAVAILABLE', 'INTERNAL'];
         $code = in_array($candidate, $allowed, true) ? $candidate : 'http_error';
-        throw new GbpRequestException('Google: etap=' . $stage . '; HTTP=' . $status . '; kod=' . $code);
+        $diagnostic = ['stage' => $stage, 'http' => $status, 'code' => $code, 'endpoint' => $url];
+        // OAuth bodies contain credentials. Only publication diagnostics retain a
+        // redacted request/response, in authenticated admin output/private logs.
+        if (in_array($stage, ['photo_create', 'post_create'], true)) {
+            $headers = array_map(static fn($header) => trim(explode(':', $header, 2)[0]), $options[CURLOPT_HTTPHEADER] ?? []);
+            $diagnostic += ['method' => 'POST', 'headerNames' => $headers,
+                'payload' => json_decode((string)($options[CURLOPT_POSTFIELDS] ?? ''), true),
+                'message' => is_array($error) ? ($error['message'] ?? '') : '',
+                'responseBody' => is_array($decoded) ? $decoded : '[Non-JSON response omitted]'];
+            gbp_log(['action' => 'publication_diagnostic', 'diagnostic' => gbp_safe($diagnostic)]);
+        }
+        throw new GbpRequestException('Google: etap=' . $stage . '; HTTP=' . $status . '; kod=' . $code, $diagnostic);
     }
 
     if (!is_array($decoded)) {
@@ -129,6 +154,7 @@ function gbp_request(string $url, array $options): array
 
 function gbp_access_token(array $config): string
 {
+    foreach (['client_secret', 'refresh_token'] as $key) gbp_register_secret((string)($config[$key] ?? ''));
     $response = gbp_request('https://oauth2.googleapis.com/token', [
         CURLOPT_POST => true,
         CURLOPT_POSTFIELDS => http_build_query([
@@ -144,49 +170,29 @@ function gbp_access_token(array $config): string
     if ($token === '') {
         throw new GbpRequestException('Google: etap=oauth_exchange; kod=missing_access_token');
     }
+    gbp_register_secret($token);
     return $token;
+}
+
+function gbp_send_publication(array $config, array $payload, string $token, string $action): array
+{
+    gbp_register_secret($token);
+    $request = gbp_publication_request($config, $payload, $action);
+    return gbp_request($request['endpoint'], [
+        CURLOPT_POST => true,
+        CURLOPT_POSTFIELDS => json_encode($request['payload'], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR),
+        CURLOPT_HTTPHEADER => ['Authorization: Bearer ' . $token, 'Content-Type: application/json'],
+    ]);
 }
 
 function gbp_create_media(array $config, array $payload, string $token): array
 {
-    $parent = 'accounts/' . rawurlencode((string)$config['account_id']) . '/locations/' . rawurlencode((string)$config['location_id']);
-    return gbp_request('https://mybusiness.googleapis.com/v4/' . $parent . '/media', [
-        CURLOPT_POST => true,
-        CURLOPT_POSTFIELDS => json_encode([
-            'mediaFormat' => 'PHOTO',
-            'locationAssociation' => ['category' => 'PRODUCT'],
-            'sourceUrl' => $payload['imageUrl'],
-        ], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE),
-        CURLOPT_HTTPHEADER => [
-            'Authorization: Bearer ' . $token,
-            'Content-Type: application/json',
-        ],
-    ]);
+    return gbp_send_publication($config, $payload, $token, 'photo_upload');
 }
 
 function gbp_create_post(array $config, array $payload, string $token): array
 {
-    $parent = 'accounts/' . rawurlencode((string)$config['account_id']) . '/locations/' . rawurlencode((string)$config['location_id']);
-    return gbp_request('https://mybusiness.googleapis.com/v4/' . $parent . '/localPosts', [
-        CURLOPT_POST => true,
-        CURLOPT_POSTFIELDS => json_encode([
-            'languageCode' => 'pl-PL',
-            'summary' => $payload['summary'],
-            'topicType' => 'STANDARD',
-            'callToAction' => [
-                'actionType' => 'LEARN_MORE',
-                'url' => $payload['productUrl'],
-            ],
-            'media' => [[
-                'mediaFormat' => 'PHOTO',
-                'sourceUrl' => $payload['imageUrl'],
-            ]],
-        ], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE),
-        CURLOPT_HTTPHEADER => [
-            'Authorization: Bearer ' . $token,
-            'Content-Type: application/json',
-        ],
-    ]);
+    return gbp_send_publication($config, $payload, $token, 'post_create');
 }
 
 function gbp_discover_locations(array $config, string $token): array
@@ -271,7 +277,7 @@ function gbp_rating_number(string $rating): int
     }
 }
 
-function gbp_refresh_reviews(array $config, string $token): array
+function gbp_refresh_reviews(array $config, string $token, bool $save = true): array
 {
     $url = 'https://mybusiness.googleapis.com/v4/accounts/'
         . rawurlencode((string)$config['account_id'])
@@ -320,6 +326,8 @@ function gbp_refresh_reviews(array $config, string $token): array
         'reviews' => $reviews,
     ];
 
+    if (!$save) return $payload;
+
     $file = SITE_ROOT . '/data/google-reviews.json';
     if (!is_dir(dirname($file))) {
         @mkdir(dirname($file), 0755, true);
@@ -334,6 +342,7 @@ function gbp_refresh_reviews(array $config, string $token): array
 
 function gbp_log(array $entry): void
 {
+    $entry = gbp_safe($entry);
     if (!is_dir(STORAGE_DIR)) {
         @mkdir(STORAGE_DIR, 0750, true);
     }
@@ -360,12 +369,20 @@ try {
     require_csrf();
 
     $googleAction = post_text('google_action');
-    if (!in_array($googleAction, ['config_status', 'discover_locations', 'refresh_reviews', 'preview', 'photo_upload', 'post_create'], true)) {
+    if (!in_array($googleAction, ['config_status', 'discover_locations', 'refresh_reviews', 'read_test', 'preview', 'preview_photo', 'preview_post', 'photo_upload', 'post_create'], true)) {
         gbp_json(400, ['ok' => false, 'message' => 'Nieznana akcja Google.']);
     }
 
     $config = gbp_config();
     $configStatus = gbp_config_status($config);
+
+    if ($googleAction === 'read_test') {
+        $token = gbp_access_token($config);
+        $locations = gbp_discover_locations($config, $token);
+        $reviews = gbp_refresh_reviews($config, $token, false);
+        gbp_json(200, ['ok' => true, 'dryRun' => true, 'message' => 'OAuth, konta, lokalizacje i opinie: odczyt OK. Bez zapisu i publikacji.',
+            'locations' => $locations, 'reviewsCount' => count($reviews['reviews']), 'configStatus' => $configStatus]);
+    }
 
     if ($googleAction === 'config_status') {
         gbp_json(200, [
@@ -439,8 +456,14 @@ try {
 
     $product = array_merge(product_defaults(), $catalog['products'][$index]);
     $payload = gbp_product_payload($product, $config);
+    $originalImageUrl = $payload['imageUrl'];
+    $image = gbp_google_image($originalImageUrl, (string)$config['site_url'], SITE_ROOT);
+    $payload['imageUrl'] = $image['sourceUrl'];
     $canSend = gbp_can_send($config);
-    $dryRun = !$canSend;
+    $dryRun = !$canSend || in_array($googleAction, ['preview', 'preview_photo', 'preview_post'], true);
+    $actions = $googleAction === 'preview' ? ['photo_upload', 'post_create']
+        : [in_array($googleAction, ['preview_photo', 'photo_upload'], true) ? 'photo_upload' : 'post_create'];
+    $requests = array_map(static fn($action) => gbp_publication_request($config, $payload, $action), $actions);
 
     $baseResponse = [
         'ok' => true,
@@ -451,19 +474,25 @@ try {
         'payload' => $payload,
         'configReady' => $canSend,
         'configStatus' => $configStatus,
+        'requests' => $requests,
+        'image' => $image,
     ];
 
-    if ($googleAction === 'preview' || $dryRun) {
+    if ($dryRun) {
         gbp_log([
             'product' => (string)($product['slug'] ?? $product['name'] ?? ''),
             'name' => (string)($product['name'] ?? ''),
             'action' => $googleAction,
             'status' => 'dry_run',
             'message' => 'Bez wysyłki do Google.',
+            'requests' => $requests,
+            'image' => $image,
         ]);
         gbp_json(200, $baseResponse);
     }
 
+    // Only a real, explicitly selected publication may create the Google JPG.
+    gbp_google_image($originalImageUrl, (string)$config['site_url'], SITE_ROOT, true);
     $token = gbp_access_token($config);
     $now = date('Y-m-d H:i:s');
 
@@ -482,7 +511,7 @@ try {
             'status' => 'success',
             'mediaId' => $mediaId,
         ]);
-        gbp_json(200, $baseResponse + [
+        gbp_json(200, array_replace($baseResponse, [
             'message' => 'Zdjęcie wysłane do Google Business Profile.',
             'productUpdates' => [
                 'googleStatus' => 'Wysłano',
@@ -490,7 +519,7 @@ try {
                 'googleMediaId' => $mediaId,
                 'googleError' => '',
             ],
-        ]);
+        ]));
     }
 
     if ($googleAction === 'post_create') {
@@ -508,7 +537,7 @@ try {
             'status' => 'success',
             'postId' => $postId,
         ]);
-        gbp_json(200, $baseResponse + [
+        gbp_json(200, array_replace($baseResponse, [
             'message' => 'Post utworzony w Google Business Profile.',
             'productUpdates' => [
                 'googleStatus' => 'Wysłano',
@@ -516,7 +545,7 @@ try {
                 'googlePostId' => $postId,
                 'googleError' => '',
             ],
-        ]);
+        ]));
     }
 } catch (Throwable $exception) {
     $publicError = gbp_public_error($exception);
@@ -529,5 +558,6 @@ try {
         'ok' => false,
         'message' => 'Nie udało się wykonać akcji Google. Sprawdź konfigurację API albo spróbuj ponownie.',
         'error' => $publicError,
+        'diagnostic' => $exception instanceof GbpRequestException ? $exception->diagnostic : null,
     ]);
 }

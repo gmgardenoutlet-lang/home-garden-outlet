@@ -1,7 +1,7 @@
 Options -Indexes
 DirectoryIndex index.php
 
-<FilesMatch "^(\.credentials\.php|\.user\.ini|lib\.php|product-identity\.php|google-business-config\.example\.php)$">
+<FilesMatch "^(\.credentials\.php|\.user\.ini|lib\.php|product-identity\.php|google-business-support\.php|google-business-config\.example\.php)$">
   Require all denied
 </FilesMatch>
 

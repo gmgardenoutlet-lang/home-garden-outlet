@@ -17,6 +17,7 @@ function curl_getinfo($handle, $option) { return $GLOBALS['responses'][0]['statu
 function curl_close($handle) { array_shift($GLOBALS['responses']); }
 
 $source = file_get_contents(__DIR__ . '/../hosting/getspace/admin/api/google-business.php');
+require __DIR__ . '/../hosting/getspace/admin/google-business-support.php';
 $start = strpos($source, 'class GbpRequestException');
 $end = strpos($source, 'function gbp_create_media');
 eval(substr($source, $start, $end - $start));
