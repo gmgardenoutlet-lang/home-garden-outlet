@@ -130,7 +130,14 @@ if (mode === 'preflight') {
       non_identity_data: 'UNCHANGED', migration: 'NOT_NEEDED', backup: env.OLX_BACKUP_DIR });
   }
   // Never overwrite an existing secret/key. The new configuration has an EMPTY client secret.
-  ftp([`mkdir -p ${q(privateDir + '/storage')}`, `chmod 700 ${q(privateDir)}`, `chmod 700 ${q(privateDir + '/storage')}`]);
+  // This FTPS server returns 550 for mkdir -p on an existing directory.
+  // Inspect its parent first; transport/listing failures must still stop deployment.
+  for (const directory of [privateDir, privateDir + '/storage']) {
+    const siblings = ftp([`cls -1 -a ${q(path.posix.dirname(directory) + '/')}`]);
+    const present = siblings.split(/\r?\n/).some(line => path.posix.basename(line.trim()) === path.posix.basename(directory));
+    if (!present) ftp([`mkdir ${q(directory)}`]);
+    ftp([`chmod 700 ${q(directory)}`]);
+  }
   const listing = ftp([`cls -1 -a ${q(privateDir + '/')}`]);
   const exists = listing.split(/\r?\n/).some(line => path.posix.basename(line.trim()) === 'config.php');
   if (!exists) {
