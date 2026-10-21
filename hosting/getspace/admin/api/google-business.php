@@ -67,8 +67,15 @@ function gbp_config_status(array $config): array
     return google_business_config_status($config);
 }
 
+class GbpRequestException extends RuntimeException
+{
+}
+
 function gbp_public_error(Throwable $exception): string
 {
+    if ($exception instanceof GbpRequestException) {
+        return $exception->getMessage();
+    }
     if (preg_match('/token|secret|client|refresh|credential|authorization/i', $exception->getMessage())) {
         return 'Nie udało się wykonać akcji Google. Sprawdź konfigurację API.';
     }
@@ -77,8 +84,14 @@ function gbp_public_error(Throwable $exception): string
 
 function gbp_request(string $url, array $options): array
 {
+    $host = (string)parse_url($url, PHP_URL_HOST);
+    $stage = [
+        'oauth2.googleapis.com' => 'oauth_exchange',
+        'mybusinessaccountmanagement.googleapis.com' => 'accounts_list',
+        'mybusinessbusinessinformation.googleapis.com' => 'locations_list',
+    ][$host] ?? 'business_request';
     if (!function_exists('curl_init')) {
-        throw new RuntimeException('Na serwerze PHP brakuje rozszerzenia cURL.');
+        throw new GbpRequestException('Google: etap=' . $stage . '; kod=curl_unavailable');
     }
 
     $curl = curl_init($url);
@@ -90,20 +103,28 @@ function gbp_request(string $url, array $options): array
 
     $body = curl_exec($curl);
     $status = (int)curl_getinfo($curl, CURLINFO_HTTP_CODE);
-    $error = curl_error($curl);
     curl_close($curl);
 
     if ($body === false) {
-        throw new RuntimeException($error !== '' ? $error : 'Nie udało się połączyć z Google API.');
+        throw new GbpRequestException('Google: etap=' . $stage . '; kod=transport_error');
     }
 
     $decoded = json_decode((string)$body, true);
     if ($status < 200 || $status >= 300) {
-        $message = is_array($decoded) ? (string)($decoded['error']['message'] ?? $decoded['error_description'] ?? 'Błąd Google API') : 'Błąd Google API';
-        throw new RuntimeException($message);
+        // Never expose response bodies, descriptions, URLs or credential values.
+        $error = is_array($decoded) ? ($decoded['error'] ?? null) : null;
+        $candidate = is_string($error) ? $error : (is_array($error) ? ($error['status'] ?? '') : '');
+        $allowed = ['invalid_grant', 'invalid_client', 'unauthorized_client', 'invalid_request',
+            'invalid_scope', 'access_denied', 'INVALID_ARGUMENT', 'UNAUTHENTICATED',
+            'PERMISSION_DENIED', 'NOT_FOUND', 'RESOURCE_EXHAUSTED', 'UNAVAILABLE', 'INTERNAL'];
+        $code = in_array($candidate, $allowed, true) ? $candidate : 'http_error';
+        throw new GbpRequestException('Google: etap=' . $stage . '; HTTP=' . $status . '; kod=' . $code);
     }
 
-    return is_array($decoded) ? $decoded : [];
+    if (!is_array($decoded)) {
+        throw new GbpRequestException('Google: etap=' . $stage . '; kod=invalid_response');
+    }
+    return $decoded;
 }
 
 function gbp_access_token(array $config): string
@@ -121,7 +142,7 @@ function gbp_access_token(array $config): string
 
     $token = (string)($response['access_token'] ?? '');
     if ($token === '') {
-        throw new RuntimeException('Google nie zwrócił access tokena.');
+        throw new GbpRequestException('Google: etap=oauth_exchange; kod=missing_access_token');
     }
     return $token;
 }
@@ -188,19 +209,15 @@ function gbp_discover_locations(array $config, string $token): array
             continue;
         }
 
-        try {
-            $locationsResponse = gbp_request(
-                'https://mybusinessbusinessinformation.googleapis.com/v1/' . $accountName . '/locations?readMask=name,title,storefrontAddress,phoneNumbers,websiteUri',
-                [
-                    CURLOPT_HTTPHEADER => [
-                        'Authorization: Bearer ' . $token,
-                        'Content-Type: application/json',
-                    ],
-                ]
-            );
-        } catch (Throwable $exception) {
-            $locationsResponse = ['locations' => []];
-        }
+        $locationsResponse = gbp_request(
+            'https://mybusinessbusinessinformation.googleapis.com/v1/' . $accountName . '/locations?readMask=name,title,storefrontAddress,phoneNumbers,websiteUri',
+            [
+                CURLOPT_HTTPHEADER => [
+                    'Authorization: Bearer ' . $token,
+                    'Content-Type: application/json',
+                ],
+            ]
+        );
 
         foreach (($locationsResponse['locations'] ?? []) as $location) {
             if (!is_array($location)) {
