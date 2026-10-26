@@ -18,6 +18,11 @@ await writeFile(path.join(temp, 'config.php'), `<?php return [
  'OLX_STORAGE_DIR' => ${phpString(path.join(temp, 'vault'))},
  'OLX_CALLBACK_LOGS_REDACTED' => '1',
 ];`);
+// Only this temporary callback copy uses a synthetic transport. Production has no test switch.
+const callbackFixture = (await readFile(path.join(root, 'hosting/getspace/admin/olx/callback.php'), 'utf8'))
+  .replace("require __DIR__ . '/lib.php';", `require ${phpString(path.join(root, 'hosting/getspace/admin/olx/lib.php'))};`)
+  .replace("isset($_GET['error']), time());", "isset($_GET['error']), time(), static fn() => ['access_token'=>'fixture-access', 'refresh_token'=>'fixture-refresh', 'expires_in'=>3600, 'scope'=>'v2 read write', 'token_type'=>'bearer']);");
+await writeFile(path.join(temp, 'callback.php'), callbackFixture);
 await writeFile(path.join(temp, 'router.php'), `<?php
  $path = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH);
  if ($path === '/fixture-login') {
@@ -25,7 +30,7 @@ await writeFile(path.join(temp, 'router.php'), `<?php
    boot_admin(); $_SESSION['logged_in'] = true; $_SESSION['username'] = 'fixture';
    header('Content-Type: application/json'); echo json_encode(['csrf'=>csrf_token()]); return;
  }
- if ($path === '/admin/olx/callback') { require ${phpString(path.join(root, 'hosting/getspace/admin/olx/callback.php'))}; return; }
+ if ($path === '/admin/olx/callback') { require ${phpString(path.join(temp, 'callback.php'))}; return; }
  return false;
 `);
 const portProbe = net.createServer();
@@ -93,33 +98,33 @@ try {
   const authorize = new URL(response.headers.get('location'));
   assert.equal(authorize.origin, 'https://www.olx.pl');
   const state = authorize.searchParams.get('state');
-  const callback = `/admin/olx/callback?state=${state}&code=fixture-code-NEVER-REAL`;
-  response = await request(callback); // deliberately no admin cookie
-  assert.equal(response.status, 200);
-  assert.equal(response.headers.get('set-cookie'), null, 'callback does not replace missing Strict cookie');
+  const successfulCallback = `/admin/olx/callback?state=${state}&code=fixture-code-NEVER-REAL`;
+  response = await request(successfulCallback); // no Strict admin cookie
+  assert.equal(response.status, 303);
+  assert.equal(response.headers.get('location'), '/admin/olx/return.php');
+  assert.equal(response.headers.get('set-cookie'), null);
+  assert(!(await response.text()).includes('fixture-code-NEVER-REAL'));
+  response = await request(successfulCallback);
+  assert.equal(response.status, 400, 'replayed callback rejected');
+  response = await request('/admin/olx/', { headers: { cookie } });
+  assert.match(await response.text(), /Połączone/);
+  // Invalid callbacks must reject without an exchange or touching the Strict cookie.
+  response = await request('/admin/olx/callback?state=invalid&code=fixture-code-NEVER-REAL');
+  assert.equal(response.status, 400);
+  assert.equal(response.headers.get('set-cookie'), null);
   assert.equal(response.headers.get('referrer-policy'), 'no-referrer');
-  const html = await response.text();
-  assert(!html.includes('fixture-code-NEVER-REAL'), 'authorization code never returned to browser');
-  const resume = html.match(/\?resume=([a-f0-9]{64})/)[1];
-  response = await request(callback);
-  assert.equal(response.status, 400, 'callback replay rejected');
-  response = await request(`/admin/olx/?resume=${resume}`, { headers: { cookie } });
-  assert.match(await response.text(), /Dokończ połączenie OLX/);
-  // Use another authenticated session: it must never exchange the fixture code.
-  response = await request('/fixture-login');
-  const otherCookie = response.headers.get('set-cookie').split(';')[0];
-  const otherCsrf = (await response.json()).csrf;
-  response = await post({ action: 'finish', csrf: otherCsrf, resume }, otherCookie);
-  assert.equal(response.headers.get('location'), null, 'other session rejected before exchange');
-  assert.match(await response.text(), /rozpocznij połączenie OLX ponownie/);
+  assert(!(await response.text()).includes('fixture-code-NEVER-REAL'));
+  response = await request('/admin/olx/callback');
+  assert.equal(response.status, 400);
+  response = await request('/admin/olx/return.php');
+  assert.equal(response.headers.get('set-cookie'), null);
+  assert.match(await response.text(), /content="0;url=\/admin\/olx\/\?connected=1"/);
   response = await post({ action: 'disconnect', csrf, confirm_disconnect: 'yes' }, cookie);
   assert.equal(response.status, 303);
-  response = await request(`/admin/olx/?resume=${resume}`, { headers: { cookie } });
-  assert.match(await response.text(), /Niepołączone/);
   await worker('seed');
   await Promise.all([worker('refresh'), worker('refresh')]);
   assert.equal(await readFile(path.join(temp, 'refresh-count'), 'utf8'), '+', 'parallel callers perform one refresh');
-  console.log('PASS: OLX HTTP login, Strict cookie, CSRF, cookie-free callback, replay, session binding, disconnect, concurrent refresh');
+  console.log('PASS: OLX HTTP login, Strict cookie, CSRF, cookie-free callback, clean return, disconnect, concurrent refresh');
 } finally {
   server.kill();
   await new Promise(resolve => { if (server.exitCode !== null) resolve(); else server.once('exit', resolve); });

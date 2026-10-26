@@ -11,7 +11,9 @@ final class OlxSafeException extends RuntimeException {}
 function olx_error(string $kind = 'config'): OlxSafeException
 {
     $messages = [
-        'config' => 'OLX nie jest skonfigurowany. Sprawdź prywatną konfigurację i ochronę logów callbacku.',
+        'config' => 'OLX nie jest skonfigurowany. Sprawdź prywatną konfigurację.',
+        'secret' => 'Brak Client Secret w prywatnej konfiguracji OLX.',
+        'logs' => 'Brak potwierdzenia polityki logów hostingu dla OAuth.',
         'state' => 'Brakujący, nieprawidłowy lub wygasły state OLX. Rozpocznij połączenie ponownie.',
         'session' => 'Wróć do panelu, zaloguj się i rozpocznij połączenie OLX ponownie.',
         'storage' => 'Nie można bezpiecznie odczytać lub zapisać magazynu OLX.',
@@ -52,15 +54,18 @@ function olx_config(): array
         'redirect_uri' => $read('OLX_REDIRECT_URI', OLX_REDIRECT_URI),
         'key' => $read('OLX_TOKEN_KEY'),
         'dir' => $read('OLX_STORAGE_DIR', dirname($file) . '/storage'),
-        // Set only after the hosting operator confirms every logging layer.
+        // Redaction and explicitly accepted shared-host logging are distinct policies.
         'logs_safe' => $read('OLX_CALLBACK_LOGS_REDACTED') === '1',
+        'logs_risk_accepted' => $read('OLX_SHARED_HOST_LOGGING_ACCEPTED') === '1',
     ];
 }
 
 function olx_validate_config(array $config): string
 {
     $key = base64_decode($config['key'], true);
-    if (!$config['logs_safe'] || $config['secret'] === '' || $config['client_id'] !== '203399'
+    if ($config['secret'] === '') throw olx_error('secret');
+    if (empty($config['logs_safe']) && empty($config['logs_risk_accepted'])) throw olx_error('logs');
+    if ($config['client_id'] !== '203399'
         || $config['redirect_uri'] !== OLX_REDIRECT_URI
         || !function_exists('sodium_crypto_secretbox') || !function_exists('curl_init') || !is_string($key) || strlen($key) !== 32
         || !is_dir($config['dir']) || !olx_outside_webroot($config['dir']) || !is_writable($config['dir'])) {
@@ -124,22 +129,33 @@ function olx_start(array $config, string $binding, int $now): string
     });
 }
 
-/** Cookie-independent callback: consume state before accepting any code. No session_start here. */
-function olx_callback(array $config, string $state, string $code, bool $denied, int $now): string
+/** Cookie-independent callback. State is consumed before one immediate exchange.
+ * No session_start: the administrator's SameSite=Strict cookie is never replaced.
+ * Authorization code exists only in request memory, never in the vault.
+ */
+function olx_callback(array $config, string $state, string $code, bool $denied, int $now, ?callable $transport = null): void
 {
     if (!preg_match('/^[a-f0-9]{64}$/D', $state)) throw olx_error('state');
-    return olx_locked($config, static function (array $vault, string $key) use ($config, $state, $code, $denied, $now): string {
+    olx_locked($config, static function (array $vault, string $key) use ($config, $state, $code, $denied, $now, $transport): void {
         $record = $vault['state'] ?? [];
         if (!isset($record['hash']) || !hash_equals($record['hash'], hash('sha256', $state))) throw olx_error('state');
-        unset($vault['state']);
-        olx_write_vault($config, $key, $vault); // Consume even if expired/denied; replay cannot succeed.
+        unset($vault['state'], $vault['pending']);
+        olx_write_vault($config, $key, $vault);
         if (($record['expires'] ?? 0) <= $now) throw olx_error('state');
         if ($denied || $code === '' || strlen($code) > 4096) throw olx_error('auth');
-        $handle = bin2hex(random_bytes(32));
-        $vault['pending'] = ['hash' => hash('sha256', $handle), 'binding' => $record['binding'],
-            'code' => $code, 'expires' => min($now + 120, $record['expires'])];
+        try {
+            $data = ($transport ?? 'olx_http_token')($config, ['grant_type' => 'authorization_code',
+                'code' => $code, 'scope' => OLX_SCOPE, 'redirect_uri' => $config['redirect_uri']]);
+            $vault['tokens'] = olx_tokens($data, $now);
+            $vault['status'] = 'connected';
+            $vault['connected_at'] = $now;
+            unset($vault['error']);
+        } catch (Throwable $e) {
+            $vault['error'] = 'auth';
+            olx_write_vault($config, $key, $vault);
+            throw $e instanceof OlxSafeException ? $e : olx_error('auth');
+        }
         olx_write_vault($config, $key, $vault);
-        return $handle;
     });
 }
 
@@ -174,32 +190,7 @@ function olx_tokens(array $data, int $now, ?string $oldRefresh = null): array
         || strtolower((string)($data['token_type'] ?? '')) !== 'bearer'
         || array_diff(['read', 'write', 'v2'], $scope)) throw olx_error('auth');
     return ['access' => $data['access_token'], 'refresh' => $refresh,
-        'expires' => $now + (int)$data['expires_in'], 'scope' => OLX_SCOPE];
-}
-
-function olx_finish(array $config, string $handle, string $binding, int $now, ?callable $transport = null): void
-{
-    olx_locked($config, static function (array $vault, string $key) use ($config, $handle, $binding, $now, $transport): void {
-        $pending = $vault['pending'] ?? [];
-        if (!preg_match('/^[a-f0-9]{64}$/D', $handle) || !isset($pending['hash'])
-            || !hash_equals($pending['hash'], hash('sha256', $handle))
-            || !hash_equals($pending['binding'], $binding)) throw olx_error('session');
-        unset($vault['pending']);
-        olx_write_vault($config, $key, $vault);
-        if ($pending['expires'] <= $now) throw olx_error('state');
-        try {
-            $data = ($transport ?? 'olx_http_token')($config, ['grant_type' => 'authorization_code',
-                'code' => $pending['code'], 'scope' => OLX_SCOPE, 'redirect_uri' => $config['redirect_uri']]);
-            $vault['tokens'] = olx_tokens($data, $now);
-            $vault['status'] = 'connected';
-            unset($vault['error']);
-        } catch (Throwable $e) {
-            $vault['error'] = 'auth';
-            olx_write_vault($config, $key, $vault);
-            throw olx_error('auth');
-        }
-        olx_write_vault($config, $key, $vault);
-    });
+        'expires' => $now + (int)$data['expires_in'], 'created_at' => $now, 'scope' => implode(' ', $scope)];
 }
 
 /** Server-only. Called on demand, never by product save or a catalogue job. */
@@ -244,4 +235,34 @@ function olx_status(array $config): string
         if (isset($vault['error'])) return 'Błąd autoryzacji';
         return 'Niepołączone';
     });
+}
+
+/** Read-only authenticated probe; never returns account data to HTML or logs. */
+function olx_check_account(array $config, int $now): void
+{
+    $token = olx_access_token($config, $now);
+    $ch = curl_init('https://www.olx.pl/api/partner/users/me');
+    curl_setopt_array($ch, [CURLOPT_RETURNTRANSFER => true, CURLOPT_CONNECTTIMEOUT => 10,
+        CURLOPT_TIMEOUT => 25, CURLOPT_FOLLOWLOCATION => false, CURLOPT_SSL_VERIFYPEER => true,
+        CURLOPT_SSL_VERIFYHOST => 2, CURLOPT_PROTOCOLS => CURLPROTO_HTTPS,
+        CURLOPT_HTTPHEADER => ['Accept: application/json', 'Version: 2.0', 'Authorization: Bearer ' . $token]]);
+    $body = curl_exec($ch);
+    $status = (int)curl_getinfo($ch, CURLINFO_HTTP_CODE);
+    curl_close($ch);
+    if (!is_string($body) || $status !== 200 || strlen($body) > 65536) throw olx_error('network');
+    $data = json_decode($body, true);
+    if (!is_array($data) || (!isset($data['id']) && !isset($data['data']['id']))) throw olx_error('auth');
+}
+
+/** Runtime checks use only a random temporary sentinel, never remote OAuth. */
+function olx_preflight(array $config): array
+{
+    olx_validate_config($config);
+    $probe = tempnam($config['dir'], '.preflight-');
+    if ($probe === false) throw olx_error('storage');
+    try {
+        if (!chmod($probe, 0600) || file_put_contents($probe, 'preflight') !== 9
+            || file_get_contents($probe) !== 'preflight') throw olx_error('storage');
+    } finally { if (is_file($probe)) unlink($probe); }
+    return ['config' => 'OK', 'storage' => 'OK', 'sodium' => 'OK', 'curl' => 'OK'];
 }

@@ -28,19 +28,20 @@ $start = static function (int $time) use ($config, $binding): string {
 try {
     olx_reject(fn() => olx_start(array_replace($config, ['logs_safe' => false]), $binding, $now), 'unverified hosting logs');
     olx_reject(fn() => olx_start(array_replace($config, ['dir' => dirname(__DIR__)]), $binding, $now), 'public/repository storage');
+    olx_assert(olx_preflight($config)['storage'] === 'OK', 'runtime preflight');
+    olx_validate_config(array_replace($config, ['logs_safe' => false, 'logs_risk_accepted' => true]));
+    olx_reject(fn() => olx_validate_config(array_replace($config, ['secret' => ''])), 'missing secret');
     olx_assert(olx_status($config) === 'Niepołączone', 'initial status');
     $state = $start($now);
     olx_reject(fn() => olx_callback($config, '', 'fixture-code', false, $now), 'missing state');
     olx_reject(fn() => olx_callback($config, str_repeat('a', 64), 'fixture-code', false, $now), 'wrong state');
-    $handle = olx_callback($config, $state, 'fixture-code', false, $now + 1);
-    olx_assert($requests === [], 'callback never exchanges before admin verification');
-    olx_reject(fn() => olx_callback($config, $state, 'fixture-code', false, $now + 1), 'state replay');
-    olx_reject(fn() => olx_finish($config, $handle, 'wrong-session', $now + 2, $transport), 'other admin session');
-    olx_assert($requests === [], 'wrong session never reaches token endpoint');
-    olx_finish($config, $handle, $binding, $now + 2, $transport);
-    olx_assert(count($requests) === 1 && $requests[0]['grant_type'] === 'authorization_code', 'single code exchange');
+    olx_callback($config, $state, 'fixture-code', false, $now + 1, $transport);
+    olx_assert(count($requests) === 1 && $requests[0]['grant_type'] === 'authorization_code', 'immediate single exchange');
+    $vault = olx_locked($config, static fn($vault) => $vault);
+    olx_assert(!isset($vault['state']) && !isset($vault['pending']) && !str_contains(json_encode($vault), 'fixture-code'), 'code never persisted; state consumed');
+    olx_reject(fn() => olx_callback($config, $state, 'fixture-code', false, $now + 2, $transport), 'state replay');
+    olx_assert(count($requests) === 1, 'replay never reaches transport');
     olx_assert(olx_status($config) === 'Połączone', 'connected');
-    olx_reject(fn() => olx_finish($config, $handle, $binding, $now + 3, $transport), 'finish replay');
     olx_assert(olx_access_token($config, $now + 3, $transport) === 'fixture-access-1' && count($requests) === 1, 'valid token cached');
     olx_assert(olx_access_token($config, $now + 3600, $transport) === 'fixture-access-2', 'expired token refresh');
     olx_assert($requests[1]['refresh_token'] === 'fixture-refresh-1', 'refresh token sent');
@@ -57,9 +58,6 @@ try {
     olx_reject(fn() => olx_callback($config, $state, '', true, $now), 'denied OAuth');
     olx_reject(fn() => olx_callback($config, $state, 'fixture-code', false, $now), 'denied state consumed');
     $state = $start($now);
-    $handle = olx_callback($config, $state, 'fixture-code', false, $now);
-    olx_reject(fn() => olx_finish($config, $handle, $binding, $now + 121, $transport), 'expired pending code');
-    $state = $start($now);
     $replacement = $start($now);
     olx_reject(fn() => olx_callback($config, $state, 'fixture-code', false, $now), 'replaced attempt');
     olx_disconnect($config);
@@ -67,8 +65,15 @@ try {
     olx_assert(olx_status($config) === 'Niepołączone', 'disconnected');
     olx_reject(fn() => olx_access_token($config, $now, $transport), 'disconnected token');
     $state = $start($now);
-    $handle = olx_callback($config, $state, 'fixture-code', false, $now);
-    olx_finish($config, $handle, $binding, $now, $transport);
+    olx_reject(fn() => olx_callback($config, $state, 'fixture-code', false, $now,
+        static function () { throw new RuntimeException('PRIVATE_REMOTE_BODY'); }), 'failed exchange');
+    $failed = olx_locked($config, static fn($vault) => $vault);
+    olx_assert(!isset($failed['state']) && !isset($failed['pending'])
+        && !str_contains(json_encode($failed), 'fixture-code')
+        && !str_contains(json_encode($failed), 'PRIVATE_REMOTE_BODY'), 'failed exchange retains neither code nor raw error');
+    olx_reject(fn() => olx_callback($config, $state, 'fixture-code', false, $now, $transport), 'failed exchange cannot replay');
+    $state = $start($now);
+    olx_callback($config, $state, 'fixture-code', false, $now, $transport);
     $fail = static function (): array { throw new RuntimeException('DO_NOT_LEAK_REMOTE_RESPONSE'); };
     olx_reject(fn() => olx_access_token($config, $now + 3600, $fail), 'refresh failure');
     olx_assert(olx_status($config) === 'Wymaga ponownego połączenia', 'failed refresh status');
