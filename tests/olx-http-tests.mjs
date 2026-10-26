@@ -94,8 +94,10 @@ try {
   response = await post({ action: 'connect', csrf: 'wrong' }, cookie);
   assert.equal(response.headers.get('location'), null, 'bad CSRF cannot redirect to OLX');
   response = await post({ action: 'connect', csrf }, cookie);
-  assert.equal(response.status, 303);
-  const authorize = new URL(response.headers.get('location'));
+  assert.equal(response.status, 200, 'same-origin POST document avoids form-action external redirect');
+  assert.equal(response.headers.get('location'), null);
+  const authorizationPage = await response.text();
+  const authorize = new URL(authorizationPage.match(/content="0;url=([^"]+)"/)[1].replaceAll('&amp;', '&'));
   assert.equal(authorize.origin, 'https://www.olx.pl');
   const state = authorize.searchParams.get('state');
   const successfulCallback = `/admin/olx/callback?state=${state}&code=fixture-code-NEVER-REAL`;

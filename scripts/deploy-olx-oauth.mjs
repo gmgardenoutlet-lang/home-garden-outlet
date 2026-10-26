@@ -1,5 +1,5 @@
 import { spawnSync } from 'node:child_process';
-import { readFile, mkdir, writeFile } from 'node:fs/promises';
+import { readFile, mkdir, writeFile, copyFile } from 'node:fs/promises';
 import { createHash } from 'node:crypto';
 import path from 'node:path';
 
@@ -26,15 +26,25 @@ if (!reuse) {
   ftp([`mirror --parallel=4 ${quote(root)} ${quote(local)}`,
     `mirror --reverse --parallel=4 ${quote(local)} ${quote(backup)}`]);
 } else {
-  // A completed full backup can be reused only after byte-for-byte comparison
-  // of current catalogue and every existing PHP file that would be replaced.
+  // A completed full backup can be reused only with an unchanged catalogue.
+  // Preserve the latest PHP separately as a verified incremental rollback copy.
+  const patchBackup = backup + `/patch-${env.GITHUB_RUN_ID}-${env.GITHUB_RUN_ATTEMPT}`;
+  ftp([`mkdir -p ${quote(patchBackup)}`]);
   for (const file of ['data/products.json', 'admin/olx/lib.php', 'admin/olx/callback.php', 'admin/olx/index.php']) {
     const saved = path.join(local, file);
     const current = saved + '.current';
     await mkdir(path.dirname(saved), { recursive: true, mode: 0o700 });
     ftp([`get ${quote(backup + '/' + file)} -o ${quote(saved)}`,
       `get ${quote(root + '/' + file)} -o ${quote(current)}`]);
-    if (sha(await readFile(saved)) !== sha(await readFile(current))) throw Error('Existing backup differs from production; full new backup required');
+    if (file === 'data/products.json') {
+      if (sha(await readFile(saved)) !== sha(await readFile(current))) throw Error('Existing backup catalogue differs from production; full new backup required');
+    } else {
+      await copyFile(current, saved);
+      const check = saved + '.verified';
+      const remote = patchBackup + '/' + path.posix.basename(file);
+      ftp([`put ${quote(saved)} -o ${quote(remote)}`, `get ${quote(remote)} -o ${quote(check)}`]);
+      if (sha(await readFile(saved)) !== sha(await readFile(check))) throw Error('Incremental code backup verification failed');
+    }
   }
 }
 const before = await readFile(path.join(local, 'data/products.json'));

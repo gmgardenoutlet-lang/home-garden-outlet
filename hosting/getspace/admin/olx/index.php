@@ -20,7 +20,14 @@ try {
         $action = post_text('action');
         if ($action === 'connect') {
             $url = olx_start($config, $binding, time());
-            header('Location: ' . $url, true, 303);
+            // Keep the POST response on this origin: form-action 'self' also
+            // constrains external form redirects in Chromium. Navigation from
+            // this document is a GET, without changing the administrator CSP.
+            header('Content-Type: text/html; charset=utf-8');
+            header('Cache-Control: no-store, max-age=0');
+            header('Referrer-Policy: no-referrer');
+            echo '<!doctype html><html lang="pl"><meta charset="utf-8"><meta http-equiv="refresh" content="0;url=' . e($url) . '">'
+                . '<title>Połączenie z OLX</title><p>Przejście do autoryzacji OLX.</p><p><a rel="noreferrer" href="' . e($url) . '">Przejdź do OLX</a></p></html>';
             exit;
         } elseif ($action === 'disconnect' && post_text('confirm_disconnect') === 'yes') {
             olx_disconnect($config);

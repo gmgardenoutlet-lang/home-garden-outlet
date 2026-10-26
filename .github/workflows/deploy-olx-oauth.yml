@@ -3,7 +3,7 @@ on:
   workflow_dispatch:
     inputs:
       backup_name:
-        description: 'Optional previously completed OLX backup; current products and OLX PHP must match it'
+        description: 'Optional completed full OLX backup; products must match, current PHP is backed up separately'
         required: false
         default: ''
 permissions:
