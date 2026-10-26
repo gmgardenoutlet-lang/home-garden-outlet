@@ -61,6 +61,7 @@ $flashes = pull_flashes();
 <p>Status konta: <strong><?= e($status) ?></strong></p>
 <p>Konfiguracja: <?= $ready ? 'Gotowa' : 'Niekompletna lub zablokowana' ?>. Sekrety i tokeny są dostępne wyłącznie po stronie serwera.</p>
 <p>Publikacja produktów pozostaje wyłączona na tym etapie.</p>
+<p><a class="btn btn-secondary" href="/admin/olx/prepare.php">Kategorie, mapowanie i szkice OLX</a></p>
 <?php if ($ready): ?><p>Preflight: konfiguracja, zapis magazynu, sodium i cURL — OK.</p><?php endif; ?>
 <?php if ($message !== ''): ?><div class="flash flash-error"><?= e($message) ?></div><?php endif; ?>
 <?php foreach ($flashes as $flash): ?><div class="flash flash-<?= e($flash['type']) ?>"><?= e($flash['message']) ?></div><?php endforeach; ?>

@@ -4,7 +4,7 @@ import { mkdtemp, mkdir, writeFile, readFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { randomBytes } from 'node:crypto';
+import { randomBytes, createHash } from 'node:crypto';
 import net from 'node:net';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
@@ -23,6 +23,22 @@ const callbackFixture = (await readFile(path.join(root, 'hosting/getspace/admin/
   .replace("require __DIR__ . '/lib.php';", `require ${phpString(path.join(root, 'hosting/getspace/admin/olx/lib.php'))};`)
   .replace("isset($_GET['error']), time());", "isset($_GET['error']), time(), static fn() => ['access_token'=>'fixture-access', 'refresh_token'=>'fixture-refresh', 'expires_in'=>3600, 'scope'=>'v2 read write', 'token_type'=>'bearer']);");
 await writeFile(path.join(temp, 'callback.php'), callbackFixture);
+const preparationProduct = { productId: 'prd_'+'a'.repeat(32), name: 'Konsola drewniana biała do salonu', category: 'Meble',
+  description: 'Opis produktu z katalogu. '.repeat(5), longDescription: '', outletPrice: '240 zł', catalogPrice: '900 zł',
+  slug: 'fixture', currency: 'PLN', image: '/uploads/fixture.webp', gallery: [] };
+const preparationFixture = (await readFile(path.join(root, 'hosting/getspace/admin/olx/prepare.php'), 'utf8'))
+  .replace("require __DIR__ . '/../lib.php';", `require ${phpString(path.join(root, 'hosting/getspace/admin/lib.php'))};`)
+  .replace("require __DIR__ . '/prepare-lib.php';", `require ${phpString(path.join(root, 'hosting/getspace/admin/olx/prepare-lib.php'))};`)
+  .replace('$catalog = load_catalog();', `$catalog = json_decode(${phpString(JSON.stringify({products:[preparationProduct]}))}, true);`);
+await writeFile(path.join(temp, 'prepare.php'), preparationFixture);
+await mkdir(path.join(temp, 'vault/cache'), {mode:0o700});
+const category = {id:99,name:'Konsole',parent_id:1,is_leaf:true,photos_limit:2};
+const definitions = [{code:'state',label:'Stan',validation:{required:true,type:'attribute'},values:[{code:'used',label:'Używane'}]}];
+for (const [apiPath,data] of [['/categories',[{id:1,name:'Dom',is_leaf:false,parent_id:null},category]],['/currencies',[{code:'PLN'}]],
+  ['/categories/99',category],['/categories/99/attributes',definitions],['/cities/10',{id:10,name:'Fixture'}],['/cities/10/districts',[]]]) {
+  const key=createHash('sha256').update(apiPath+'[]').digest('hex');
+  await writeFile(path.join(temp,'vault/cache',key+'.json'),JSON.stringify({data,expires:Math.floor(Date.now()/1000)+3600}),{mode:0o600});
+}
 await writeFile(path.join(temp, 'router.php'), `<?php
  $path = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH);
  if ($path === '/fixture-login') {
@@ -31,6 +47,7 @@ await writeFile(path.join(temp, 'router.php'), `<?php
    header('Content-Type: application/json'); echo json_encode(['csrf'=>csrf_token()]); return;
  }
  if ($path === '/admin/olx/callback') { require ${phpString(path.join(temp, 'callback.php'))}; return; }
+ if ($path === '/admin/olx/prepare.php') { require ${phpString(path.join(temp, 'prepare.php'))}; return; }
  return false;
 `);
 const portProbe = net.createServer();
@@ -89,6 +106,25 @@ try {
   assert.match(setCookie, /SameSite=Strict/i);
   const cookie = setCookie.split(';')[0];
   const { csrf } = await response.json();
+  const preparePath='/admin/olx/prepare.php?productId='+preparationProduct.productId;
+  response=await request(preparePath); assert.equal(response.status,302,'anonymous preview denied');
+  response=await request(preparePath,{headers:{cookie}});
+  let preparationHtml=await response.text(); assert.match(preparationHtml,/PAYLOAD PREVIEW/); assert.match(preparationHtml,/value="240"/);
+  assert(!preparationHtml.includes('fixture-access') && !preparationHtml.includes('fixture-refresh'),'no tokens in preview');
+  const prepPost=fields=>request(preparePath,{method:'POST',headers:{cookie},body:new URLSearchParams(fields)});
+  response=await prepPost({action:'category',csrf:'wrong',selectedCategoryId:'99'});
+  assert(!(await response.text()).includes('Kategoria szkicu zatwierdzona'),'CSRF protects category draft');
+  response=await prepPost({action:'category',csrf,selectedCategoryId:'99'});
+  assert.match(await response.text(),/Kategoria szkicu zatwierdzona/);
+  response=await prepPost({action:'save',csrf,titleOverride:preparationProduct.name,descriptionOverride:preparationProduct.description,
+    priceOverride:'230',currency:'PLN','selectedImages[]':'https://mgoutlet.pl/uploads/fixture.webp','attributeValues[state]':'used',
+    city_id:'10',district_id:'0',contact_name:'Outlet',contact_phone:'577210777'});
+  preparationHtml=await response.text(); assert.match(preparationHtml,/Gotowe lokalnie/); assert.match(preparationHtml,/Zapisano wyłącznie osobny szkic/);
+  const savedDraft=JSON.parse(await readFile(path.join(temp,'vault/drafts',preparationProduct.productId+'.json'),'utf8'));
+  assert.equal(savedDraft.priceOverride,230); assert.equal(preparationProduct.outletPrice,'240 zł'); assert(!('advert_id' in savedDraft));
+  response=await request('/admin/olx/prepare.php',{method:'POST',headers:{cookie},body:new URLSearchParams({action:'map',csrf,sourceCategory:'Meble',mappingCategory:'99'})});
+  assert.match(await response.text(),/Zapisano mapowanie/);
+  assert.equal(JSON.parse(await readFile(path.join(temp,'vault/settings/mapping.json'),'utf8')).mappings.Meble.category_id,99);
   response = await request('/admin/olx/', { headers: { cookie } });
   assert.match(await response.text(), /Niepołączone/);
   response = await post({ action: 'connect', csrf: 'wrong' }, cookie);

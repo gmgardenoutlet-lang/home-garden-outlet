@@ -1,5 +1,5 @@
 Options -Indexes
 DirectoryIndex index.php
-<Files "lib.php">
+<FilesMatch "^(lib|prepare-lib)\.php$">
   Require all denied
-</Files>
+</FilesMatch>

@@ -2,6 +2,11 @@ name: Deploy OLX OAuth code only
 on:
   workflow_dispatch:
     inputs:
+      stage:
+        description: 'OLX code deployment scope'
+        type: choice
+        options: [oauth, preparation]
+        default: oauth
       backup_name:
         description: 'Optional completed full OLX backup; products must match, current PHP is backed up separately'
         required: false
@@ -20,6 +25,7 @@ jobs:
       FTP_PASSWORD: ${{ secrets.FTP_PASSWORD }}
       FTP_REMOTE_DIR: ${{ secrets.FTP_REMOTE_DIR }}
       OLX_REUSE_BACKUP: ${{ inputs.backup_name }}
+      OLX_DEPLOY_STAGE: ${{ inputs.stage }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -33,6 +39,7 @@ jobs:
         run: |
           find hosting/getspace/admin/olx -name '*.php' -exec php -l {} \;
           php tests/olx-oauth-tests.php
+          php tests/olx-preparation-tests.php
           node tests/olx-http-tests.mjs
       - name: Install FTPS client
         run: sudo apt-get update -qq && sudo apt-get install -y lftp

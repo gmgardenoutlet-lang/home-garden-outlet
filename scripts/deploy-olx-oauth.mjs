@@ -1,5 +1,5 @@
 import { spawnSync } from 'node:child_process';
-import { readFile, mkdir, writeFile, copyFile } from 'node:fs/promises';
+import { readFile, mkdir, writeFile } from 'node:fs/promises';
 import { createHash } from 'node:crypto';
 import path from 'node:path';
 
@@ -21,31 +21,43 @@ function ftp(commands) {
     encoding: 'utf8', maxBuffer: 32 * 1024 * 1024,
   });
   if (result.status !== 0) throw Error('FTPS operation failed; no protocol or credential details are logged');
+  return result.stdout;
 }
+const stage = env.OLX_DEPLOY_STAGE || 'oauth';
+if (!['oauth', 'preparation'].includes(stage)) throw Error('Unknown OLX deployment scope');
+const files = stage === 'preparation'
+  ? ['admin/olx/prepare-lib.php', 'admin/olx/.htaccess', 'admin/olx/prepare.php', 'admin/olx/index.php', 'admin/index.php']
+  : ['admin/olx/lib.php', 'admin/olx/callback.php', 'admin/olx/return.php', 'admin/olx/index.php'];
+const patchBackup = backup + `/patch-${env.GITHUB_RUN_ID}-${env.GITHUB_RUN_ATTEMPT}`;
 if (!reuse) {
   ftp([`mirror --parallel=4 ${quote(root)} ${quote(local)}`,
     `mirror --reverse --parallel=4 ${quote(local)} ${quote(backup)}`]);
 } else {
-  // A completed full backup can be reused only with an unchanged catalogue.
-  // Preserve the latest PHP separately as a verified incremental rollback copy.
-  const patchBackup = backup + `/patch-${env.GITHUB_RUN_ID}-${env.GITHUB_RUN_ATTEMPT}`;
-  ftp([`mkdir -p ${quote(patchBackup)}`]);
-  for (const file of ['data/products.json', 'admin/olx/lib.php', 'admin/olx/callback.php', 'admin/olx/index.php']) {
-    const saved = path.join(local, file);
-    const current = saved + '.current';
-    await mkdir(path.dirname(saved), { recursive: true, mode: 0o700 });
-    ftp([`get ${quote(backup + '/' + file)} -o ${quote(saved)}`,
-      `get ${quote(root + '/' + file)} -o ${quote(current)}`]);
-    if (file === 'data/products.json') {
-      if (sha(await readFile(saved)) !== sha(await readFile(current))) throw Error('Existing backup catalogue differs from production; full new backup required');
-    } else {
-      await copyFile(current, saved);
-      const check = saved + '.verified';
-      const remote = patchBackup + '/' + path.posix.basename(file);
-      ftp([`put ${quote(saved)} -o ${quote(remote)}`, `get ${quote(remote)} -o ${quote(check)}`]);
-      if (sha(await readFile(saved)) !== sha(await readFile(check))) throw Error('Incremental code backup verification failed');
-    }
+  await mkdir(path.join(local, 'data'), { recursive: true, mode: 0o700 });
+  ftp([`get ${quote(backup + '/data/products.json')} -o ${quote(path.join(local, 'data/products.json'))}`,
+    `get ${quote(root + '/data/products.json')} -o ${quote(path.join(local, 'data/products.current.json'))}`]);
+  if (sha(await readFile(path.join(local, 'data/products.json'))) !== sha(await readFile(path.join(local, 'data/products.current.json'))))
+    throw Error('Existing full backup catalogue differs from production; full new backup required');
+}
+// Preserve every existing file from the current production revision separately.
+// New code is staged outside webroot, never as downloadable PHP source.
+const originals = new Set();
+ftp([`mkdir -p ${quote(patchBackup + '/stage/admin/olx')}`, `mkdir -p ${quote(patchBackup + '/original/admin/olx')}`]);
+const listings = new Map();
+for (const file of files) {
+  const dir = path.posix.dirname(file);
+  if (!listings.has(dir)) listings.set(dir, ftp([`cls -1 -a ${quote(root + '/' + dir)}`]));
+  const exists = listings.get(dir).split(/\r?\n/).some(line => path.posix.basename(line.trim().replace(/\/$/, '')) === path.posix.basename(file));
+  if (!exists) {
+    if (!['admin/olx/prepare.php','admin/olx/prepare-lib.php','admin/olx/return.php'].includes(file)) throw Error('Missing expected production code');
+    continue;
   }
+  originals.add(file);
+  const saved = path.join(local, file); await mkdir(path.dirname(saved), { recursive: true, mode: 0o700 });
+  ftp([`get ${quote(root + '/' + file)} -o ${quote(saved)}`,
+    `put ${quote(saved)} -o ${quote(patchBackup + '/original/' + file)}`,
+    `get ${quote(patchBackup + '/original/' + file)} -o ${quote(saved + '.verified')}`]);
+  if (sha(await readFile(saved)) !== sha(await readFile(saved + '.verified'))) throw Error('Code rollback backup verification failed');
 }
 const before = await readFile(path.join(local, 'data/products.json'));
 const products = JSON.parse(before).products;
@@ -54,31 +66,41 @@ await mkdir(path.join(local, 'verification'), { recursive: true });
 const verified = path.join(local, 'verification/products.json');
 ftp([`get ${quote(backup + '/data/products.json')} -o ${quote(verified)}`]);
 if (sha(before) !== sha(await readFile(verified))) throw Error('Backup verification failed');
-const files = ['lib.php', 'callback.php', 'index.php', 'return.php'];
 let deployed = false;
 try {
-  // Stage every file before exposing the new callback. Panel is replaced last.
-  ftp(files.map(file => `put ${quote('hosting/getspace/admin/olx/' + file)} -o ${quote(root + '/admin/olx/' + file + '.oauth-stage')}`));
+  ftp(files.map(file => `put ${quote('hosting/getspace/' + file)} -o ${quote(patchBackup + '/stage/' + file)}`));
+  // Recheck current code immediately before swapping, preventing stale overwrite.
+  for (const file of originals) {
+    const check = path.join(local, file + '.pre-swap');
+    ftp([`get ${quote(root + '/' + file)} -o ${quote(check)}`]);
+    if (sha(await readFile(check)) !== sha(await readFile(path.join(local, file)))) throw Error('Production code changed during preparation');
+  }
   deployed = true;
-  ftp(files.map(file => `mv ${quote(root + '/admin/olx/' + file + '.oauth-stage')} ${quote(root + '/admin/olx/' + file)}`));
+  ftp(files.map(file => `mv ${quote(patchBackup + '/stage/' + file)} ${quote(root + '/' + file)}`));
   for (const file of files) {
-    const target = path.join(local, 'verification', file);
-    ftp([`get ${quote(root + '/admin/olx/' + file)} -o ${quote(target)}`]);
-    if (sha(await readFile(target)) !== sha(await readFile('hosting/getspace/admin/olx/' + file))) throw Error('Code verification failed');
+    const target = path.join(local, 'verification', path.basename(file));
+    ftp([`get ${quote(root + '/' + file)} -o ${quote(target)}`]);
+    if (sha(await readFile(target)) !== sha(await readFile('hosting/getspace/' + file))) throw Error('Code verification failed');
   }
   ftp([`get ${quote(root + '/data/products.json')} -o ${quote(verified)}`]);
   if (sha(before) !== sha(await readFile(verified))) throw Error('Catalogue changed concurrently; no catalogue writes performed by this job');
 } catch (error) {
   if (deployed) {
-    // Restore only prior OLX PHP, never products or other production files.
-    ftp(['lib.php', 'callback.php', 'index.php'].flatMap(file => [
-      `put ${quote(path.join(local, 'admin/olx', file))} -o ${quote(root + '/admin/olx/' + file + '.rollback-stage')}`,
-      `mv ${quote(root + '/admin/olx/' + file + '.rollback-stage')} ${quote(root + '/admin/olx/' + file)}`,
-    ]));
+    for (const file of files) {
+      if (originals.has(file)) ftp([
+        `put ${quote(path.join(local, file))} -o ${quote(patchBackup + '/stage/' + file)}`,
+        `mv ${quote(patchBackup + '/stage/' + file)} ${quote(root + '/' + file)}`,
+      ]);
+      else {
+        const check = path.join(local, 'verification', path.basename(file) + '.rollback-check');
+        ftp([`get ${quote(root + '/' + file)} -o ${quote(check)}`]);
+        if (sha(await readFile(check)) === sha(await readFile('hosting/getspace/' + file))) ftp([`rm ${quote(root + '/' + file)}`]);
+      }
+    }
   }
   throw error;
 }
-const report = { backup, products: products.length, products_sha256_before: sha(before), products_sha256_after: sha(await readFile(verified)),
-  products_modified: false, changed_files: files.map(f => 'admin/olx/' + f), oauth_started: false, adverts_modified: false };
+const report = { backup, patch_backup: patchBackup, stage, products: products.length, products_sha256_before: sha(before), products_sha256_after: sha(await readFile(verified)),
+  products_modified: false, changed_files: files, oauth_started: false, adverts_modified: false };
 console.log(JSON.stringify(report, null, 2));
 await writeFile(env.GITHUB_STEP_SUMMARY, '```json\n' + JSON.stringify(report, null, 2) + '\n```\n', { flag: 'a' });

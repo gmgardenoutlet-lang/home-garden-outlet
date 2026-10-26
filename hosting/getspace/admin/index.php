@@ -1413,6 +1413,9 @@ if ($showStats) {
         <div class="form-actions"><button class="btn" type="submit">Sprawdź i importuj katalog</button><a class="btn btn-secondary" href="/admin/">Anuluj</a></div>
       </form>
     <?php elseif ($newProduct || $editing): ?>
+      <?php if ($editing && !empty($product['productId'])): ?>
+      <section class="card"><strong>OLX: Nie wystawiono</strong><p><a class="btn btn-secondary" href="/admin/olx/prepare.php?productId=<?= e($product['productId']) ?>">Przygotuj ogłoszenie OLX</a></p><small>Otwiera osobny szkic. Nie publikuje ani nie zmienia produktu.</small></section>
+      <?php endif; ?>
       <div class="page-heading">
         <div><p class="muted">Katalog produktów</p><h1><?= $editing ? 'Edytuj produkt' : 'Dodaj nowy produkt' ?></h1></div>
         <a class="btn btn-secondary" href="/admin/">Wróć do listy</a>
