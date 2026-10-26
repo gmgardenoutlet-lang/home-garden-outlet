@@ -1,6 +1,11 @@
 name: Deploy OLX OAuth code only
 on:
   workflow_dispatch:
+    inputs:
+      backup_name:
+        description: 'Optional previously completed OLX backup; current products and OLX PHP must match it'
+        required: false
+        default: ''
 permissions:
   contents: read
 concurrency:
@@ -14,6 +19,7 @@ jobs:
       FTP_USERNAME: ${{ secrets.FTP_USERNAME }}
       FTP_PASSWORD: ${{ secrets.FTP_PASSWORD }}
       FTP_REMOTE_DIR: ${{ secrets.FTP_REMOTE_DIR }}
+      OLX_REUSE_BACKUP: ${{ inputs.backup_name }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4

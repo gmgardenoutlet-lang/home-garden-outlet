@@ -8,20 +8,35 @@ const env = process.env;
 const root = (env.FTP_REMOTE_DIR || '').replace(/\/$/, '');
 if (!env.RUNNER_TEMP || !/(^|\/)public_html$/.test(root)) throw Error('Invalid deployment environment');
 const local = path.join(env.RUNNER_TEMP, 'olx-oauth-production-backup');
-const backup = path.posix.join(path.posix.dirname(root), 'private_backups', `olx-oauth-${env.GITHUB_RUN_ID}-${env.GITHUB_RUN_ATTEMPT}`);
+const reuse = env.OLX_REUSE_BACKUP || '';
+if (reuse && !/^olx-oauth-\d+-\d+$/.test(reuse)) throw Error('Invalid backup name');
+const backup = path.posix.join(path.posix.dirname(root), 'private_backups', reuse || `olx-oauth-${env.GITHUB_RUN_ID}-${env.GITHUB_RUN_ATTEMPT}`);
 const quote = value => '"' + value.replaceAll('\\', '\\\\').replaceAll('"', '\\"') + '"';
 const sha = bytes => createHash('sha256').update(bytes).digest('hex');
 await mkdir(local, { recursive: true, mode: 0o700 });
 function ftp(commands) {
   const result = spawnSync('lftp', ['-u', `${env.FTP_USERNAME},${env.FTP_PASSWORD}`, `ftp://${env.FTP_SERVER}:21`], {
     input: ['set cmd:fail-exit yes', 'set ftp:ssl-force true', 'set ftp:ssl-protect-data true',
-      'set ssl:verify-certificate true', 'set net:max-retries 2', 'set net:timeout 30', ...commands, 'bye'].join('\n'),
+      'set ssl:verify-certificate true', 'set net:max-retries 2', 'set net:timeout 30', 'set xfer:clobber yes', ...commands, 'bye'].join('\n'),
     encoding: 'utf8', maxBuffer: 32 * 1024 * 1024,
   });
   if (result.status !== 0) throw Error('FTPS operation failed; no protocol or credential details are logged');
 }
-ftp([`mirror --parallel=4 ${quote(root)} ${quote(local)}`,
-  `mirror --reverse --parallel=4 ${quote(local)} ${quote(backup)}`]);
+if (!reuse) {
+  ftp([`mirror --parallel=4 ${quote(root)} ${quote(local)}`,
+    `mirror --reverse --parallel=4 ${quote(local)} ${quote(backup)}`]);
+} else {
+  // A completed full backup can be reused only after byte-for-byte comparison
+  // of current catalogue and every existing PHP file that would be replaced.
+  for (const file of ['data/products.json', 'admin/olx/lib.php', 'admin/olx/callback.php', 'admin/olx/index.php']) {
+    const saved = path.join(local, file);
+    const current = saved + '.current';
+    await mkdir(path.dirname(saved), { recursive: true, mode: 0o700 });
+    ftp([`get ${quote(backup + '/' + file)} -o ${quote(saved)}`,
+      `get ${quote(root + '/' + file)} -o ${quote(current)}`]);
+    if (sha(await readFile(saved)) !== sha(await readFile(current))) throw Error('Existing backup differs from production; full new backup required');
+  }
+}
 const before = await readFile(path.join(local, 'data/products.json'));
 const products = JSON.parse(before).products;
 if (!Array.isArray(products) || products.length === 0) throw Error('Invalid backup catalogue');
