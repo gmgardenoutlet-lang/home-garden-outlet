@@ -94,8 +94,13 @@ function olx_category_select(string $name, array $categories, int $selected = 0)
     echo '</select>';
 }
 ?>
-<!doctype html><html lang="pl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>OLX — przygotowanie ogłoszenia</title><link rel="stylesheet" href="/admin/style.css"></head>
-<body><main class="container"><p><a href="/admin/olx/">Wróć do OLX</a> · <a href="/admin/olx/prepare.php">Kategorie i produkty</a></p>
+<!doctype html><html lang="pl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>OLX — przygotowanie ogłoszenia</title><link rel="stylesheet" href="/admin/style.css"><style>
+.olx-preparation .field{min-width:0;grid-template-columns:minmax(0,1fr)}
+.olx-preparation label,.olx-preparation select,.olx-preparation input,.olx-preparation textarea{min-width:0;max-width:100%}
+.olx-preparation input[type=checkbox]{width:20px;min-height:20px}
+.olx-preparation small{overflow-wrap:anywhere}
+</style></head>
+<body><main class="container olx-preparation"><p><a href="/admin/olx/">Wróć do OLX</a> · <a href="/admin/olx/prepare.php">Kategorie i produkty</a></p>
 <h1><?= $product ? 'Ogłoszenie OLX – podgląd' : 'OLX – kategorie i szkice' ?></h1>
 <div class="card"><strong>OLX: NIE WYSTAWIONO</strong><p>ETAP C: tylko przygotowanie danych. Publikacja jest wyłączona. Zapis szkicu i mapowania nie zmienia produktów ani ogłoszeń.</p></div>
 <?php if ($message!==''): ?><p class="flash" id="olx-preparation-message"><?= e($message) ?></p><?php endif; ?>
@@ -103,7 +108,8 @@ function olx_category_select(string $name, array $categories, int $selected = 0)
 <?php if (!$product): ?>
 <section class="card"><h2>Kategorie OLX</h2><form method="post"><?php olx_csrf_field(); ?><button name="action" value="refresh" class="btn">Odśwież kategorie i waluty</button></form></section>
 <section class="card"><h2>Mapowanie kategorii sklepu</h2><p>Szerokie grupy sklepu mogą wymagać różnych kategorii OLX. Mapowanie jest propozycją do ręcznego zatwierdzenia w każdym szkicu.</p>
-<?php foreach ($groups as $group=>$count): ?><form method="post"><p><strong><?= e($group) ?></strong> (<?= $count ?> produktów). Zapisane: <?= e($settings['mappings'][$group]['path'] ?? 'brak') ?></p><?php olx_csrf_field(); ?><input type="hidden" name="sourceCategory" value="<?= e($group) ?>"><?php olx_category_select('mappingCategory',$categories,(int)($settings['mappings'][$group]['category_id']??0)); ?><button name="action" value="map" class="btn btn-secondary">Zatwierdź mapowanie tej grupy</button></form><?php endforeach; ?></section>
+<?php foreach ($groups as $group=>$count): ?><p><strong><?= e($group) ?></strong> (<?= $count ?> produktów). Zapisane: <?= e($settings['mappings'][$group]['path'] ?? 'brak') ?></p><?php endforeach; ?>
+<form method="post"><?php olx_csrf_field(); ?><label>Kategoria sklepu <select name="sourceCategory" required><option value="">Wybierz grupę sklepu</option><?php foreach($groups as $group=>$count): ?><option value="<?= e($group) ?>"><?= e($group) ?></option><?php endforeach; ?></select></label><label>Proponowana kategoria OLX <?php olx_category_select('mappingCategory',$categories); ?></label><button name="action" value="map" class="btn btn-secondary">Zatwierdź mapowanie tej grupy</button></form></section>
 <section class="card"><h2>Lokalizacja showroomu</h2><p>Adres z mgoutlet.pl: ul. Przelotowa 16, 55-080 Kębłowice. Aktualna domyślna lokalizacja: <?= e(json_encode($settings['location'],JSON_UNESCAPED_UNICODE)) ?></p>
 <form method="post"><?php olx_csrf_field(); ?><label>Nazwa miasta <input name="citySearch" value="<?= e($citySearch) ?>"></label><label>Strona API od 0 <input type="number" min="0" max="150" name="cityPage" value="<?= $cityPage ?>"></label><button name="action" value="cities" class="btn">Pobierz stronę i wyszukaj nazwę</button></form>
 <?php foreach ($cityMatches as $match): ?><p><?= e($match['name']) ?> — powiat <?= e($match['county']??'') ?>, gmina <?= e($match['municipality']??'') ?>, ID <?= (int)$match['id'] ?></p><?php endforeach; ?>
