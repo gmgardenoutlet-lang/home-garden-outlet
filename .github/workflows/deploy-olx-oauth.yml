@@ -5,7 +5,7 @@ on:
       stage:
         description: 'OLX code deployment scope'
         type: choice
-        options: [oauth, preparation, publication]
+        options: [oauth, preparation, publication, presentation]
         default: oauth
       backup_name:
         description: 'Optional completed full OLX backup; products must match, current PHP is backed up separately'

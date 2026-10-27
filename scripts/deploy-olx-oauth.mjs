@@ -24,8 +24,11 @@ function ftp(commands) {
   return result.stdout;
 }
 const stage = env.OLX_DEPLOY_STAGE || 'oauth';
-if (!['oauth', 'preparation', 'publication'].includes(stage)) throw Error('Unknown OLX deployment scope');
-const files = stage === 'publication'
+if (!['oauth', 'preparation', 'publication', 'presentation'].includes(stage)) throw Error('Unknown OLX deployment scope');
+if (stage === 'presentation' && !reuse) throw Error('Presentation patch requires an existing full backup reference');
+const files = stage === 'presentation'
+  ? ['admin/olx/publish-lib.php','admin/olx/prepare.php']
+  : stage === 'publication'
   ? ['admin/olx/prepare-lib.php','admin/olx/publish-lib.php','admin/olx/publish.php','admin/olx/.htaccess','admin/olx/prepare.php','admin/olx/index.php','admin/index.php']
   : stage === 'preparation'
   ? ['admin/olx/prepare-lib.php', 'admin/olx/.htaccess', 'admin/olx/prepare.php', 'admin/olx/index.php', 'admin/index.php']
@@ -36,15 +39,25 @@ if (!reuse) {
     `mirror --reverse --parallel=4 ${quote(local)} ${quote(backup)}`]);
 } else {
   await mkdir(path.join(local, 'data'), { recursive: true, mode: 0o700 });
-  ftp([`get ${quote(backup + '/data/products.json')} -o ${quote(path.join(local, 'data/products.json'))}`,
-    `get ${quote(root + '/data/products.json')} -o ${quote(path.join(local, 'data/products.current.json'))}`]);
-  if (sha(await readFile(path.join(local, 'data/products.json'))) !== sha(await readFile(path.join(local, 'data/products.current.json'))))
-    throw Error('Existing full backup catalogue differs from production; full new backup required');
+  if (stage === 'presentation') {
+    // UI-only patch never restores or writes live data. Preserve a fresh catalogue
+    // independently, alongside exact current copies of the two affected PHP files.
+    ftp([`get ${quote(backup + '/data/products.json')} -o ${quote(path.join(local, 'data/products.base.json'))}`,
+      `get ${quote(root + '/data/products.json')} -o ${quote(path.join(local, 'data/products.json'))}`]);
+  } else {
+    ftp([`get ${quote(backup + '/data/products.json')} -o ${quote(path.join(local, 'data/products.json'))}`,
+      `get ${quote(root + '/data/products.json')} -o ${quote(path.join(local, 'data/products.current.json'))}`]);
+    if (sha(await readFile(path.join(local, 'data/products.json'))) !== sha(await readFile(path.join(local, 'data/products.current.json'))))
+      throw Error('Existing full backup catalogue differs from production; full new backup required');
+  }
 }
 // Preserve every existing file from the current production revision separately.
 // New code is staged outside webroot, never as downloadable PHP source.
 const originals = new Set();
 ftp([`mkdir -p ${quote(patchBackup + '/stage/admin/olx')}`, `mkdir -p ${quote(patchBackup + '/original/admin/olx')}`]);
+const catalogueBackup = stage === 'presentation' ? patchBackup + '/original/data/products.json' : backup + '/data/products.json';
+if (stage === 'presentation') ftp([`mkdir -p ${quote(patchBackup + '/original/data')}`,
+  `put ${quote(path.join(local, 'data/products.json'))} -o ${quote(catalogueBackup)}`]);
 const listings = new Map();
 for (const file of files) {
   const dir = path.posix.dirname(file);
@@ -66,7 +79,7 @@ const products = JSON.parse(before).products;
 if (!Array.isArray(products) || products.length === 0) throw Error('Invalid backup catalogue');
 await mkdir(path.join(local, 'verification'), { recursive: true });
 const verified = path.join(local, 'verification/products.json');
-ftp([`get ${quote(backup + '/data/products.json')} -o ${quote(verified)}`]);
+ftp([`get ${quote(catalogueBackup)} -o ${quote(verified)}`]);
 if (sha(before) !== sha(await readFile(verified))) throw Error('Backup verification failed');
 let deployed = false;
 try {
@@ -102,7 +115,9 @@ try {
   }
   throw error;
 }
-const report = { backup, patch_backup: patchBackup, stage, products: products.length, products_sha256_before: sha(before), products_sha256_after: sha(await readFile(verified)),
+const report = { backup, patch_backup: patchBackup, catalogue_backup: catalogueBackup,
+  backup_scope: stage === 'presentation' ? 'current_presentation_code_and_catalogue' : 'full_backup_and_current_code',
+  stage, products: products.length, products_sha256_before: sha(before), products_sha256_after: sha(await readFile(verified)),
   products_modified: false, changed_files: files, oauth_started: false, adverts_modified: false };
 console.log(JSON.stringify(report, null, 2));
 await writeFile(env.GITHUB_STEP_SUMMARY, '```json\n' + JSON.stringify(report, null, 2) + '\n```\n', { flag: 'a' });
