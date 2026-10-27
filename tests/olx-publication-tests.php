@@ -61,6 +61,11 @@ try {
     check($state['phase']==='error' && empty($state['advert_id']),'400 never published');
     check(str_contains($state['errors'][0],'Tytuł') && str_contains($state['errors'][1],'attributes.state'),'field errors');
     check(!str_contains(json_encode($state),'SECRET') && !str_contains(json_encode($state),'PRIVATE_CONTACT'),'no raw remote messages');
+    check(str_contains(olx_publication_errors(['error'=>['detail'=>'Partner is not allowed to use external URL']])[0],'external_url'),'documented general error mapped');
+    check(str_contains(olx_publication_errors(['data'=>['error'=>['detail'=>'Image error: Remote file not exists']]])[0],'Zdjęcia'),'nested error mapped');
+    check(str_contains(olx_publication_errors(['error'=>['validation'=>[['field'=>'district/city_id']]]])[0],'Lokalizacja'),'slash field name');
+    $unknown=olx_publication_errors(['error'=>['detail'=>'PRIVATE_CONTACT fixture-access']]);
+    check(!str_contains(json_encode($unknown),'PRIVATE_CONTACT') && str_contains($unknown[0],'HTTP 400'),'unknown detail never exposed');
     $reset(); $postResponse=['http'=>200,'data'=>['data'=>['id'=>123,'external_id'=>$id,'status'=>'new']]]; $getResponse=['http'=>503,'data'=>null];
     $state=olx_publish_one($config,$id,$hash,$prepare,$transport);
     check($state['advert_id']==='123' && $state['error_code']==='verification_pending','GET failure keeps ID');

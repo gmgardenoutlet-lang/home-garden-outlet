@@ -41,6 +41,7 @@ try {
     $bad=$input; $bad['selectedImages']=['https://evil.test/photo.jpg']; reject(fn()=>olx_clean_draft($product,$bad),'foreign photo');
     $payload=olx_payload_preview($product,$draft,$definitions);
     check($payload['external_id']===$product['productId'] && $payload['price']['value']===240.5,'payload identity and price');
+    check(!array_key_exists('external_url',$payload),'restricted external URL omitted for product adverts');
     check(!isset($payload['advert_id']) && !isset($payload['access_token']),'no advert or token');
     $file=olx_draft_file($config,$product['productId']); olx_json_write($file,$draft);
     check(olx_json_read($file)===$draft,'separate draft roundtrip');

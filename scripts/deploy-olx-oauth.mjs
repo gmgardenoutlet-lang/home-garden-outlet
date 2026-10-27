@@ -26,7 +26,7 @@ function ftp(commands) {
 const stage = env.OLX_DEPLOY_STAGE || 'oauth';
 if (!['oauth', 'preparation', 'publication'].includes(stage)) throw Error('Unknown OLX deployment scope');
 const files = stage === 'publication'
-  ? ['admin/olx/publish-lib.php','admin/olx/publish.php','admin/olx/.htaccess','admin/olx/prepare.php','admin/olx/index.php','admin/index.php']
+  ? ['admin/olx/prepare-lib.php','admin/olx/publish-lib.php','admin/olx/publish.php','admin/olx/.htaccess','admin/olx/prepare.php','admin/olx/index.php','admin/index.php']
   : stage === 'preparation'
   ? ['admin/olx/prepare-lib.php', 'admin/olx/.htaccess', 'admin/olx/prepare.php', 'admin/olx/index.php', 'admin/index.php']
   : ['admin/olx/lib.php', 'admin/olx/callback.php', 'admin/olx/return.php', 'admin/olx/index.php'];

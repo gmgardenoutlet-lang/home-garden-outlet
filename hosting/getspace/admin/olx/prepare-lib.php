@@ -258,7 +258,6 @@ function olx_payload_preview(array $product, array $draft, array $definitions): 
     if (!empty($draft['location']['district_id'])) $location['district_id'] = (int)$draft['location']['district_id'];
     return ['title' => $draft['titleOverride'], 'description' => $draft['descriptionOverride'], 'category_id' => $draft['selectedCategoryId'],
         'advertiser_type' => 'business', 'external_id' => $product['productId'],
-        'external_url' => 'https://mgoutlet.pl/produkt/' . rawurlencode((string)$product['slug']) . '/',
         'contact' => $draft['contact'], 'location' => $location, 'price' => ['value' => $draft['priceOverride'], 'currency' => $draft['currency'], 'negotiable' => false],
         'images' => array_map(static fn($url) => ['url' => $url], $draft['selectedImages']), 'attributes' => $attrs];
 }

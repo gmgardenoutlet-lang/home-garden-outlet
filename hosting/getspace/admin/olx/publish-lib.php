@@ -84,19 +84,32 @@ function olx_advert_http(array $config, string $method, string $path, array $dat
 function olx_publication_errors(array $response): array
 {
     // Never reflect OLX messages: some validation messages echo submitted PII.
-    $labels=['title'=>'Tytuł','description'=>'Opis','price'=>'Cena','location'=>'Lokalizacja','images'=>'Zdjęcia','category_id'=>'Kategoria','contact'=>'Kontakt','attributes'=>'Parametr','product_safety_regulation'=>'Bezpieczeństwo produktu'];
+    $labels=['title'=>'Tytuł','description'=>'Opis','price'=>'Cena','location'=>'Lokalizacja','city_id'=>'Miasto','district_id'=>'Dzielnica','images'=>'Zdjęcia','category_id'=>'Kategoria','contact'=>'Kontakt','attributes'=>'Parametr','params'=>'Parametr','external_url'=>'Link zewnętrzny','product_safety_regulation'=>'Bezpieczeństwo produktu'];
     $errors=[];
-    $raw=$response['error']['validation'] ?? $response['validation'] ?? $response['errors'] ?? [];
+    $body=is_array($response['data']['error']??null)?$response['data']:$response;
+    $error=is_array($body['error']??null)?$body['error']:[];
+    // Match documented, exact descriptions only. Never persist arbitrary remote text.
+    $known=[
+        'Partner is not allowed to use external URL'=>'Link zewnętrzny: OLX nie zezwala tej aplikacji na external_url. Pole należy pominąć.',
+        "Category with given ID doesn't exists"=>'Kategoria: OLX nie rozpoznaje wybranego ID kategorii.',
+        'Image error: Remote file not exists'=>'Zdjęcia: OLX nie może pobrać co najmniej jednego pliku. Sprawdź dostępność zdjęć dla serwerów OLX.',
+        'Image error: Image limit exceeded'=>'Zdjęcia: przekroczono limit zdjęć wybranej kategorii OLX.',
+        'Error while decoding JSON data: Syntax error'=>'Format danych: OLX odrzucił strukturę żądania JSON. Wymagana poprawka integracji.',
+        'Invalid owner in token'=>'Połączenie OLX: token nie wskazuje poprawnego właściciela konta.',
+    ];
+    $detail=$error['detail']??null;
+    if(is_string($detail) && isset($known[$detail])) $errors[]=$known[$detail];
+    $raw=$error['validation'] ?? $body['validation'] ?? $body['errors'] ?? [];
     if(!is_array($raw)) return ['OLX odrzucił dane. Sprawdź pola szkicu.'];
     foreach(array_slice($raw,0,40) as $entry) {
         if(!is_array($entry)) continue;
         $field=(string)($entry['field']??'');
-        if(!preg_match('/^[a-zA-Z0-9_.\[\]-]{1,100}$/D',$field)) $field='';
-        $root=preg_split('/[.\[]/',$field)[0];
-        $label=$labels[$root]??'Pole';
+        if(!preg_match('~^[a-zA-Z0-9_./\[\]-]{1,100}$~D',$field)) $field='';
+        $root=preg_split('~[./\[]~',$field)[0];
+        $label=$field==='district/city_id'?'Lokalizacja':($labels[$root]??'Pole');
         $errors[]=$label.($field!==''?' ('.$field.')':'').': OLX odrzucił wartość. Popraw pole i ponownie zweryfikuj szkic.';
     }
-    return $errors ?: ['OLX odrzucił dane. Sprawdź pola szkicu.'];
+    return $errors ?: ['OLX odrzucił żądanie (HTTP 400) bez rozpoznanego błędu pola. Przyczyna nie została ustalona; nie ponawiaj publikacji bez sprawdzenia integracji.'];
 }
 
 function olx_publication_record(array $base, array $advert): array
