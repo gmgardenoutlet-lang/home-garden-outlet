@@ -22,7 +22,7 @@ function olx_publication_label(array $state): string
     return ['active'=>'AKTYWNE','new'=>'OCZEKUJE','unconfirmed'=>'OCZEKUJE','unpaid'=>'OCZEKUJE NA PŁATNOŚĆ',
         'moderated'=>'MODERACJA — ODRZUCONE','blocked'=>'MODERACJA — ZABLOKOWANE','disabled'=>'MODERACJA — WERYFIKACJA',
         'removed_by_moderator'=>'MODERACJA — USUNIĘTE','outdated'=>'WYGASŁE','inactive'=>'NIEAKTYWNE',
-        'removed_by_user'=>'NIEAKTYWNE','removed'=>'NIEAKTYWNE','limited'=>'NIEAKTYWNE','finished'=>'NIEAKTYWNE'][$status] ?? ('OCZEKUJE — ' . ($status ?: 'status niepotwierdzony'));
+        'removed_by_user'=>'NIEAKTYWNE','removed'=>'NIEAKTYWNE','limited'=>'NIEOPŁACONE — LIMIT OGŁOSZEŃ','finished'=>'NIEAKTYWNE'][$status] ?? ('OCZEKUJE — ' . ($status ?: 'status niepotwierdzony'));
 }
 
 /** Read-only UI lookup: never creates a directory or contacts OLX. */

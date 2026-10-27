@@ -163,6 +163,16 @@ try {
   await worker('seed');
   await Promise.all([worker('refresh'), worker('refresh')]);
   assert.equal(await readFile(path.join(temp, 'refresh-count'), 'utf8'), '+', 'parallel callers perform one refresh');
+  response=await request('/admin/olx/prepare.php',{headers:{cookie}});
+  let productList=await response.text();
+  assert.match(productList,/class="olx-product-photo"/,'product thumbnail');
+  assert.match(productList,/>Wystaw na OLX<\/a>/,'manual draft entry');
+  await mkdir(path.join(temp,'vault/publications'),{mode:0o700});
+  await writeFile(path.join(temp,'vault/publications',preparationProduct.productId+'.json'),JSON.stringify({phase:'created',advert_id:'789',status:'limited'}),{mode:0o600});
+  response=await request('/admin/olx/prepare.php',{headers:{cookie}}); productList=await response.text();
+  assert.match(productList,/NIEOPŁACONE — LIMIT OGŁOSZEŃ/,'actual limited status');
+  assert.match(productList,/>Szczegóły OLX<\/a>/,'existing advert details action');
+  assert.doesNotMatch(productList,/>Wystaw na OLX<\/a>/,'existing advert never gets publish action');
   console.log('PASS: OLX HTTP login, Strict cookie, CSRF, cookie-free callback, clean return, disconnect, concurrent refresh');
 } finally {
   server.kill();

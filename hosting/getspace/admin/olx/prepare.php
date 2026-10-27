@@ -100,6 +100,20 @@ function olx_category_select(string $name, array $categories, int $selected = 0)
 .olx-preparation label,.olx-preparation select,.olx-preparation input,.olx-preparation textarea{min-width:0;max-width:100%}
 .olx-preparation input[type=checkbox]{width:20px;min-height:20px}
 .olx-preparation small{overflow-wrap:anywhere}
+.olx-preparation{overflow-wrap:anywhere}
+.olx-preparation .btn{white-space:normal;max-width:100%}
+.olx-products-head{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;margin-bottom:22px}
+.olx-products-head h2{margin:0 0 8px}.olx-products-head p{margin:0;color:#52615a}
+.olx-product-row{display:grid;grid-template-columns:104px minmax(0,1fr) minmax(190px,240px);gap:20px;align-items:center;padding:20px 0;border-top:1px solid #dce5dc}
+.olx-product-photo{width:104px;height:104px;border-radius:12px;object-fit:contain;background:#f4f5f0;border:1px solid #e2e8de}
+.olx-product-no-photo{display:grid;place-items:center;font-size:13px;color:#637268;text-align:center}
+.olx-product-title{display:block;font-size:17px;font-weight:700;line-height:1.45;margin-bottom:7px;text-decoration:none}
+.olx-product-meta{font-size:14px;color:#637268;margin:4px 0}.olx-product-price{font-weight:700;margin:8px 0 0}
+.olx-product-actions{display:flex;flex-direction:column;align-items:flex-start;gap:10px}.olx-product-actions .btn{width:100%;box-sizing:border-box;text-align:center}
+.olx-status{display:inline-block;padding:6px 10px;border-radius:8px;font-size:12px;font-weight:700;line-height:1.5;background:#edf0eb;color:#52604f}
+.olx-status-active{background:#e3f2e5;color:#245d32}.olx-status-waiting{background:#fff0ce;color:#794e00}.olx-status-error{background:#fbe6e3;color:#942b20}
+.olx-settings{margin-top:24px}.olx-settings>summary{cursor:pointer;padding:18px 0;font-weight:700;color:#416b43}.olx-list-note{font-size:13px;color:#637268}
+@media(max-width:640px){.olx-products-head{display:block}.olx-product-row{grid-template-columns:80px minmax(0,1fr);gap:14px}.olx-product-photo{width:80px;height:80px}.olx-product-actions{grid-column:1/-1;flex-direction:row;align-items:center;flex-wrap:wrap}.olx-product-actions .btn{width:auto;flex:1;min-width:160px}.olx-product-title{font-size:16px}}
 </style></head>
 <body><main class="container olx-preparation"><p><a href="/admin/olx/">Wróć do OLX</a> · <a href="/admin/olx/prepare.php">Kategorie i produkty</a></p>
 <h1><?= $product ? 'Ogłoszenie OLX – podgląd' : 'OLX – kategorie i szkice' ?></h1>
@@ -107,6 +121,36 @@ function olx_category_select(string $name, array $categories, int $selected = 0)
 <?php if ($message!==''): ?><p class="flash" id="olx-preparation-message"><?= e($message) ?></p><?php endif; ?>
 <p id="olx-category-summary" data-count="<?= count($categories) ?>">Kategorie OLX: <?= count($categories) ?>. Cache konfiguracji: 24 godziny, strony miast: 7 dni.</p>
 <?php if (!$product): ?>
+<?php
+$olxList=[]; $olxLinkedCount=0;
+foreach($catalog['products'] as $item) {
+    $itemId=(string)($item['productId']??'');
+    try { $itemState=olx_publication_status($config,$itemId); }
+    catch(Throwable $ignored) { $itemState=['phase'=>'uncertain']; }
+    $hasAdvert=!empty($itemState['advert_id']);
+    if($hasAdvert) $olxLinkedCount++;
+    $olxList[]=['product'=>$item,'id'=>$itemId,'state'=>$itemState,'hasAdvert'=>$hasAdvert];
+}
+?>
+<section class="card" id="olx-products" aria-labelledby="olx-products-title">
+<div class="olx-products-head"><div><h2 id="olx-products-title">Produkty na OLX</h2><p><?= count($olxList) ?> produktów · <?= $olxLinkedCount ?> z ogłoszeniem OLX · <?= count($olxList)-$olxLinkedCount ?> bez zapisanego ogłoszenia</p></div><a href="#olx-settings">Ustawienia OLX ↓</a></div>
+<p class="olx-list-note">Wybierz jeden produkt. „Wystaw na OLX” otwiera szkic; publikacja wymaga osobnego podglądu i końcowego potwierdzenia. Statusy pochodzą z ostatniego odczytu OLX.</p>
+<?php foreach($olxList as $entry):
+    $item=$entry['product']; $itemId=$entry['id']; $itemState=$entry['state'];
+    $locked=$entry['hasAdvert'] || in_array($itemState['phase']??'',['publishing','uncertain','created'],true);
+    $photo=olx_product_images($item)[0]??'';
+    $statusClass=($itemState['status']??'')==='active'?'active':(
+        in_array($itemState['phase']??'',['error','uncertain'],true) || in_array($itemState['status']??'',['moderated','blocked','disabled','removed_by_moderator'],true)
+        ?'error':((($itemState['phase']??'')==='publishing'||in_array($itemState['status']??'',['new','unconfirmed','unpaid','limited'],true))?'waiting':''));
+    $target=($locked?'/admin/olx/publish.php':'/admin/olx/prepare.php').'?productId='.rawurlencode($itemId);
+?>
+<article class="olx-product-row" data-product-id="<?= e($itemId) ?>">
+<?php if($photo): ?><img class="olx-product-photo" src="<?= e($photo) ?>" alt="<?= e($item['name']) ?>" width="104" height="104" loading="lazy" decoding="async"><?php else: ?><div class="olx-product-photo olx-product-no-photo">Brak zdjęcia</div><?php endif; ?>
+<div><a class="olx-product-title" href="<?= e($target) ?>"><?= e($item['name']) ?></a><p class="olx-product-meta"><?= e($item['category']??'') ?></p><p class="olx-product-price"><?= e((string)($item['outletPrice']??'Cena do uzupełnienia')) ?></p><?php if($entry['hasAdvert']): ?><p class="olx-product-meta">ID OLX: <?= e((string)$itemState['advert_id']) ?></p><?php endif; ?></div>
+<div class="olx-product-actions"><span class="olx-status <?= $statusClass?'olx-status-'.e($statusClass):'' ?>"><?= e(olx_publication_label($itemState)) ?></span><a class="btn <?= $locked?'btn-secondary':'' ?>" href="<?= e($target) ?>"><?= $entry['hasAdvert']?'Szczegóły OLX':($locked?'Sprawdź stan OLX':'Wystaw na OLX') ?></a><?php if(!empty($itemState['url'])): ?><a href="<?= e($itemState['url']) ?>" target="_blank" rel="noopener noreferrer">Zobacz ogłoszenie ↗</a><?php endif; ?></div>
+</article>
+<?php endforeach; ?></section>
+<details class="olx-settings" id="olx-settings" <?= $action!==''?'open':'' ?>><summary>Kategorie, mapowanie i lokalizacja showroomu</summary>
 <section class="card"><h2>Kategorie OLX</h2><form method="post"><?php olx_csrf_field(); ?><button name="action" value="refresh" class="btn">Odśwież kategorie i waluty</button></form></section>
 <section class="card"><h2>Mapowanie kategorii sklepu</h2><p>Szerokie grupy sklepu mogą wymagać różnych kategorii OLX. Mapowanie jest propozycją do ręcznego zatwierdzenia w każdym szkicu.</p>
 <?php foreach ($groups as $group=>$count): ?><p><strong><?= e($group) ?></strong> (<?= $count ?> produktów). Zapisane: <?= e($settings['mappings'][$group]['path'] ?? 'brak') ?></p><?php endforeach; ?>
@@ -115,8 +159,7 @@ function olx_category_select(string $name, array $categories, int $selected = 0)
 <form method="post"><?php olx_csrf_field(); ?><label>Nazwa miasta <input name="citySearch" value="<?= e($citySearch) ?>"></label><label>Strona API od 0 <input type="number" min="0" max="150" name="cityPage" value="<?= $cityPage ?>"></label><button name="action" value="cities" class="btn">Pobierz stronę i wyszukaj nazwę</button></form>
 <?php foreach ($cityMatches as $match): ?><p><?= e($match['name']) ?> — powiat <?= e($match['county']??'') ?>, gmina <?= e($match['municipality']??'') ?>, ID <?= (int)$match['id'] ?></p><?php endforeach; ?>
 <form method="post"><?php olx_csrf_field(); ?><label>City ID potwierdzone w OLX <input type="number" min="1" name="city_id" required value="<?= (int)($settings['location']['city_id']??0) ?>"></label><label>District ID (0 jeżeli brak dzielnic) <input type="number" min="0" name="district_id" value="0"></label><button name="action" value="location" class="btn">Sprawdź w OLX i zatwierdź lokalizację</button></form></section>
-<section class="card"><h2>Produkty — tylko przygotowanie</h2><p><?= count($catalog['products']) ?> produktów. Każdy pozostaje niewystawiony.</p>
-<?php foreach ($catalog['products'] as $item): ?><p><a href="?productId=<?= e($item['productId']??'') ?>"><?= e($item['name']) ?></a> · <?= e($item['category']??'') ?> · OLX: <?= e(olx_publication_label(olx_publication_status($config,$item['productId']??''))) ?></p><?php endforeach; ?></section>
+</details>
 <?php else: ?>
 <section class="card"><h2>Produkt: <?= e($product['name']) ?></h2><p>Kategoria sklepu: <?= e($product['category']??'') ?>. Cena sprzedaży outletPrice: <?= e($product['outletPrice']??'') ?>. Nie używamy catalogPrice jako ceny sprzedaży.</p>
 <form method="post"><?php olx_csrf_field(); ?><button name="action" value="suggest" class="btn btn-secondary">Pobierz sugerowaną kategorię OLX</button></form>
