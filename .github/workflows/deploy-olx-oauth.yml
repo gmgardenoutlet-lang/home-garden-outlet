@@ -5,7 +5,7 @@ on:
       stage:
         description: 'OLX code deployment scope'
         type: choice
-        options: [oauth, preparation]
+        options: [oauth, preparation, publication]
         default: oauth
       backup_name:
         description: 'Optional completed full OLX backup; products must match, current PHP is backed up separately'
@@ -40,7 +40,9 @@ jobs:
           find hosting/getspace/admin/olx -name '*.php' -exec php -l {} \;
           php tests/olx-oauth-tests.php
           php tests/olx-preparation-tests.php
+          php tests/olx-publication-tests.php
           node tests/olx-http-tests.mjs
+          node tests/olx-publication-http-tests.mjs
       - name: Install FTPS client
         run: sudo apt-get update -qq && sudo apt-get install -y lftp
       - name: Back up production and deploy only OLX PHP

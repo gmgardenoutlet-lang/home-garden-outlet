@@ -29,6 +29,7 @@ const preparationProduct = { productId: 'prd_'+'a'.repeat(32), name: 'Konsola dr
 const preparationFixture = (await readFile(path.join(root, 'hosting/getspace/admin/olx/prepare.php'), 'utf8'))
   .replace("require __DIR__ . '/../lib.php';", `require ${phpString(path.join(root, 'hosting/getspace/admin/lib.php'))};`)
   .replace("require __DIR__ . '/prepare-lib.php';", `require ${phpString(path.join(root, 'hosting/getspace/admin/olx/prepare-lib.php'))};`)
+  .replace("require_once __DIR__ . '/publish-lib.php';", `require_once ${phpString(path.join(root, 'hosting/getspace/admin/olx/publish-lib.php'))};`)
   .replace('$catalog = load_catalog();', `$catalog = json_decode(${phpString(JSON.stringify({products:[preparationProduct]}))}, true);`);
 await writeFile(path.join(temp, 'prepare.php'), preparationFixture);
 await mkdir(path.join(temp, 'vault/cache'), {mode:0o700});

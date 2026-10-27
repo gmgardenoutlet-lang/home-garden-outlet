@@ -1414,7 +1414,15 @@ if ($showStats) {
       </form>
     <?php elseif ($newProduct || $editing): ?>
       <?php if ($editing && !empty($product['productId'])): ?>
-      <section class="card"><strong>OLX: Nie wystawiono</strong><p><a class="btn btn-secondary" href="/admin/olx/prepare.php?productId=<?= e($product['productId']) ?>">Przygotuj ogłoszenie OLX</a></p><small>Otwiera osobny szkic. Nie publikuje ani nie zmienia produktu.</small></section>
+      <?php
+      require_once __DIR__.'/olx/publish-lib.php';
+      try { $olxProductState=olx_publication_status(olx_config(),$product['productId']); $olxProductLabel=olx_publication_label($olxProductState); }
+      catch(Throwable $ignored) { $olxProductState=[]; $olxProductLabel='BŁĄD ODCZYTU STANU'; }
+      ?>
+      <section class="card"><strong>OLX: <?= e($olxProductLabel) ?></strong>
+      <?php foreach(['advert_id'=>'ID OLX','external_id'=>'External ID','published_at'=>'Opublikowano (timestamp)','valid_to'=>'Ważne do'] as $key=>$label): if(isset($olxProductState[$key])): ?><p><?= e($label) ?>: <?= e((string)$olxProductState[$key]) ?></p><?php endif; endforeach; ?>
+      <?php if(!empty($olxProductState['url'])): ?><p><a href="<?= e($olxProductState['url']) ?>" rel="noopener noreferrer" target="_blank">Ogłoszenie OLX</a></p><?php endif; ?>
+      <p><a class="btn btn-secondary" href="/admin/olx/prepare.php?productId=<?= e($product['productId']) ?>">Przygotuj ogłoszenie OLX</a></p><small>Otwiera osobny szkic. Nie publikuje ani nie zmienia produktu. Aktualizowanie OLX będzie dostępne w osobnym etapie.</small></section>
       <?php endif; ?>
       <div class="page-heading">
         <div><p class="muted">Katalog produktów</p><h1><?= $editing ? 'Edytuj produkt' : 'Dodaj nowy produkt' ?></h1></div>

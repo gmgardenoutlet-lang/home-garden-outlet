@@ -2,6 +2,7 @@
 declare(strict_types=1);
 require __DIR__ . '/../lib.php';
 require __DIR__ . '/prepare-lib.php';
+require_once __DIR__ . '/publish-lib.php';
 boot_admin(); require_login();
 header('Referrer-Policy: no-referrer');
 $catalog = load_catalog();
@@ -102,7 +103,7 @@ function olx_category_select(string $name, array $categories, int $selected = 0)
 </style></head>
 <body><main class="container olx-preparation"><p><a href="/admin/olx/">Wróć do OLX</a> · <a href="/admin/olx/prepare.php">Kategorie i produkty</a></p>
 <h1><?= $product ? 'Ogłoszenie OLX – podgląd' : 'OLX – kategorie i szkice' ?></h1>
-<div class="card"><strong>OLX: NIE WYSTAWIONO</strong><p>ETAP C: tylko przygotowanie danych. Publikacja jest wyłączona. Zapis szkicu i mapowania nie zmienia produktów ani ogłoszeń.</p></div>
+<div class="card"><strong>OLX: <?= $product ? e(olx_publication_label(olx_publication_status($config,$id))) : 'wybierz produkt' ?></strong><p>Zapis szkicu i mapowania nie publikuje ani nie aktualizuje ogłoszeń. Publikacja jednego produktu wymaga osobnego podglądu i ręcznego potwierdzenia.</p></div>
 <?php if ($message!==''): ?><p class="flash" id="olx-preparation-message"><?= e($message) ?></p><?php endif; ?>
 <p id="olx-category-summary" data-count="<?= count($categories) ?>">Kategorie OLX: <?= count($categories) ?>. Cache konfiguracji: 24 godziny, strony miast: 7 dni.</p>
 <?php if (!$product): ?>
@@ -115,7 +116,7 @@ function olx_category_select(string $name, array $categories, int $selected = 0)
 <?php foreach ($cityMatches as $match): ?><p><?= e($match['name']) ?> — powiat <?= e($match['county']??'') ?>, gmina <?= e($match['municipality']??'') ?>, ID <?= (int)$match['id'] ?></p><?php endforeach; ?>
 <form method="post"><?php olx_csrf_field(); ?><label>City ID potwierdzone w OLX <input type="number" min="1" name="city_id" required value="<?= (int)($settings['location']['city_id']??0) ?>"></label><label>District ID (0 jeżeli brak dzielnic) <input type="number" min="0" name="district_id" value="0"></label><button name="action" value="location" class="btn">Sprawdź w OLX i zatwierdź lokalizację</button></form></section>
 <section class="card"><h2>Produkty — tylko przygotowanie</h2><p><?= count($catalog['products']) ?> produktów. Każdy pozostaje niewystawiony.</p>
-<?php foreach ($catalog['products'] as $item): ?><p><a href="?productId=<?= e($item['productId']??'') ?>"><?= e($item['name']) ?></a> · <?= e($item['category']??'') ?> · OLX: Nie wystawiono</p><?php endforeach; ?></section>
+<?php foreach ($catalog['products'] as $item): ?><p><a href="?productId=<?= e($item['productId']??'') ?>"><?= e($item['name']) ?></a> · <?= e($item['category']??'') ?> · OLX: <?= e(olx_publication_label(olx_publication_status($config,$item['productId']??''))) ?></p><?php endforeach; ?></section>
 <?php else: ?>
 <section class="card"><h2>Produkt: <?= e($product['name']) ?></h2><p>Kategoria sklepu: <?= e($product['category']??'') ?>. Cena sprzedaży outletPrice: <?= e($product['outletPrice']??'') ?>. Nie używamy catalogPrice jako ceny sprzedaży.</p>
 <form method="post"><?php olx_csrf_field(); ?><button name="action" value="suggest" class="btn btn-secondary">Pobierz sugerowaną kategorię OLX</button></form>
@@ -142,6 +143,7 @@ function olx_category_select(string $name, array $categories, int $selected = 0)
 <?php else: ?><input name="attributeValues[<?= e($code) ?>]" type="<?= !empty($rules['numeric'])?'number':'text' ?>" step="any" value="<?= e(is_scalar($value)?(string)$value:'') ?>"><?php endif; ?></label>
 <small>Ograniczenia OLX: <?= e(json_encode($rules,JSON_UNESCAPED_UNICODE)) ?>. Dane produktu do porównania: stan <?= e($product['condition']??'') ?>; materiał <?= e($product['material']??'') ?>; kolor <?= e($product['color']??'') ?>. Wybór pozostaje ręczny.</small></div>
 <?php endforeach; ?>
-<p>External ID: <code><?= e($product['productId']) ?></code></p><button class="btn btn-secondary" name="action" value="validate">Sprawdź kompletność i podgląd</button> <button class="btn" name="action" value="save">Zapisz szkic OLX</button><p>Nie ma przycisku publikacji. Walidacja lokalna nie jest potwierdzeniem akceptacji przez OLX ani przeglądu wymagań bezpieczeństwa produktu dla przyszłego etapu publikacji.</p></form>
+<p>External ID: <code><?= e($product['productId']) ?></code></p><button class="btn btn-secondary" name="action" value="validate">Sprawdź kompletność i podgląd</button> <button class="btn" name="action" value="save">Zapisz szkic OLX</button><p>Zapisz szkic przed przejściem do publikacji. Walidacja lokalna nie gwarantuje akceptacji przez OLX.</p></form>
+<section class="card"><a class="btn" href="/admin/olx/publish.php?productId=<?= e($id) ?>">Wystaw na OLX — przejdź do finalnego podglądu</a><p>Ten link nie publikuje. Osobny formularz ponownie sprawdzi zapisany szkic i poprosi o potwierdzenie.</p></section>
 <section class="card"><h2 id="olx-validation-status">Status walidacji: <?= $errors?'⚠ Brakuje danych':'✔ Gotowe lokalnie' ?></h2><?php if($errors): ?><ul id="olx-validation-errors"><?php foreach($errors as $error): ?><li><?= e($error) ?></li><?php endforeach; ?></ul><?php endif; ?><h2>PAYLOAD PREVIEW — nie wysłano do OLX</h2><pre id="olx-payload-preview" style="white-space:pre-wrap;overflow-wrap:anywhere"><?= e(json_encode(olx_payload_preview($product,$draft,$attributes),JSON_PRETTY_PRINT|JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES)) ?></pre></section>
 <?php endif; ?></main></body></html>

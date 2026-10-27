@@ -24,8 +24,10 @@ function ftp(commands) {
   return result.stdout;
 }
 const stage = env.OLX_DEPLOY_STAGE || 'oauth';
-if (!['oauth', 'preparation'].includes(stage)) throw Error('Unknown OLX deployment scope');
-const files = stage === 'preparation'
+if (!['oauth', 'preparation', 'publication'].includes(stage)) throw Error('Unknown OLX deployment scope');
+const files = stage === 'publication'
+  ? ['admin/olx/publish-lib.php','admin/olx/publish.php','admin/olx/.htaccess','admin/olx/prepare.php','admin/olx/index.php','admin/index.php']
+  : stage === 'preparation'
   ? ['admin/olx/prepare-lib.php', 'admin/olx/.htaccess', 'admin/olx/prepare.php', 'admin/olx/index.php', 'admin/index.php']
   : ['admin/olx/lib.php', 'admin/olx/callback.php', 'admin/olx/return.php', 'admin/olx/index.php'];
 const patchBackup = backup + `/patch-${env.GITHUB_RUN_ID}-${env.GITHUB_RUN_ATTEMPT}`;
@@ -49,7 +51,7 @@ for (const file of files) {
   if (!listings.has(dir)) listings.set(dir, ftp([`cls -1 -a ${quote(root + '/' + dir)}`]));
   const exists = listings.get(dir).split(/\r?\n/).some(line => path.posix.basename(line.trim().replace(/\/$/, '')) === path.posix.basename(file));
   if (!exists) {
-    if (!['admin/olx/prepare.php','admin/olx/prepare-lib.php','admin/olx/return.php'].includes(file)) throw Error('Missing expected production code');
+    if (!['admin/olx/prepare.php','admin/olx/prepare-lib.php','admin/olx/return.php','admin/olx/publish.php','admin/olx/publish-lib.php'].includes(file)) throw Error('Missing expected production code');
     continue;
   }
   originals.add(file);

@@ -60,7 +60,7 @@ $flashes = pull_flashes();
 <body><main class="narrow"><section class="card"><p><a href="/admin/">Wróć do panelu</a></p><h1>OLX</h1>
 <p>Status konta: <strong><?= e($status) ?></strong></p>
 <p>Konfiguracja: <?= $ready ? 'Gotowa' : 'Niekompletna lub zablokowana' ?>. Sekrety i tokeny są dostępne wyłącznie po stronie serwera.</p>
-<p>Publikacja produktów pozostaje wyłączona na tym etapie.</p>
+<p>Publikacja jest wyłącznie ręczna: wybierz jeden produkt, zapisz szkic i zatwierdź finalny podgląd. Zapis produktu, sprzedaż i połączenie konta nie zmieniają ogłoszeń OLX.</p>
 <p><a class="btn btn-secondary" href="/admin/olx/prepare.php">Kategorie, mapowanie i szkice OLX</a></p>
 <?php if ($ready): ?><p>Preflight: konfiguracja, zapis magazynu, sodium i cURL — OK.</p><?php endif; ?>
 <?php if ($message !== ''): ?><div class="flash flash-error"><?= e($message) ?></div><?php endif; ?>
