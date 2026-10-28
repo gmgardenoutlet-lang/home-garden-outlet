@@ -87,3 +87,32 @@ odpowiedź nie nadpisuje ostatniej poprawnej migawki i zatrzymuje workflow.
 Build bez migawki nie wraca po cichu do starszych 55 rekordów. Optymalizacja
 zdjęć z repo nie działa na tej migawce: mogłaby zmienić adresy zdjęć, których
 workflow celowo nie przesyła na serwer.
+
+## Allegro — lokalny etap B
+
+Moduł `admin/allegro/` obsługuje wyłącznie OAuth i odczyt konta. Sprzedażowe
+operacje API są blokowane w kodzie, a OAuth domyślnie wyłączony. Osobna
+konfiguracja, klucz i magazyn muszą być poza Git i webrootem; OLX pozostaje
+niezależny. Instrukcja i wymagane bramki bezpieczeństwa:
+[documents/allegro-etap-b.md](../../documents/allegro-etap-b.md).
+Nie uruchamiać prawdziwego OAuth przed potwierdzeniem ochrony query callbacku
+w logach hostingu oraz osobną zgodą właściciela. Lokalna implementacja nie
+oznacza wdrożenia ani połączenia konta.
+
+
+### B.1.5: trwałość OAuth OFF w pełnym buildzie
+
+Pełny builder Getspace oraz dedykowany release Allegro używają jednego kontraktu
+`scripts/allegro-off-profile.json`. Oba muszą wygenerować identyczny loader
+`admin/allegro/config.php` profilu `B.1.1-OAUTH-OFF-v1`: enabled=false,
+logs_safe=false, bezwarunkowa odmowa walidacji OAuth. Nieznany source hash lub
+inny payload przerywa build. Flagi środowiska nie mogą aktywować artefaktu.
+
+Pełny build nadal dostarcza wszystkie dziewięć publicznych plików modułu;
+nie polegamy na ich pomijaniu przy synchronizacji FTP. Test
+`python tests/allegro-full-build-off-tests.py` uruchamia rzeczywisty builder
+na syntetycznej stronie i danych, porównuje payload z dedykowanym release,
+sprawdza ENV=1 przez lokalny HTTP oraz symuluje nadpisanie istniejącego OFF.
+Test nie pobiera katalogu produkcyjnego i nie wykonuje FTPS ani HTTP Allegro.
+B14-GH-01 pozostaje osobnym blockerem; ta zmiana nie upoważnia do publikacji,
+Actions, pełnego deploya, zmiany settings ani OAuth.

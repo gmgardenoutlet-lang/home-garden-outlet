@@ -23,3 +23,13 @@ vendor/
 !hosting/getspace/vendor/.htaccess
 private/geoip/
 *.mmdb
+# Allegro: configuration, tokens and authorization data must stay outside Git/webroot.
+**/private_allegro/
+hosting/getspace/admin/allegro/storage/
+hosting/getspace/admin/allegro/logs/
+hosting/getspace/admin/allegro/cache/
+hosting/getspace/admin/allegro/*.enc
+hosting/getspace/admin/allegro/*.jsonl*
+hosting/getspace/admin/allegro/*.lock
+hosting/getspace/admin/allegro/config.private.php
+hosting/getspace/admin/allegro/.env*

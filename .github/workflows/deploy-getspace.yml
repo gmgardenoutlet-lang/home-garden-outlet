@@ -25,6 +25,8 @@ jobs:
     steps:
       - name: Pobierz repozytorium
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Przygotuj Node.js
         uses: actions/setup-node@v4
@@ -67,6 +69,10 @@ jobs:
           php tests/product-id-migration-tests.php
           node tests/olx-http-tests.mjs
           node tests/olx-identity-verification-tests.mjs
+          php tests/allegro-oauth-tests.php
+          node tests/allegro-http-tests.mjs
+          node tests/allegro-artifact-tests.mjs
+          python tests/allegro-full-build-off-tests.py
           php tests/location-stats-tests.php
           php tests/stats-browser-exclusion-http-tests.php
           php tests/traffic-chart-stats-tests.php
@@ -85,6 +91,9 @@ jobs:
 
       - name: Sprawdź publiczne identyfikatory i karty w artefakcie
         run: node tests/public-artifact-tests.mjs
+
+      - name: Sprawdź brak prywatnych danych Allegro w artefakcie
+        run: node tests/allegro-artifact-tests.mjs --artifact=publish
 
       - name: Sprawdź zgodność kompaktowych kart PHP, JavaScript i generatora
         run: |
@@ -241,6 +250,15 @@ jobs:
             uploads/**/*.gif
             admin/.credentials.php
             admin/storage/**
+            **/private_allegro/**
+            admin/allegro/storage/**
+            admin/allegro/logs/**
+            admin/allegro/cache/**
+            admin/allegro/*.enc
+            admin/allegro/*.jsonl*
+            admin/allegro/*.lock
+            admin/allegro/config.private.php
+            **/.env*
 
       - name: Pobierz swieze dane, wykonaj migracje i zapisz kopie
         id: migration

@@ -1,6 +1,7 @@
 import { cp, mkdir, readFile, rm, stat } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
 import path from "node:path";
+import { publicAdminSource, assertPrivateAllegroAbsent, applyAllegroOffProfile } from './getspace-artifact-privacy.mjs';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const publish = path.join(root, "publish");
@@ -110,8 +111,7 @@ for (const relativePath of uploadPaths) {
 
 await cp(path.join(root, "hosting", "getspace", "admin"), path.join(publish, "admin"), {
   recursive: true,
-  filter: source => !["storage", ".credentials.php", ".user.ini"].includes(path.basename(source))
-    && !path.basename(source).startsWith(".env")
+  filter: publicAdminSource
 });
 await cp(path.join(root, "hosting", "getspace", "lib"), path.join(publish, "lib"), { recursive: true });
 await cp(path.join(root, "hosting", "getspace", "shop-test"), path.join(publish, "shop-test"), { recursive: true });
@@ -129,4 +129,6 @@ await cp(path.join(root, "hosting", "getspace", "home.php"), path.join(publish, 
 await cp(path.join(root, "hosting", "getspace", "homepage.php"), path.join(publish, "homepage.php"));
 await cp(path.join(root, "hosting", "getspace", "sitemap.php"), path.join(publish, "sitemap.php"));
 
+await applyAllegroOffProfile(publish);
+await assertPrivateAllegroAbsent(publish);
 console.log(`Przygotowano paczkę Getspace z ${products.length} produktami i ${uploadPaths.size} używanymi zdjęciami.`);

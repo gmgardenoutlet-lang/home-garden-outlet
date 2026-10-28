@@ -83,6 +83,11 @@ const withoutPerformanceStep = workflow.replace(/      - name: Sprawdź zakres o
   // FTPS exclusions, full backup, catalogue safeguards and rollback unchanged.
   .replace(/          extensions: curl, sodium(?:, gd)?\r?\n/, '')
   .replace(/          (?:php tests\/(?:olx-oauth-tests|product-id-migration-tests)\.php|node tests\/(?:olx-http-tests|olx-identity-verification-tests)\.mjs)\r?\n/g, '')
+  // Reviewed Allegro OFF additions: tests/privacy only; preserve transfer/backup/rollback.
+  .replace(/        with:\r?\n          fetch-depth: 0\r?\n/, '')
+  .replace(/          (?:php tests\/allegro-oauth-tests\.php|node tests\/allegro-(?:http|artifact)-tests\.mjs|python tests\/allegro-full-build-off-tests\.py)\r?\n/g, '')
+  .replace(/      - name: Sprawdź brak prywatnych danych Allegro w artefakcie\r?\n        run: node tests\/allegro-artifact-tests\.mjs --artifact=publish\r?\n\r?\n/, '')
+  .replace(/            (?:\*\*\/private_allegro\/\*\*|admin\/allegro\/(?:storage\/\*\*|logs\/\*\*|cache\/\*\*|\*\.enc|\*\.jsonl\*|\*\.lock|config\.private\.php)|\*\*\/\.env\*)\r?\n/g, '')
   .replace('cancel-in-progress: false', 'cancel-in-progress: true')
   .replace(/      - name: Finalny dry-run OLX na pełnym katalogu produkcyjnym\r?\n        run: node scripts\/olx-production-prepare\.mjs preflight\r?\n\r?\n/, '')
   .replace(/      - name: Migruj wyłącznie productId i przygotuj prywatny magazyn OLX\r?\n        id: olx_prepare\r?\n        env:\r?\n          OLX_BACKUP_DIR: \$\{\{ steps\.paths\.outputs\.backup_dir \}\}\r?\n          OLX_BACKUP_LOCAL: \$\{\{ steps\.paths\.outputs\.backup_local \}\}\r?\n        run: node scripts\/olx-production-prepare\.mjs apply\r?\n\r?\n      - name: Usuń ewentualną blokadę zapisów panelu po przygotowaniu OLX\r?\n        if: \$\{\{ always\(\) && steps\.olx_prepare\.outcome != 'skipped' \}\}\r?\n        run: node scripts\/olx-production-prepare\.mjs restore\r?\n\r?\n/, '');

@@ -1,0 +1,20 @@
+{
+  "schema": 1,
+  "profile": "B.1.1-OAUTH-OFF-v1",
+  "source_sha256": "7347656d2cbb9c1fb796aa16bbc25d074f98fb698f6b08b9b0016da48326f037",
+  "payload_sha256": "d1042b53f70713be38edde0158ee656c619a624a2034cbea26f44f138e00bfd9",
+  "replacements": [
+    [
+      "'enabled' => $read('ALLEGRO_OAUTH_ENABLED', '0') === '1',",
+      "'enabled' => false, // Infrastructure release: OAuth OFF, independent of environment."
+    ],
+    [
+      "'logs_safe' => $read('ALLEGRO_CALLBACK_LOGS_REDACTED', '0') === '1',",
+      "'logs_safe' => false, // G16 has not been accepted."
+    ],
+    [
+      "    if ($oauth) {\n",
+      "    if ($oauth) {\n        throw new AllegroSafeException('disabled'); // B.1.1 immutable release gate.\n"
+    ]
+  ]
+}

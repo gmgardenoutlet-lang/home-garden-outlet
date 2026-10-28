@@ -841,6 +841,7 @@ if ($showStats) {
       <a class="<?= $showOrders ? 'active' : '' ?>" href="/admin/?orders=1">Zamówienia sklepu</a>
       <a class="<?= $showShipping ? 'active' : '' ?>" href="/admin/?shipping=1">Cennik dostaw</a>
       <a href="/admin/olx/">OLX</a>
+      <a href="/admin/allegro/">Allegro</a>
       <a href="/sklep/figury-ogrodowe" target="_blank" rel="noopener">Podgląd sklepu figur</a>
     </nav>
 

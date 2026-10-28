@@ -8,6 +8,7 @@ DirectoryIndex index.php
 <IfModule mod_rewrite.c>
   RewriteEngine On
   RewriteRule ^olx/callback/?$ olx/callback.php [END]
+  RewriteRule ^allegro/callback/?$ allegro/callback.php [END]
   RewriteRule ^export-events\.php$ index.php?export_events=1 [QSA,L]
   RewriteRule ^storage(?:/|$) - [F,L]
 </IfModule>

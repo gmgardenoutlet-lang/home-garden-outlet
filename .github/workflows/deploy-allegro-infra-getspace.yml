@@ -1,0 +1,211 @@
+name: Allegro infrastructure ONLY (OAuth OFF)
+
+on:
+  workflow_dispatch:
+    inputs:
+      mode:
+        type: choice
+        description: Qualification only is the default; deploy requires separate owner approval
+        options: [qualify-only, deploy]
+        default: qualify-only
+      confirmation:
+        type: string
+        description: For deploy enter DEPLOY_ALLEGRO_INFRA_OAUTH_OFF after separate approval
+        default: ''
+
+permissions:
+  contents: read
+  actions: read
+
+# Same group as the existing whole-site workflow: no simultaneous code transfers.
+concurrency:
+  group: getspace-production
+  cancel-in-progress: false
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  qualify:
+    name: QUALIFY — PHP 8.3 / Node 22, synthetic tests only
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          extensions: curl, sodium
+          coverage: none
+      - name: Check actual qualification versions
+        run: |
+          set -euo pipefail
+          php -r 'exit(PHP_MAJOR_VERSION === 8 && PHP_MINOR_VERSION === 3 ? 0 : 1);'
+          node -e 'if(process.versions.node.split(".")[0] !== "22") process.exit(1)'
+          python -m pip install PyYAML==6.0.2
+      - name: PHP lint, JavaScript syntax, YAML parse and whitespace
+        run: |
+          set -euo pipefail
+          find hosting/getspace/admin/allegro -name '*.php' -print0 | xargs -0 -n1 php -l
+          php -l hosting/getspace/admin/index.php
+          node --check hosting/getspace/admin/allegro/bridge.js
+          python -c "import yaml,pathlib; yaml.safe_load(pathlib.Path('.github/workflows/deploy-allegro-infra-getspace.yml').read_text())"
+          git diff --check
+      - name: Allegro core, HTTP, save_product isolation and privacy
+        run: |
+          set -euo pipefail
+          php tests/allegro-oauth-tests.php
+          node tests/allegro-http-tests.mjs
+          node tests/allegro-artifact-tests.mjs
+          python tests/allegro-infra-release-tests.py
+          python tests/allegro-full-build-off-tests.py
+      - name: OLX local regression — no production configuration or OAuth
+        run: |
+          set -euo pipefail
+          php tests/olx-oauth-tests.php
+          php tests/olx-preparation-tests.php
+          php tests/olx-publication-tests.php
+          node tests/olx-http-tests.mjs
+          node tests/olx-publication-http-tests.mjs
+          node tests/olx-identity-verification-tests.mjs
+      - name: Synthetic public privacy regression
+        run: |
+          set -euo pipefail
+          node tests/prerender-privacy-tests.mjs
+          node tests/public-products-snapshot-tests.mjs
+
+  build:
+    name: BUILD — eleven runtime files only
+    needs: qualify
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python scripts/allegro-infra-release.py build --release .local-cache/allegro-infra-release
+      - uses: actions/upload-artifact@v4
+        with:
+          name: allegro-infra-release
+          path: .local-cache/allegro-infra-release/
+          include-hidden-files: true
+          if-no-files-found: error
+          retention-days: 14
+
+  verify:
+    name: VERIFY RELEASE — source, manifest, OFF gate and public payload
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          extensions: curl, sodium
+          coverage: none
+      - uses: actions/download-artifact@v4
+        with:
+          name: allegro-infra-release
+          path: .local-cache/allegro-infra-release/
+      - run: |
+          set -euo pipefail
+          python -m pip install PyYAML==6.0.2
+          python scripts/allegro-infra-release.py verify --release .local-cache/allegro-infra-release
+          python tests/allegro-infra-release-tests.py --release .local-cache/allegro-infra-release
+          node tests/allegro-artifact-tests.mjs --artifact=.local-cache/allegro-infra-release/runtime
+          find .local-cache/allegro-infra-release/runtime -name '*.php' -print0 | xargs -0 -n1 php -l
+
+  production:
+    name: Future separately approved Allegro-only transfer
+    needs: [qualify, build, verify]
+    if: ${{ inputs.mode == 'deploy' && inputs.confirmation == 'DEPLOY_ALLEGRO_INFRA_OAUTH_OFF' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    # Operator must CREATE/VERIFY this environment, required reviewers, prevent
+    # self-review, disallow bypass and selected/protected branches BEFORE use.
+    # Runtime guard rejects a missing or automatically created unprotected env.
+    environment: allegro-infra-production
+    env:
+      ALLEGRO_DEPLOY_CONFIRM: ${{ inputs.confirmation }}
+      GH_TOKEN: ${{ github.token }}
+      ALLEGRO_FTP_SERVER: ${{ secrets.ALLEGRO_FTP_SERVER }}
+      ALLEGRO_FTP_USERNAME: ${{ secrets.ALLEGRO_FTP_USERNAME }}
+      ALLEGRO_FTP_PASSWORD: ${{ secrets.ALLEGRO_FTP_PASSWORD }}
+      ALLEGRO_FTP_PUBLIC_DIR: ${{ secrets.ALLEGRO_FTP_PUBLIC_DIR }}
+      ALLEGRO_SMOKE_ADMIN_COOKIE: ${{ secrets.ALLEGRO_SMOKE_ADMIN_COOKIE }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - uses: actions/download-artifact@v4
+        with:
+          name: allegro-infra-release
+          path: .local-cache/allegro-infra-release/
+      - name: Reverify artifact and protected environment before FTPS
+        run: |
+          set -euo pipefail
+          python scripts/allegro-infra-release.py verify
+          python scripts/allegro-infra-release.py guard --execute
+      - name: BACKUP TARGET FILES — conflict check, eleven code paths only
+        id: backup
+        run: python scripts/allegro-infra-release.py backup --backup .local-cache/allegro-code-backup --execute
+      - name: Preserve verified code backup BEFORE upload
+        uses: actions/upload-artifact@v4
+        with:
+          name: allegro-code-backup-before
+          path: .local-cache/allegro-code-backup/
+          include-hidden-files: true
+          if-no-files-found: error
+          retention-days: 14
+      - name: DEPLOY ALLOWLIST — per-file transfer and readback
+        id: deploy
+        run: python scripts/allegro-infra-release.py deploy --backup .local-cache/allegro-code-backup --execute
+      - name: SMOKE TEST — GET only, no marketplace API/OAuth
+        id: smoke
+        run: python scripts/allegro-infra-smoke.py --execute --report .local-cache/allegro-smoke.json
+      - name: ROLLBACK — attempted allowlisted files only
+        if: ${{ always() && steps.backup.outcome == 'success' && (steps.deploy.outcome == 'failure' || steps.deploy.outcome == 'cancelled' || steps.smoke.outcome == 'failure' || steps.smoke.outcome == 'cancelled') }}
+        run: python scripts/allegro-infra-release.py rollback --backup .local-cache/allegro-code-backup --execute
+      - name: Preserve code backup, transfer journal and sanitized smoke report
+        if: ${{ always() && steps.backup.outcome == 'success' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: allegro-code-recovery-and-smoke
+          path: |
+            .local-cache/allegro-code-backup/
+            .local-cache/allegro-smoke.json
+          include-hidden-files: true
+          if-no-files-found: error
+          retention-days: 14
