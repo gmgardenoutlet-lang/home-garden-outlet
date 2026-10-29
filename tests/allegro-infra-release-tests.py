@@ -181,13 +181,27 @@ class ReleaseTests(unittest.TestCase):
         valid = {'can_admins_bypass': False,
                  'deployment_branch_policy': {'protected_branches': False, 'custom_branch_policies': True},
                  'protection_rules': [{'type': 'required_reviewers', 'prevent_self_review': True, 'reviewers': [{'id': 1}]}]}
-        release.validate_environment(valid)
-        for changed in [{}, {**valid, 'can_admins_bypass': True}, {**valid, 'protection_rules': []},
+        for rules in [[], valid['protection_rules'],
+                      [{'type': 'required_reviewers', 'prevent_self_review': False, 'reviewers': [{'id': 1}]}]]:
+            release.validate_environment({**valid, 'protection_rules': rules})
+        for changed in [{}, {**valid, 'can_admins_bypass': True},
+                        {**valid, 'can_admins_bypass': None},
                         {**valid, 'deployment_branch_policy': None},
                         {**valid, 'deployment_branch_policy': {'protected_branches': False, 'custom_branch_policies': False}},
-                        {**valid, 'protection_rules': [{'type': 'required_reviewers', 'prevent_self_review': False, 'reviewers': [{'id': 1}]}]}]:
+                        {**valid, 'deployment_branch_policy': {'protected_branches': True, 'custom_branch_policies': True}}]:
             with self.assertRaises(ValueError):
                 release.validate_environment(changed)
+
+    def test_single_owner_execution_still_requires_main_and_exact_confirmation(self):
+        valid = {'GITHUB_ACTIONS': 'true', 'GITHUB_REPOSITORY': release.REPOSITORY,
+                 'GITHUB_REF': 'refs/heads/main', 'ALLEGRO_DEPLOY_CONFIRM': release.CONFIRM}
+        with mock.patch.dict(os.environ, valid, clear=True):
+            release.execution_guard()
+        for changed in [{**valid, 'GITHUB_REF': ref} for ref in ['', 'refs/heads/other', 'refs/tags/main']] + [
+                {**valid, 'ALLEGRO_DEPLOY_CONFIRM': ''}, {**valid, 'ALLEGRO_DEPLOY_CONFIRM': release.CONFIRM + ' '},
+                {**valid, 'GITHUB_ACTIONS': 'false'}, {**valid, 'GITHUB_REPOSITORY': 'other/repo'}]:
+            with mock.patch.dict(os.environ, changed, clear=True), self.assertRaises(ValueError):
+                release.execution_guard()
 
     def test_ftps_adapter_tls_allowlist_and_absence_without_network(self):
         class Protocol:

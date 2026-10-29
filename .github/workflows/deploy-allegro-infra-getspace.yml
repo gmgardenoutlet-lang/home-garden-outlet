@@ -146,8 +146,8 @@ jobs:
     if: ${{ inputs.mode == 'deploy' && inputs.confirmation == 'DEPLOY_ALLEGRO_INFRA_OAUTH_OFF' }}
     runs-on: ubuntu-latest
     timeout-minutes: 20
-    # Operator must CREATE/VERIFY this environment, required reviewers, prevent
-    # self-review, disallow bypass and selected/protected branches BEFORE use.
+    # Single-owner: manual deploy confirmation; no independent reviewer required.
+    # Operator must VERIFY no bypass and selected main branch BEFORE use.
     # Runtime guard rejects a missing or automatically created unprotected env.
     environment: allegro-infra-production
     env:
