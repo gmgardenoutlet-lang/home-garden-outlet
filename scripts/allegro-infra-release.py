@@ -151,15 +151,22 @@ def verify(directory):
     return manifest
 
 
-def execution_guard():
+def execution_guard(inspect_only=False):
     require(os.environ.get('GITHUB_ACTIONS') == 'true' and os.environ.get('GITHUB_REPOSITORY') == REPOSITORY,
             'Remote operations are restricted to the reviewed repository Actions job')
-    require(os.environ.get('ALLEGRO_DEPLOY_CONFIRM') == CONFIRM, 'Explicit deployment confirmation missing')
+    if inspect_only:
+        require(os.environ.get('GITHUB_EVENT_NAME') == 'workflow_dispatch' and
+                os.environ.get('ALLEGRO_OPERATION_MODE') == 'inspect' and
+                os.environ.get('GITHUB_WORKFLOW_REF') ==
+                REPOSITORY + '/.github/workflows/deploy-allegro-infra-getspace.yml@refs/heads/main',
+                'Inspection requires the reviewed manual workflow')
+    else:
+        require(os.environ.get('ALLEGRO_DEPLOY_CONFIRM') == CONFIRM, 'Explicit deployment confirmation missing')
     require(os.environ.get('GITHUB_REF') == 'refs/heads/main', 'Remote operations require main')
 
 
-def environment_guard():
-    execution_guard()
+def environment_guard(inspect_only=False):
+    execution_guard(inspect_only)
     token = os.environ.get('GH_TOKEN', '')
     require(bool(token), 'Environment inspection token missing')
     req = urllib.request.Request(f'https://api.github.com/repos/{REPOSITORY}/environments/{ENVIRONMENT}',
@@ -170,9 +177,11 @@ def environment_guard():
             return None
     with urllib.request.build_opener(NoRedirect()).open(req, timeout=20) as response:
         data = json.load(response)
+    require(data.get('name') == ENVIRONMENT, 'Wrong Environment identity')
     validate_environment(data)
-    require(re.fullmatch(r'hgo_admin=[A-Za-z0-9,-]{16,256}', os.environ.get('ALLEGRO_SMOKE_ADMIN_COOKIE', '')) is not None,
-            'Fresh authenticated smoke session missing')
+    if not inspect_only:
+        require(re.fullmatch(r'hgo_admin=[A-Za-z0-9,-]{16,256}', os.environ.get('ALLEGRO_SMOKE_ADMIN_COOKIE', '')) is not None,
+                'Fresh authenticated smoke session missing')
 
 
 def validate_environment(data):
@@ -184,8 +193,19 @@ def validate_environment(data):
             'Environment bypass/branch protection not verified')
 
 
-class FTPS:
-    """No listing, mirroring, private provisioning, SITE/CHMOD or recursive deletion."""
+class ReadOnlyFTP(ftplib.FTP_TLS):
+    """Wire-level command allowlist: even indirect mutation commands fail closed."""
+    def putcmd(self, line):
+        if line.upper().startswith('RETR '):
+            require(line[5:] in ALLOWLIST, 'Read outside inspection allowlist')
+        require('\r' not in line and '\n' not in line and line.split(' ', 1)[0].upper() in
+                {'AUTH', 'USER', 'PASS', 'PBSZ', 'PROT', 'CWD', 'TYPE', 'PASV', 'EPSV', 'OPTS', 'MLSD', 'RETR', 'QUIT'},
+                'Read-only FTP command rejected')
+        super().putcmd(line)
+
+
+class ReadOnlyFTPS:
+    """Read-only code transport: directory names/types and allowlisted RETR only."""
     def __init__(self):
         host = os.environ.get('ALLEGRO_FTP_SERVER', '')
         root = os.environ.get('ALLEGRO_FTP_PUBLIC_DIR', '').rstrip('/')
@@ -195,7 +215,7 @@ class FTPS:
                 and re.fullmatch(r'/?[A-Za-z0-9_./-]+', root) is not None, 'Target must be an explicit public_html path')
         user, password = os.environ.get('ALLEGRO_FTP_USERNAME', ''), os.environ.get('ALLEGRO_FTP_PASSWORD', '')
         require(bool(user and password), 'Dedicated Allegro FTPS credentials missing')
-        self.ftp = ftplib.FTP_TLS(context=ssl.create_default_context(), timeout=30)
+        self.ftp = self.protocol()(context=ssl.create_default_context(), timeout=30)
         self.ftp.connect(host, 21)
         self.ftp.login(user, password)
         self.ftp.prot_p()
@@ -204,6 +224,9 @@ class FTPS:
         require(roots.get('admin', {}).get('type') == 'dir', 'Unsafe/missing admin code directory')
         admins = dict(self.ftp.mlsd('admin', facts=['type']))
         require('allegro' not in admins or admins['allegro'].get('type') == 'dir', 'Unsafe Allegro code directory')
+
+    def protocol(self):
+        return ReadOnlyFTP
 
     def read(self, target):
         require(target in ALLOWLIST, 'Remote read outside allowlist')
@@ -232,6 +255,14 @@ class FTPS:
             return False
         return True
 
+    def close(self):
+        self.ftp.close()
+
+
+class FTPS(ReadOnlyFTPS):
+    def protocol(self):
+        return ftplib.FTP_TLS
+
     def write(self, target, body):
         require(target in ALLOWLIST, 'Remote write outside allowlist')
         self.ftp.storbinary('STOR ' + target, io.BytesIO(body))
@@ -249,6 +280,30 @@ class FTPS:
 
     def close(self):
         self.ftp.close()
+
+
+def inspect(directory, report, remote):
+    manifest = verify(directory)
+    rows = []
+    conflict = False
+    for item in manifest['files']:
+        target = item['target']
+        if remote.missing(target):
+            row = {'path': target, 'exists': False, 'size': 0, 'sha256': None, 'classification': 'missing'}
+            conflict |= not item['allow_absent']
+        else:
+            body = remote.read(target)
+            digest = sha(body)
+            classification = ('already target' if digest == item['sha256'] else
+                              'expected preimage' if digest in item['allowed_previous_sha256'] else 'conflict')
+            row = {'path': target, 'exists': True, 'size': len(body), 'sha256': digest, 'classification': classification}
+            conflict |= classification == 'conflict'
+        rows.append(row)
+    require(not report.exists(), 'Inspection report must be new')
+    report.parent.mkdir(parents=True, exist_ok=True)
+    report.write_text(json.dumps(rows, indent=2) + '\n', encoding='utf-8')
+    require(not conflict, 'Production preimage conflict; deploy must stop')
+    return rows
 
 
 def backup(directory, backup_dir, remote):
@@ -344,9 +399,10 @@ def rollback(directory, backup_dir, remote):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('action', choices=['build', 'verify', 'guard', 'backup', 'deploy', 'rollback'])
+    parser.add_argument('action', choices=['build', 'verify', 'guard', 'inspect', 'backup', 'deploy', 'rollback'])
     parser.add_argument('--release', type=Path, default=ROOT / '.local-cache/allegro-infra-release')
     parser.add_argument('--backup', type=Path)
+    parser.add_argument('--report', type=Path)
     parser.add_argument('--execute', action='store_true')
     args = parser.parse_args()
     if args.action == 'build':
@@ -360,7 +416,16 @@ def main():
             # Exact prior release/backup journal is checked again by rollback().
             execution_guard()
         else:
-            environment_guard()
+            environment_guard(inspect_only=args.action == 'inspect')
+        if args.action == 'inspect':
+            require(args.report is not None, 'Inspection report path required')
+            verify(args.release)
+            remote = ReadOnlyFTPS()
+            try:
+                inspect(args.release, args.report, remote)
+            finally:
+                remote.close()
+            return
         if args.action != 'guard':
             require(args.backup is not None, 'Explicit local code backup path required')
             verify(args.release)

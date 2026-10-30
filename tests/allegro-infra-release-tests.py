@@ -145,7 +145,7 @@ class ReleaseTests(unittest.TestCase):
         self.assertEqual(set(workflow['on']), {'workflow_dispatch'})
         self.assertEqual(workflow['on']['workflow_dispatch']['inputs']['mode']['default'], 'qualify-only')
         jobs = workflow['jobs']
-        self.assertEqual(set(jobs), {'qualify', 'build', 'verify', 'production'})
+        self.assertEqual(set(jobs), {'qualify', 'build', 'verify', 'inspect', 'production'})
         self.assertEqual(jobs['build']['needs'], 'qualify')
         self.assertEqual(jobs['verify']['needs'], 'build')
         self.assertEqual(set(jobs['production']['needs']), {'qualify', 'build', 'verify'})
@@ -202,6 +202,118 @@ class ReleaseTests(unittest.TestCase):
                 {**valid, 'GITHUB_ACTIONS': 'false'}, {**valid, 'GITHUB_REPOSITORY': 'other/repo'}]:
             with mock.patch.dict(os.environ, changed, clear=True), self.assertRaises(ValueError):
                 release.execution_guard()
+
+    def test_inspect_wire_commands_reject_mutations_and_nonallowlisted_reads(self):
+        transport = release.ReadOnlyFTP()
+        with mock.patch('ftplib.FTP.putcmd') as send:
+            for cmd in ['AUTH TLS', 'USER synthetic', 'PASS synthetic', 'PBSZ 0', 'PROT P',
+                        'CWD domains/mgoutlet.pl/public_html', 'TYPE I', 'EPSV', 'PASV',
+                        'OPTS MLST type;', 'MLSD admin', 'RETR admin/index.php']:
+                transport.putcmd(cmd)
+            sent = send.call_count
+            for cmd in ['STOR admin/index.php', 'APPE x', 'DELE x', 'MKD x', 'RMD x', 'RNFR x', 'RNTO y',
+                        'SITE CHMOD 777 x', 'RETR data/products.json', 'RETR admin/olx/index.php',
+                        'RETR ../private_allegro/account.enc', 'USER x\r\nSTOR y']:
+                with self.assertRaises(ValueError):
+                    transport.putcmd(cmd)
+            self.assertEqual(send.call_count, sent)
+        self.assertFalse(any(hasattr(release.ReadOnlyFTPS, name) for name in ['write', 'delete', 'ensure_module_dir']))
+        self.assertIs(release.ReadOnlyFTPS.protocol(None), release.ReadOnlyFTP)
+
+    def test_inspect_classification_scope_redaction_and_shared_conflicts(self):
+        remote = self.remote()
+        remote.write = mock.Mock(side_effect=AssertionError('No write'))
+        remote.delete = mock.Mock(side_effect=AssertionError('No delete'))
+        remote.ensure_module_dir = mock.Mock(side_effect=AssertionError('No mkdir'))
+        report = self.base / 'inspect.json'
+        rows = release.inspect(self.bundle, report, remote)
+        self.assertEqual(len(rows), 11)
+        self.assertEqual({r['classification'] for r in rows}, {'missing', 'expected preimage'})
+        self.assertEqual({r['path'] for r in rows}, set(release.ALLOWLIST))
+        self.assertTrue(all(set(r) == {'path', 'exists', 'size', 'sha256', 'classification'} for r in rows))
+        self.assertFalse(any(value in report.read_text() for value in ['CATALOG_SENTINEL', 'OLX_VAULT_SENTINEL']))
+        remote.files.update({p: (self.bundle / 'runtime' / p).read_bytes() for p in release.ALLOWLIST})
+        rows = release.inspect(self.bundle, self.base / 'target.json', remote)
+        self.assertTrue(all(r['classification'] == 'already target' for r in rows))
+        for target in ['admin/index.php', 'admin/.htaccess', 'admin/allegro/config.php']:
+            with self.subTest(target=target):
+                previous = remote.files[target]
+                remote.files[target] = b'PRIVATE_CONTENT_NEVER_IN_REPORT'
+                path = self.base / (target.replace('/', '-') + '.json')
+                with self.assertRaises(ValueError):
+                    release.inspect(self.bundle, path, remote)
+                self.assertEqual(next(r for r in json.loads(path.read_text()) if r['path'] == target)['classification'], 'conflict')
+                self.assertNotIn('PRIVATE_CONTENT', path.read_text())
+                remote.files[target] = previous
+        del remote.files['admin/index.php']
+        with self.assertRaises(ValueError):
+            release.inspect(self.bundle, self.base / 'missing-shared.json', remote)
+        self.assertTrue(all(path in release.ALLOWLIST for op, path in remote.operations))
+        self.assertFalse(self.backup.exists())
+
+    def test_inspect_guard_identity_main_and_cookie_not_required(self):
+        valid = {'GITHUB_ACTIONS': 'true', 'GITHUB_REPOSITORY': release.REPOSITORY,
+                 'GITHUB_REF': 'refs/heads/main', 'GITHUB_EVENT_NAME': 'workflow_dispatch',
+                 'ALLEGRO_OPERATION_MODE': 'inspect', 'GH_TOKEN': 'synthetic',
+                 'GITHUB_WORKFLOW_REF': release.REPOSITORY + '/.github/workflows/deploy-allegro-infra-getspace.yml@refs/heads/main'}
+        data = {'name': release.ENVIRONMENT, 'can_admins_bypass': False,
+                'deployment_branch_policy': {'protected_branches': False, 'custom_branch_policies': True}}
+        response = mock.MagicMock()
+        response.__enter__.return_value.read.return_value = json.dumps(data).encode()
+        with mock.patch.dict(os.environ, valid, clear=True), mock.patch('urllib.request.build_opener') as opener:
+            opener.return_value.open.return_value = response
+            release.environment_guard(inspect_only=True)
+            response.__enter__.return_value.read.return_value = json.dumps({**data, 'name': 'other'}).encode()
+            with self.assertRaises(ValueError):
+                release.environment_guard(inspect_only=True)
+        for key, value in [('GITHUB_REF', 'refs/heads/other'), ('GITHUB_REF', 'refs/tags/main'),
+                           ('GITHUB_EVENT_NAME', 'push'), ('ALLEGRO_OPERATION_MODE', 'deploy'),
+                           ('GITHUB_WORKFLOW_REF', 'other/workflow'), ('GITHUB_REPOSITORY', 'other/repo')]:
+            with mock.patch.dict(os.environ, {**valid, key: value}, clear=True), self.assertRaises(ValueError):
+                release.execution_guard(inspect_only=True)
+        with mock.patch.dict(os.environ, valid, clear=True), self.assertRaises(ValueError):
+            release.execution_guard()  # Inspection identity cannot authorize deployment.
+
+    def test_inspect_workflow_is_separate_from_production(self):
+        import yaml
+        w = yaml.load((ROOT / '.github/workflows/deploy-allegro-infra-getspace.yml').read_text(), Loader=yaml.BaseLoader)
+        self.assertEqual(w['on']['workflow_dispatch']['inputs']['mode']['options'], ['qualify-only', 'inspect', 'deploy'])
+        job = w['jobs']['inspect']
+        self.assertEqual(job['if'], "${{ inputs.mode == 'inspect' }}")
+        self.assertEqual(job['environment'], release.ENVIRONMENT)
+        self.assertEqual(job['needs'], ['qualify', 'build', 'verify'])
+        commands = '\n'.join(s.get('run', '') for s in job['steps'])
+        self.assertEqual(commands.strip(), 'python scripts/allegro-infra-release.py inspect --report .local-cache/allegro-inspection.json --execute')
+        self.assertNotIn('ALLEGRO_SMOKE_ADMIN_COOKIE', str(job))
+        self.assertEqual(w['jobs']['production']['if'], "${{ inputs.mode == 'deploy' && inputs.confirmation == 'DEPLOY_ALLEGRO_INFRA_OAUTH_OFF' }}")
+
+    def test_inspect_retr_size_limit(self):
+        remote = release.ReadOnlyFTPS.__new__(release.ReadOnlyFTPS)
+        remote.ftp = mock.Mock()
+        remote.ftp.retrbinary.side_effect = lambda command, callback: callback(b'x' * (1024 * 1024 + 1))
+        with self.assertRaises(ValueError):
+            remote.read('admin/index.php')
+        with self.assertRaises(ValueError):
+            remote.read('data/products.json')
+
+    def test_inspect_cli_never_enters_write_or_recovery_actions(self):
+        report = self.base / 'cli-inspection.json'
+        remote = self.remote()
+        remote.close = mock.Mock()
+        argv = ['release', 'inspect', '--release', str(self.bundle), '--report', str(report), '--execute']
+        with mock.patch.object(sys, 'argv', argv), mock.patch.object(release, 'environment_guard') as guard, \
+                mock.patch.object(release, 'ReadOnlyFTPS', return_value=remote), \
+                mock.patch.object(release, 'FTPS', side_effect=AssertionError('Writable transport forbidden')), \
+                mock.patch.object(release, 'backup', side_effect=AssertionError('Backup forbidden')), \
+                mock.patch.object(release, 'deploy', side_effect=AssertionError('Deploy forbidden')), \
+                mock.patch.object(release, 'rollback', side_effect=AssertionError('Rollback forbidden')):
+            release.main()
+            guard.assert_called_once_with(inspect_only=True)
+            remote.close.assert_called_once()
+        self.assertEqual(len(json.loads(report.read_text())), 11)
+        self.assertTrue(all(op == 'read' for op, path in remote.operations))
+        with mock.patch.object(sys, 'argv', argv[:-1]), self.assertRaises(ValueError):
+            release.main()
 
     def test_ftps_adapter_tls_allowlist_and_absence_without_network(self):
         class Protocol:

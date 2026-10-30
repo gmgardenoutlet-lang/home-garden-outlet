@@ -6,7 +6,7 @@ on:
       mode:
         type: choice
         description: Qualification only is the default; deploy requires separate owner approval
-        options: [qualify-only, deploy]
+        options: [qualify-only, inspect, deploy]
         default: qualify-only
       confirmation:
         type: string
@@ -139,6 +139,46 @@ jobs:
           python tests/allegro-infra-release-tests.py --release .local-cache/allegro-infra-release
           node tests/allegro-artifact-tests.mjs --artifact=.local-cache/allegro-infra-release/runtime
           find .local-cache/allegro-infra-release/runtime -name '*.php' -print0 | xargs -0 -n1 php -l
+
+  inspect:
+    name: INSPECT — read-only production preimages
+    needs: [qualify, build, verify]
+    if: ${{ inputs.mode == 'inspect' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment: allegro-infra-production
+    env:
+      ALLEGRO_OPERATION_MODE: inspect
+      GH_TOKEN: ${{ github.token }}
+      ALLEGRO_FTP_SERVER: ${{ secrets.ALLEGRO_FTP_SERVER }}
+      ALLEGRO_FTP_USERNAME: ${{ secrets.ALLEGRO_FTP_USERNAME }}
+      ALLEGRO_FTP_PASSWORD: ${{ secrets.ALLEGRO_FTP_PASSWORD }}
+      ALLEGRO_FTP_PUBLIC_DIR: ${{ secrets.ALLEGRO_FTP_PUBLIC_DIR }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - uses: actions/download-artifact@v4
+        with:
+          name: allegro-infra-release
+          path: .local-cache/allegro-infra-release/
+      - name: Read-only FTPS inspection — no production writes or smoke
+        run: python scripts/allegro-infra-release.py inspect --report .local-cache/allegro-inspection.json --execute
+      - name: Preserve inspection metadata only
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: allegro-inspection-metadata
+          path: .local-cache/allegro-inspection.json
+          if-no-files-found: warn
+          retention-days: 14
 
   production:
     name: Future separately approved Allegro-only transfer
