@@ -6,7 +6,7 @@ on:
       mode:
         type: choice
         description: Qualification only is the default; deploy requires separate owner approval
-        options: [qualify-only, inspect, deploy]
+        options: [qualify-only, inspect, diagnose-guard, deploy]
         default: qualify-only
       confirmation:
         type: string
@@ -179,6 +179,41 @@ jobs:
           path: .local-cache/allegro-inspection.json
           if-no-files-found: warn
           retention-days: 14
+
+  diagnose:
+    name: DIAGNOSE GUARD — no FTPS, no production writes
+    needs: [qualify, build, verify]
+    if: ${{ inputs.mode == 'diagnose-guard' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    environment: allegro-infra-production
+    env:
+      GH_TOKEN: ${{ github.token }}
+      ALLEGRO_SMOKE_ADMIN_COOKIE: ${{ secrets.ALLEGRO_SMOKE_ADMIN_COOKIE }}
+      ALLEGRO_DEPLOY_CONFIRM: DEPLOY_ALLEGRO_INFRA_OAUTH_OFF
+      ALLEGRO_GUARD_DIAGNOSTIC: 'true'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Check diagnostic workflow identity and ref
+        run: |
+          python - <<'PY'
+          import os, sys
+          ok = (os.environ.get('GITHUB_ACTIONS') == 'true'
+                and os.environ.get('GITHUB_REPOSITORY') == 'gmgardenoutlet-lang/home-garden-outlet'
+                and os.environ.get('GITHUB_EVENT_NAME') == 'workflow_dispatch'
+                and os.environ.get('GITHUB_REF') == 'refs/heads/main'
+                and os.environ.get('GITHUB_WORKFLOW_REF') == 'gmgardenoutlet-lang/home-garden-outlet/.github/workflows/deploy-allegro-infra-getspace.yml@refs/heads/main')
+          if not ok:
+              print('GUARD_DIAGNOSTIC=ACTIONS_IDENTITY')
+              sys.exit(1)
+          PY
+      - name: Guard only — fixed public category, no transport
+        run: python scripts/allegro-infra-release.py guard --execute
 
   production:
     name: Future separately approved Allegro-only transfer

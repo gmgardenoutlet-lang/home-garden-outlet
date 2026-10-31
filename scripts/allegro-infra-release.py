@@ -151,46 +151,72 @@ def verify(directory):
     return manifest
 
 
+class GuardFailure(ValueError):
+    CODES = frozenset({'ACTIONS_IDENTITY', 'INSPECT_IDENTITY', 'DEPLOY_CONFIRMATION', 'MAIN_REF',
+                       'ENV_TOKEN_MISSING', 'ENV_READ_FAILED', 'ENV_IDENTITY', 'ENV_POLICY', 'SMOKE_COOKIE_FORMAT'})
+
+    def __init__(self, code):
+        # Only fixed public categories may reach logs, never exception/network text.
+        self.code = code if code in self.CODES else 'UNKNOWN'
+        super().__init__('Guard rejected')
+
+
+def guard_require(ok, code):
+    if not ok:
+        raise GuardFailure(code)
+
+
+def guard_diagnostic(exc=None):
+    code = 'PASS' if exc is None else (exc.code if isinstance(exc, GuardFailure) and exc.code in GuardFailure.CODES else 'UNKNOWN')
+    return 'GUARD_DIAGNOSTIC=' + code
+
+
 def execution_guard(inspect_only=False):
-    require(os.environ.get('GITHUB_ACTIONS') == 'true' and os.environ.get('GITHUB_REPOSITORY') == REPOSITORY,
-            'Remote operations are restricted to the reviewed repository Actions job')
+    guard_require(os.environ.get('GITHUB_ACTIONS') == 'true' and os.environ.get('GITHUB_REPOSITORY') == REPOSITORY,
+                  'ACTIONS_IDENTITY')
     if inspect_only:
-        require(os.environ.get('GITHUB_EVENT_NAME') == 'workflow_dispatch' and
+        guard_require(os.environ.get('GITHUB_EVENT_NAME') == 'workflow_dispatch' and
                 os.environ.get('ALLEGRO_OPERATION_MODE') == 'inspect' and
                 os.environ.get('GITHUB_WORKFLOW_REF') ==
                 REPOSITORY + '/.github/workflows/deploy-allegro-infra-getspace.yml@refs/heads/main',
-                'Inspection requires the reviewed manual workflow')
+                'INSPECT_IDENTITY')
     else:
-        require(os.environ.get('ALLEGRO_DEPLOY_CONFIRM') == CONFIRM, 'Explicit deployment confirmation missing')
-    require(os.environ.get('GITHUB_REF') == 'refs/heads/main', 'Remote operations require main')
+        guard_require(os.environ.get('ALLEGRO_DEPLOY_CONFIRM') == CONFIRM, 'DEPLOY_CONFIRMATION')
+    guard_require(os.environ.get('GITHUB_REF') == 'refs/heads/main', 'MAIN_REF')
 
 
 def environment_guard(inspect_only=False):
     execution_guard(inspect_only)
     token = os.environ.get('GH_TOKEN', '')
-    require(bool(token), 'Environment inspection token missing')
+    guard_require(bool(token), 'ENV_TOKEN_MISSING')
     req = urllib.request.Request(f'https://api.github.com/repos/{REPOSITORY}/environments/{ENVIRONMENT}',
                                  headers={'Authorization': 'Bearer ' + token, 'Accept': 'application/vnd.github+json',
                                           'X-GitHub-Api-Version': '2022-11-28'})
     class NoRedirect(urllib.request.HTTPRedirectHandler):
         def redirect_request(self, req, fp, code, msg, headers, newurl):
             return None
-    with urllib.request.build_opener(NoRedirect()).open(req, timeout=20) as response:
-        data = json.load(response)
-    require(data.get('name') == ENVIRONMENT, 'Wrong Environment identity')
+    try:
+        with urllib.request.build_opener(NoRedirect()).open(req, timeout=20) as response:
+            data = json.load(response)
+        guard_require(isinstance(data, dict), 'ENV_READ_FAILED')
+    except GuardFailure:
+        raise
+    except Exception:
+        raise GuardFailure('ENV_READ_FAILED') from None
+    guard_require(data.get('name') == ENVIRONMENT, 'ENV_IDENTITY')
     validate_environment(data)
     if not inspect_only:
-        require(re.fullmatch(r'hgo_admin=[A-Za-z0-9,-]{16,256}', os.environ.get('ALLEGRO_SMOKE_ADMIN_COOKIE', '')) is not None,
-                'Fresh authenticated smoke session missing')
+        guard_require(re.fullmatch(r'hgo_admin=[A-Za-z0-9,-]{16,256}', os.environ.get('ALLEGRO_SMOKE_ADMIN_COOKIE', '')) is not None,
+                      'SMOKE_COOKIE_FORMAT')
 
 
 def validate_environment(data):
     # Single-owner approval is the manual dispatch plus exact confirmation.
     # Independent reviewers/prevent_self_review are optional, not prerequisites.
     policy = data.get('deployment_branch_policy') or {}
-    require(data.get('can_admins_bypass') is False and
+    guard_require(data.get('can_admins_bypass') is False and
             ((policy.get('protected_branches') is True) != (policy.get('custom_branch_policies') is True)),
-            'Environment bypass/branch protection not verified')
+            'ENV_POLICY')
 
 
 class ReadOnlyFTP(ftplib.FTP_TLS):
@@ -434,13 +460,20 @@ def main():
                 {'backup': backup, 'deploy': deploy, 'rollback': rollback}[args.action](args.release, args.backup, remote)
             finally:
                 remote.close()
-    print('PASS: Allegro infrastructure ' + args.action)
+    if args.action == 'guard' and os.environ.get('ALLEGRO_GUARD_DIAGNOSTIC') == 'true':
+        print(guard_diagnostic())
+    else:
+        print('PASS: Allegro infrastructure ' + args.action)
 
 
 if __name__ == '__main__':
     try:
         main()
-    except Exception:
+    except Exception as exc:
         # Raw FTP/HTTP errors can carry credentials/paths. Do not echo them.
-        print('FAIL: Allegro infrastructure operation stopped; no raw transport/configuration output.', file=sys.stderr)
+        if os.environ.get('ALLEGRO_GUARD_DIAGNOSTIC') == 'true':
+            print(guard_diagnostic(exc))
+        else:
+            code = exc.code if isinstance(exc, GuardFailure) and exc.code in GuardFailure.CODES else 'OPERATION_FAILED'
+            print('FAIL: Allegro infrastructure operation stopped [' + code + ']; no raw transport/configuration output.', file=sys.stderr)
         sys.exit(1)

@@ -145,7 +145,7 @@ class ReleaseTests(unittest.TestCase):
         self.assertEqual(set(workflow['on']), {'workflow_dispatch'})
         self.assertEqual(workflow['on']['workflow_dispatch']['inputs']['mode']['default'], 'qualify-only')
         jobs = workflow['jobs']
-        self.assertEqual(set(jobs), {'qualify', 'build', 'verify', 'inspect', 'production'})
+        self.assertEqual(set(jobs), {'qualify', 'build', 'verify', 'inspect', 'diagnose', 'production'})
         self.assertEqual(jobs['build']['needs'], 'qualify')
         self.assertEqual(jobs['verify']['needs'], 'build')
         self.assertEqual(set(jobs['production']['needs']), {'qualify', 'build', 'verify'})
@@ -202,6 +202,80 @@ class ReleaseTests(unittest.TestCase):
                 {**valid, 'GITHUB_ACTIONS': 'false'}, {**valid, 'GITHUB_REPOSITORY': 'other/repo'}]:
             with mock.patch.dict(os.environ, changed, clear=True), self.assertRaises(ValueError):
                 release.execution_guard()
+
+    def test_guard_diagnostics_fixed_categories_without_secret_values(self):
+        valid = {'GITHUB_ACTIONS': 'true', 'GITHUB_REPOSITORY': release.REPOSITORY,
+                 'GITHUB_REF': 'refs/heads/main', 'ALLEGRO_DEPLOY_CONFIRM': release.CONFIRM,
+                 'GH_TOKEN': 'SYNTHETIC_PRIVATE_SENTINEL'}
+        response = mock.MagicMock()
+        data = {'name': release.ENVIRONMENT, 'can_admins_bypass': False,
+                'deployment_branch_policy': {'protected_branches': False, 'custom_branch_policies': True}}
+        for cookie in ['', 'SYNTHETIC_PRIVATE_SENTINEL', 'hgo_admin=short', 'hgo_admin=' + 'x' * 32 + '\n']:
+            response.__enter__.return_value.read.return_value = json.dumps(data).encode()
+            with mock.patch.dict(os.environ, {**valid, 'ALLEGRO_SMOKE_ADMIN_COOKIE': cookie}, clear=True), \
+                    mock.patch('urllib.request.build_opener') as opener:
+                opener.return_value.open.return_value = response
+                with self.assertRaises(release.GuardFailure) as caught:
+                    release.environment_guard()
+                self.assertEqual(caught.exception.code, 'SMOKE_COOKIE_FORMAT')
+                self.assertNotIn('SYNTHETIC_PRIVATE_SENTINEL', str(caught.exception))
+        with mock.patch.dict(os.environ, valid, clear=True), mock.patch('urllib.request.build_opener') as opener:
+            opener.return_value.open.side_effect = OSError('SYNTHETIC_PRIVATE_SENTINEL')
+            with self.assertRaises(release.GuardFailure) as caught:
+                release.environment_guard()
+            self.assertEqual(caught.exception.code, 'ENV_READ_FAILED')
+            self.assertIsNone(caught.exception.__cause__)
+        self.assertEqual(release.GuardFailure('SYNTHETIC_PRIVATE_SENTINEL').code, 'UNKNOWN')
+
+    def test_diagnostic_output_is_public_and_guard_only(self):
+        import io
+        from contextlib import redirect_stdout
+        sentinel = 'SYNTHETIC_PRIVATE_SENTINEL'
+        self.assertEqual(release.guard_diagnostic(), 'GUARD_DIAGNOSTIC=PASS')
+        for code in release.GuardFailure.CODES:
+            self.assertEqual(release.guard_diagnostic(release.GuardFailure(code)), 'GUARD_DIAGNOSTIC=' + code)
+        self.assertEqual(release.guard_diagnostic(OSError(sentinel)), 'GUARD_DIAGNOSTIC=UNKNOWN')
+        with mock.patch.dict(os.environ, {'ALLEGRO_GUARD_DIAGNOSTIC': 'true'}, clear=True), \
+                mock.patch.object(sys, 'argv', ['release', 'guard', '--execute']), \
+                mock.patch.object(release, 'environment_guard') as guard, \
+                mock.patch.object(release, 'FTPS', side_effect=AssertionError('No FTP')), \
+                mock.patch.object(release, 'ReadOnlyFTPS', side_effect=AssertionError('No read-only FTP')), \
+                mock.patch.object(release, 'verify', side_effect=AssertionError('No release read')), \
+                redirect_stdout(io.StringIO()) as output:
+            release.main()
+            self.assertEqual(output.getvalue(), 'GUARD_DIAGNOSTIC=PASS\n')
+            guard.assert_called_once_with(inspect_only=False)
+        env = {**os.environ, 'GITHUB_ACTIONS': 'false', 'ALLEGRO_GUARD_DIAGNOSTIC': 'true',
+               'ALLEGRO_SMOKE_ADMIN_COOKIE': sentinel, 'GH_TOKEN': sentinel}
+        p = subprocess.run([sys.executable, 'scripts/allegro-infra-release.py', 'guard', '--execute'],
+                           cwd=ROOT, env=env, capture_output=True, text=True)
+        self.assertEqual(p.returncode, 1)
+        self.assertEqual(p.stdout.strip(), 'GUARD_DIAGNOSTIC=ACTIONS_IDENTITY')
+        self.assertEqual(p.stderr, '')
+        self.assertNotIn(sentinel, p.stdout + p.stderr)
+
+    def test_diagnostic_workflow_and_valid_cookie_contract(self):
+        import yaml
+        w = yaml.load((ROOT / '.github/workflows/deploy-allegro-infra-getspace.yml').read_text(), Loader=yaml.BaseLoader)
+        job = w['jobs']['diagnose']
+        self.assertEqual(job['if'], "${{ inputs.mode == 'diagnose-guard' }}")
+        self.assertEqual(job['environment'], release.ENVIRONMENT)
+        self.assertEqual(set(job['env']), {'GH_TOKEN', 'ALLEGRO_SMOKE_ADMIN_COOKIE', 'ALLEGRO_DEPLOY_CONFIRM', 'ALLEGRO_GUARD_DIAGNOSTIC'})
+        self.assertEqual([s['uses'] for s in job['steps'] if 'uses' in s], ['actions/checkout@v4', 'actions/setup-python@v5'])
+        commands = '\n'.join(s.get('run', '') for s in job['steps'])
+        self.assertIn('guard --execute', commands)
+        for text in ['ReadOnlyFTPS', 'FTPS(', 'backup ', 'deploy ', 'rollback ', 'smoke.py', 'curl ', 'urllib', 'FTP_', '/me', '/sale']:
+            self.assertNotIn(text, commands)
+        self.assertEqual(w['jobs']['production']['if'], "${{ inputs.mode == 'deploy' && inputs.confirmation == 'DEPLOY_ALLEGRO_INFRA_OAUTH_OFF' }}")
+        valid = {'GITHUB_ACTIONS': 'true', 'GITHUB_REPOSITORY': release.REPOSITORY, 'GITHUB_REF': 'refs/heads/main',
+                 'ALLEGRO_DEPLOY_CONFIRM': release.CONFIRM, 'GH_TOKEN': 'synthetic',
+                 'ALLEGRO_SMOKE_ADMIN_COOKIE': 'hgo_admin=' + 'x' * 32}
+        response = mock.MagicMock()
+        response.__enter__.return_value.read.return_value = json.dumps({'name': release.ENVIRONMENT,
+            'can_admins_bypass': False, 'deployment_branch_policy': {'protected_branches': False, 'custom_branch_policies': True}}).encode()
+        with mock.patch.dict(os.environ, valid, clear=True), mock.patch('urllib.request.build_opener') as opener:
+            opener.return_value.open.return_value = response
+            release.environment_guard()
 
     def test_inspect_wire_commands_reject_mutations_and_nonallowlisted_reads(self):
         transport = release.ReadOnlyFTP()
@@ -277,7 +351,7 @@ class ReleaseTests(unittest.TestCase):
     def test_inspect_workflow_is_separate_from_production(self):
         import yaml
         w = yaml.load((ROOT / '.github/workflows/deploy-allegro-infra-getspace.yml').read_text(), Loader=yaml.BaseLoader)
-        self.assertEqual(w['on']['workflow_dispatch']['inputs']['mode']['options'], ['qualify-only', 'inspect', 'deploy'])
+        self.assertEqual(w['on']['workflow_dispatch']['inputs']['mode']['options'], ['qualify-only', 'inspect', 'diagnose-guard', 'deploy'])
         job = w['jobs']['inspect']
         self.assertEqual(job['if'], "${{ inputs.mode == 'inspect' }}")
         self.assertEqual(job['environment'], release.ENVIRONMENT)
