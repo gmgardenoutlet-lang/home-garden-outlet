@@ -17,10 +17,10 @@ ROOT = Path(__file__).resolve().parents[1]
 BASE = 'df4c32cc77f2500a5ba238d892803f9afac1f7bd'
 # Reviewed B.1 module, LF-normalized in ALLOWLIST order. Any source change,
 # including a hidden credential or a widened HTTP policy, requires fresh review.
-REVIEWED_MODULE_SHA256 = '770c1e9dd135c60f5c1ee27dace6660669b2ffb1558d4713f9cd823b3aa8c44c'
+REVIEWED_MODULE_SHA256 = '00ad7ed6dda40145f6af60210bd6fb2fc412a065473ee3168d51d0b25857c717'
 # B.1.3: all eleven reviewed LF-normalized sources, including main's newer OLX
 # presentation block in admin/index.php. Do not accept an older admin preimage.
-REVIEWED_RUNTIME_SHA256 = '3dfc289f54a50687ac5f65f692ef3ac108f6675f13569f0e9c55329b42b47a44'
+REVIEWED_RUNTIME_SHA256 = 'c2603d619f4b2bde2c40d4054f240be928b7020053c0c3215557571d601fddfc'
 REPOSITORY = 'gmgardenoutlet-lang/home-garden-outlet'
 ENVIRONMENT = 'allegro-infra-production'
 CONFIRM = 'DEPLOY_ALLEGRO_INFRA_OAUTH_OFF'

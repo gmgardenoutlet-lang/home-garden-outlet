@@ -6,6 +6,7 @@ DirectoryIndex index.php
 <IfModule mod_rewrite.c>
   RewriteEngine On
   RewriteRule ^(?:storage|private_allegro|logs|cache)(?:/|$) - [F,END,NC]
+  RewriteRule ^callback/?$ callback.php [L]
 </IfModule>
 <IfModule mod_headers.c>
   # Keep the existing policy, permitting only the OAuth navigation after POST.

@@ -1,10 +1,12 @@
 """Synthetic-only qualification: release integrity, failure recovery, disabled PHP runtime."""
 import argparse
+import ast
 import copy
 from email.message import Message
 import importlib.util
 import json
 import os
+import re
 from pathlib import Path
 import secrets
 import shutil
@@ -117,6 +119,33 @@ class ReleaseTests(unittest.TestCase):
         (self.bundle / 'runtime/private_allegro').mkdir(exist_ok=True)
         with self.assertRaises(ValueError):
             release.verify(self.bundle)
+
+    def test_packaged_callback_routing_and_private_access(self):
+        runtime = self.bundle / 'runtime'
+        rules = (runtime / 'admin/allegro/.htaccess').read_text()
+        rewrite = re.search(r'<IfModule mod_rewrite\.c>(.*?)</IfModule>', rules, re.S).group(1)
+        self.assertIn('RewriteEngine On', rewrite)
+        # No redirect, query replacement or QSA: retain the original query implicitly.
+        self.assertEqual([line.strip() for line in rewrite.splitlines() if 'callback' in line],
+                         ['RewriteRule ^callback/?$ callback.php [L]'])
+        self.assertIn('RewriteRule ^allegro/callback/?$ allegro/callback.php [END]',
+                      (runtime / 'admin/.htaccess').read_text())
+        denied = re.search(r'<FilesMatch "([^"]+)">(.*?)</FilesMatch>', rules, re.S)
+        self.assertIn('Require all denied', denied.group(2))
+        for name in ['index.php', 'callback.php']:
+            self.assertIsNone(re.search(denied.group(1), name), name)
+        for name in ['config.php', 'storage.php', 'http.php', 'oauth.php', 'lib.php', 'other.php']:
+            self.assertIsNotNone(re.search(denied.group(1), name), name)
+        self.assertIn('RewriteRule ^(?:storage|private_allegro|logs|cache)(?:/|$) - [F,END,NC]', rewrite)
+        self.assertIn("const ALLEGRO_PROD_CALLBACK = 'https://mgoutlet.pl/admin/allegro/callback';",
+                      (runtime / 'admin/allegro/config.php').read_text())
+        # Keep both real smoke requests, rather than qualifying only the physical PHP URI.
+        tree = ast.parse((ROOT / 'scripts/allegro-infra-smoke.py').read_text())
+        paths = next(node.value for node in ast.walk(tree) if isinstance(node, ast.Assign)
+                     and any(isinstance(target, ast.Name) and target.id == 'paths' for target in node.targets))
+        for path in ['/admin/allegro/callback', '/admin/allegro/callback.php']:
+            self.assertTrue(any(isinstance(item, ast.Tuple) and ast.literal_eval(item) == (path, False)
+                                for item in paths.elts if isinstance(item, ast.Tuple)))
 
     def test_tampering_and_manifest_mismatch_fail(self):
         config = self.bundle / 'runtime/admin/allegro/config.php'
@@ -522,9 +551,11 @@ class ReleaseTests(unittest.TestCase):
         headers['Cache-Control'] = 'no-store, max-age=0'
         headers['Referrer-Policy'] = 'no-referrer'
         headers['Content-Security-Policy'] = "default-src 'none'; frame-ancestors 'none'"
-        self.assertEqual(smoke.evaluate('/admin/allegro/callback', 400, headers, 'Nie można potwierdzić')['status'], 400)
-        with self.assertRaises(ValueError):
-            smoke.evaluate('/admin/allegro/callback', 500, headers, 'PHP error')
+        for path in ['/admin/allegro/callback', '/admin/allegro/callback.php']:
+            self.assertEqual(smoke.evaluate(path, 400, headers, 'Nie można potwierdzić')['status'], 400)
+            for status in [302, 404, 500]:
+                with self.subTest(path=path, status=status), self.assertRaises(ValueError):
+                    smoke.evaluate(path, status, headers, 'PHP error')
         headers['Set-Cookie'] = 'hgo_admin=SESSION_SENTINEL; Secure; HttpOnly; SameSite=Strict'
         headers['Location'] = '/admin/'
         report = smoke.evaluate('/admin/allegro/', 302, headers, '')
