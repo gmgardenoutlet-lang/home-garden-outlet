@@ -310,7 +310,7 @@ class FTPS(ReadOnlyFTPS):
 
 # Inspect-only evidence from deployed release 574331c, artifact 13055714098.
 # ZIP SHA256 f8a0ea99eb73e2d8fad2985a0e80d5a869be8a4adb30202f23d1b48fba81fe1d.
-# This map MUST NOT authorize backup, deploy or writes.
+# This map alone does not authorize writes; only the one-run owner approval below can.
 INSPECT_MIGRATION_PREIMAGES = {
     'admin/allegro/.htaccess': '883d436ad0aeae903038b38f91974dc878997ae93f756c380a2045044c8de131',
     'admin/allegro/config.php': 'd1042b53f70713be38edde0158ee656c619a624a2034cbea26f44f138e00bfd9',
@@ -356,19 +356,38 @@ def inspect(directory, report, remote, migration=False):
     return rows
 
 
+def authorized_migration_preimages():
+    # Owner approval: preflight 41323612131. Qualification is run #15; ONLY
+    # production run #16, first attempt, may consume these exact eleven preimages.
+    # A later dispatch/rerun cannot reuse this migration authorization.
+    if (os.environ.get('GITHUB_ACTIONS') == 'true'
+            and os.environ.get('GITHUB_REPOSITORY') == REPOSITORY
+            and os.environ.get('GITHUB_EVENT_NAME') == 'workflow_dispatch'
+            and os.environ.get('GITHUB_REF') == 'refs/heads/main'
+            and os.environ.get('GITHUB_WORKFLOW_REF') == REPOSITORY + '/.github/workflows/deploy-allegro-infra-getspace.yml@refs/heads/main'
+            and os.environ.get('GITHUB_JOB') == 'production'
+            and os.environ.get('GITHUB_RUN_NUMBER') == '16'
+            and os.environ.get('GITHUB_RUN_ATTEMPT') == '1'
+            and os.environ.get('ALLEGRO_DEPLOY_CONFIRM') == CONFIRM):
+        return dict(INSPECT_MIGRATION_PREIMAGES)
+    return None
+
+
 def backup(directory, backup_dir, remote):
     manifest = verify(directory)
     require(not backup_dir.exists(), 'Backup directory must be new')
     previous = {}
+    migration = authorized_migration_preimages()
     # Complete preflight BEFORE any production write. Unknown existing module rejected.
     for row in manifest['files']:
         target = row['target']
         if remote.missing(target):
-            require(row['allow_absent'], 'Required shared admin file missing')
+            require(migration is None and row['allow_absent'], 'Approved migration file missing')
             previous[target] = None
         else:
             body = remote.read(target)
-            require(sha(body) in [row['sha256'], *row['allowed_previous_sha256']], 'Remote code conflict; no transfer allowed')
+            require(sha(body) == migration[target] if migration is not None else
+                    sha(body) in [row['sha256'], *row['allowed_previous_sha256']], 'Remote code conflict; no transfer allowed')
             previous[target] = body
     backup_dir.mkdir(parents=True, mode=0o700)
     records = {}
@@ -403,6 +422,8 @@ def load_state(directory, backup_dir):
 def deploy(directory, backup_dir, remote):
     state = load_state(directory, backup_dir)
     require(not state['attempted'], 'Deploy already started; rollback/review required')
+    if state['before'] == INSPECT_MIGRATION_PREIMAGES:
+        require(authorized_migration_preimages() == state['before'], 'Migration authorization is not valid for this run')
     # Recheck ALL preimages, including absent names, before first upload.
     for target, digest in state['before'].items():
         absent = remote.missing(target)

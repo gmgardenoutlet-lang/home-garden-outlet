@@ -414,11 +414,73 @@ class ReleaseTests(unittest.TestCase):
         with self.assertRaises((ValueError, FileNotFoundError)):
             release.deploy(self.bundle, self.backup, remote)
         self.assertTrue(all(op == 'read' for op, path in remote.operations))
-        # No writer/authorization code may consult the inspect-only mapping.
+        # Verification/recovery remain independent of the one-run migration authorization.
         import inspect as python_inspect
-        for function in [release.backup, release.deploy, release.rollback, release.load_state, release.verify]:
+        for function in [release.rollback, release.load_state, release.verify]:
             self.assertNotIn('INSPECT_MIGRATION_PREIMAGES', python_inspect.getsource(function))
         self.assertEqual(set(release.INSPECT_MIGRATION_PREIMAGES), set(release.ALLOWLIST))
+
+    def migration_authorization(self):
+        return {'GITHUB_ACTIONS': 'true', 'GITHUB_REPOSITORY': release.REPOSITORY,
+                'GITHUB_EVENT_NAME': 'workflow_dispatch', 'GITHUB_REF': 'refs/heads/main',
+                'GITHUB_WORKFLOW_REF': release.REPOSITORY + '/.github/workflows/deploy-allegro-infra-getspace.yml@refs/heads/main',
+                'GITHUB_JOB': 'production', 'GITHUB_RUN_NUMBER': '16', 'GITHUB_RUN_ATTEMPT': '1',
+                'ALLEGRO_DEPLOY_CONFIRM': release.CONFIRM}
+
+    def test_migration_authorization_is_bound_to_one_production_attempt(self):
+        valid = self.migration_authorization()
+        with mock.patch.dict(os.environ, valid, clear=True):
+            self.assertEqual(release.authorized_migration_preimages(), release.INSPECT_MIGRATION_PREIMAGES)
+        for key, value in [('GITHUB_RUN_NUMBER', '15'), ('GITHUB_RUN_NUMBER', '17'),
+                           ('GITHUB_RUN_ATTEMPT', '2'), ('GITHUB_JOB', 'inspect'),
+                           ('GITHUB_EVENT_NAME', 'push'), ('GITHUB_REF', 'refs/heads/other'),
+                           ('GITHUB_WORKFLOW_REF', 'other'), ('GITHUB_ACTIONS', 'false'),
+                           ('GITHUB_REPOSITORY', 'other/repo'), ('ALLEGRO_DEPLOY_CONFIRM', '')]:
+            with mock.patch.dict(os.environ, {**valid, key: value}, clear=True):
+                self.assertIsNone(release.authorized_migration_preimages())
+
+    def test_authorized_migration_exact_backup_readback_and_rollback(self):
+        remote = self.migration_remote()
+        original = dict(remote.files)
+        with mock.patch.object(release, 'authorized_migration_preimages', return_value=release.INSPECT_MIGRATION_PREIMAGES):
+            state = release.backup(self.bundle, self.backup, remote)
+            self.assertEqual(state['before'], release.INSPECT_MIGRATION_PREIMAGES)
+            self.assertTrue(all(op == 'read' for op, path in remote.operations))
+            release.deploy(self.bundle, self.backup, remote)
+            self.assertEqual({path for op, path in remote.operations if op == 'write'}, set(release.ALLOWLIST))
+            self.assertEqual(len([op for op, path in remote.operations if op == 'write']), 11)
+            for target in release.ALLOWLIST:
+                self.assertEqual(remote.files[target], (self.bundle / 'runtime' / target).read_bytes())
+        # Recovery remains possible even when run-bound migration authorization is gone.
+        release.rollback(self.bundle, self.backup, remote)
+        self.assertEqual(remote.files, original)
+
+    def test_migration_rejects_any_difference_from_reviewed_preflight(self):
+        remote = self.migration_remote()
+        with mock.patch.object(release, 'authorized_migration_preimages', return_value=release.INSPECT_MIGRATION_PREIMAGES):
+            for i, target in enumerate(release.ALLOWLIST):
+                original = remote.files[target]
+                remote.files[target] = original + b'drift'
+                with self.assertRaises(ValueError):
+                    release.backup(self.bundle, self.base / ('drift-' + str(i)), remote)
+                del remote.files[target]
+                with self.assertRaises(ValueError):
+                    release.backup(self.bundle, self.base / ('absent-' + str(i)), remote)
+                remote.files[target] = original
+            # Even already-new Device config is NOT the approved production preimage.
+            remote.files['admin/allegro/config.php'] = (self.bundle / 'runtime/admin/allegro/config.php').read_bytes()
+            with self.assertRaises(ValueError):
+                release.backup(self.bundle, self.backup, remote)
+        self.assertTrue(all(op == 'read' for op, target in remote.operations))
+
+    def test_migration_backup_cannot_be_reused_by_another_run(self):
+        remote = self.migration_remote()
+        with mock.patch.object(release, 'authorized_migration_preimages', return_value=release.INSPECT_MIGRATION_PREIMAGES):
+            release.backup(self.bundle, self.backup, remote)
+        with mock.patch.object(release, 'authorized_migration_preimages', return_value=None):
+            with self.assertRaises(ValueError):
+                release.deploy(self.bundle, self.backup, remote)
+        self.assertTrue(all(op == 'read' for op, target in remote.operations))
 
     def test_inspect_guard_identity_main_and_cookie_not_required(self):
         valid = {'GITHUB_ACTIONS': 'true', 'GITHUB_REPOSITORY': release.REPOSITORY,
