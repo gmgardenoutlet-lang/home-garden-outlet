@@ -354,6 +354,72 @@ class ReleaseTests(unittest.TestCase):
         self.assertTrue(all(path in release.ALLOWLIST for op, path in remote.operations))
         self.assertFalse(self.backup.exists())
 
+    def migration_remote(self):
+        # Read Git bytes and apply the old exact OFF transform; never execute historical code.
+        commit = '574331c882a51d298d826a81e31ab9c5d1d791b8'
+        profile = json.loads(subprocess.check_output(['git', 'show', commit + ':scripts/allegro-off-profile.json'], cwd=ROOT))
+        files = {}
+        for target in release.ALLOWLIST:
+            body = subprocess.check_output(['git', 'show', commit + ':hosting/getspace/' + target], cwd=ROOT)
+            text = body.decode('utf-8').replace('\r\n', '\n')
+            if target == 'admin/allegro/config.php':
+                for before, after in profile['replacements']:
+                    self.assertEqual(text.count(before), 1)
+                    text = text.replace(before, after)
+            files[target] = text.encode()
+            self.assertEqual(release.sha(files[target]), release.INSPECT_MIGRATION_PREIMAGES[target])
+        return FakeRemote(files)
+
+    def test_migration_inspect_exact_old_new_and_metadata_only(self):
+        remote = self.migration_remote()
+        rows = release.inspect(self.bundle, self.base / 'old-migration.json', remote, migration=True)
+        self.assertEqual(len(rows), 11)
+        self.assertEqual(sum(r['classification'] == 'migration_preimage' for r in rows), 8)
+        self.assertEqual(sum(r['classification'] == 'already_target' for r in rows), 3)
+        self.assertTrue(all(r['exists'] for r in rows))
+        for row in rows:
+            self.assertEqual(set(row), {'path', 'exists', 'size', 'sha256', 'classification'})
+        self.assertTrue(all(op == 'read' and target in release.ALLOWLIST for op, target in remote.operations))
+        remote.files = {p: (self.bundle / 'runtime' / p).read_bytes() for p in release.ALLOWLIST}
+        rows = release.inspect(self.bundle, self.base / 'new-migration.json', remote, migration=True)
+        self.assertTrue(all(r['classification'] == 'already_target' for r in rows))
+
+    def test_migration_inspect_bit_drift_and_missing_fail_every_path(self):
+        remote = self.migration_remote()
+        for i, target in enumerate(release.ALLOWLIST):
+            original = remote.files[target]
+            remote.files[target] = bytes([original[0] ^ 1]) + original[1:]
+            report = self.base / ('bit-' + str(i) + '.json')
+            with self.assertRaises(ValueError):
+                release.inspect(self.bundle, report, remote, migration=True)
+            row = next(r for r in json.loads(report.read_text()) if r['path'] == target)
+            self.assertEqual(row['classification'], 'conflict')
+            del remote.files[target]
+            report = self.base / ('missing-' + str(i) + '.json')
+            with self.assertRaises(ValueError):
+                release.inspect(self.bundle, report, remote, migration=True)
+            row = next(r for r in json.loads(report.read_text()) if r['path'] == target)
+            self.assertFalse(row['exists'])
+            self.assertEqual(row['classification'], 'missing')
+            remote.files[target] = original
+        self.assertTrue(all(op == 'read' for op, path in remote.operations))
+
+    def test_migration_inspect_does_not_authorize_backup_or_deploy(self):
+        remote = self.migration_remote()
+        with self.assertRaises(ValueError):
+            release.backup(self.bundle, self.backup, remote)
+        self.assertFalse(self.backup.exists())
+        with self.assertRaises(ValueError):
+            release.inspect(self.bundle, self.base / 'ordinary.json', remote)
+        with self.assertRaises((ValueError, FileNotFoundError)):
+            release.deploy(self.bundle, self.backup, remote)
+        self.assertTrue(all(op == 'read' for op, path in remote.operations))
+        # No writer/authorization code may consult the inspect-only mapping.
+        import inspect as python_inspect
+        for function in [release.backup, release.deploy, release.rollback, release.load_state, release.verify]:
+            self.assertNotIn('INSPECT_MIGRATION_PREIMAGES', python_inspect.getsource(function))
+        self.assertEqual(set(release.INSPECT_MIGRATION_PREIMAGES), set(release.ALLOWLIST))
+
     def test_inspect_guard_identity_main_and_cookie_not_required(self):
         valid = {'GITHUB_ACTIONS': 'true', 'GITHUB_REPOSITORY': release.REPOSITORY,
                  'GITHUB_REF': 'refs/heads/main', 'GITHUB_EVENT_NAME': 'workflow_dispatch',
@@ -401,7 +467,7 @@ class ReleaseTests(unittest.TestCase):
 
     def test_inspect_cli_never_enters_write_or_recovery_actions(self):
         report = self.base / 'cli-inspection.json'
-        remote = self.remote()
+        remote = self.migration_remote()
         remote.close = mock.Mock()
         argv = ['release', 'inspect', '--release', str(self.bundle), '--report', str(report), '--execute']
         with mock.patch.object(sys, 'argv', argv), mock.patch.object(release, 'environment_guard') as guard, \

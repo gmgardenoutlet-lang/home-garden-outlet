@@ -308,20 +308,44 @@ class FTPS(ReadOnlyFTPS):
         self.ftp.close()
 
 
-def inspect(directory, report, remote):
+# Inspect-only evidence from deployed release 574331c, artifact 13055714098.
+# ZIP SHA256 f8a0ea99eb73e2d8fad2985a0e80d5a869be8a4adb30202f23d1b48fba81fe1d.
+# This map MUST NOT authorize backup, deploy or writes.
+INSPECT_MIGRATION_PREIMAGES = {
+    'admin/allegro/.htaccess': '883d436ad0aeae903038b38f91974dc878997ae93f756c380a2045044c8de131',
+    'admin/allegro/config.php': 'd1042b53f70713be38edde0158ee656c619a624a2034cbea26f44f138e00bfd9',
+    'admin/allegro/storage.php': 'd2810966f4f8a6c428e836a7335eb8a2dd7db61eeabd603f7f628124ebd458e1',
+    'admin/allegro/http.php': '569e731e9eb5f174b733623046047908e7a89321ee41dfe07e2ef1e789de2bfc',
+    'admin/allegro/oauth.php': '3181801778eb0005dfe5807a777e81a9df56f74448b3daf5152d197d434d864e',
+    'admin/allegro/lib.php': 'fcf3115b9951bbbf680891fc5d745ebe3ffd2b25d9f42e3e199119938935bece',
+    'admin/allegro/bridge.js': '1e064793701e275351ccfce5618aaa712d0e69df7afeda7043d3580da1a32dd1',
+    'admin/allegro/callback.php': '7a506efd7ebe3d255b65cb6c8cef3e977312e03a9bd7bd8fbcca9552a0dc2f10',
+    'admin/allegro/index.php': '420fdc061e6e2350df95f3002ba21888381bbb5c16d455a0d354de129ee2ad1a',
+    'admin/.htaccess': '843ebe07e10c8dedd2f83979ef93fc994184cad664249e32480e9bcdff635cd8',
+    'admin/index.php': 'fd966af9611f9020a8cc56a9eb848c04a8cf94f2e54b951eaa074884179ff3c1',
+}
+
+
+def inspect(directory, report, remote, migration=False):
     manifest = verify(directory)
+    if migration:
+        require(set(INSPECT_MIGRATION_PREIMAGES) == set(ALLOWLIST), 'Incomplete migration inspection map')
     rows = []
     conflict = False
     for item in manifest['files']:
         target = item['target']
         if remote.missing(target):
             row = {'path': target, 'exists': False, 'size': 0, 'sha256': None, 'classification': 'missing'}
-            conflict |= not item['allow_absent']
+            conflict |= migration or not item['allow_absent']
         else:
             body = remote.read(target)
             digest = sha(body)
-            classification = ('already target' if digest == item['sha256'] else
-                              'expected preimage' if digest in item['allowed_previous_sha256'] else 'conflict')
+            if migration:
+                classification = ('already_target' if digest == item['sha256'] else
+                                  'migration_preimage' if digest == INSPECT_MIGRATION_PREIMAGES[target] else 'conflict')
+            else:
+                classification = ('already target' if digest == item['sha256'] else
+                                  'expected preimage' if digest in item['allowed_previous_sha256'] else 'conflict')
             row = {'path': target, 'exists': True, 'size': len(body), 'sha256': digest, 'classification': classification}
             conflict |= classification == 'conflict'
         rows.append(row)
@@ -448,7 +472,7 @@ def main():
             verify(args.release)
             remote = ReadOnlyFTPS()
             try:
-                inspect(args.release, args.report, remote)
+                inspect(args.release, args.report, remote, migration=True)
             finally:
                 remote.close()
             return
