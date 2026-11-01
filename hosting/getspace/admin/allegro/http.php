@@ -53,7 +53,7 @@ function allegro_curl(array $request): array
         curl_setopt_array($ch, [CURLOPT_CUSTOMREQUEST => $request['method'], CURLOPT_FOLLOWLOCATION => false,
             CURLOPT_MAXREDIRS => 0, CURLOPT_CONNECTTIMEOUT => 8, CURLOPT_TIMEOUT => 25,
             CURLOPT_SSL_VERIFYPEER => true, CURLOPT_SSL_VERIFYHOST => 2, CURLOPT_PROTOCOLS => CURLPROTO_HTTPS,
-            CURLOPT_HTTPHEADER => $request['headers'], CURLOPT_USERAGENT => 'HGO-Allegro-Stage-B/1',
+            CURLOPT_HTTPHEADER => $request['headers'], CURLOPT_USERAGENT => 'Home-&-Garden-Outlet-Allegro/1.0.0 (+https://mgoutlet.pl/integracja-allegro/)',
             CURLOPT_WRITEFUNCTION => static function ($unused, string $chunk) use (&$body): int {
                 if (strlen($body) + strlen($chunk) > 131072) return 0;
                 $body .= $chunk;
