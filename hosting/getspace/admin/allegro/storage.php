@@ -93,7 +93,7 @@ function allegro_locked(array $config, callable $operation)
 /** Only fixed event/error codes and validated IDs are loggable. Arbitrary context is discarded. */
 function allegro_log(array $config, string $event, array $context = []): void
 {
-    $events = ['oauth_start', 'oauth_callback', 'oauth_finish', 'refresh', 'disconnect', 'account_read', 'http'];
+    $events = ['device_start', 'device_pending', 'device_denied', 'device_expired', 'device_connected', 'refresh', 'disconnect', 'account_read', 'http'];
     $errors = ['ok', 'config', 'disabled', 'storage', 'state', 'session', 'denied', 'auth', 'network', 'refresh', 'policy', 'identity'];
     $record = ['timestamp' => gmdate('c'), 'operation' => in_array($event, $events, true) ? $event : 'http',
         'environment' => $config['environment'], 'correlationId' => bin2hex(random_bytes(12)),

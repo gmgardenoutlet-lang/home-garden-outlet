@@ -587,7 +587,7 @@ class ReleaseTests(unittest.TestCase):
         env = {k: v for k, v in os.environ.items() if not k.startswith(('ALLEGRO_', 'HGO_'))}
         env.update({'HGO_STORAGE_DIR': str(self.base / 'admin-storage'), 'HGO_PRIVATE_CONFIG_FILE': str(self.base / 'absent-paynow.php'),
                     'HGO_ALLEGRO_CONFIG': str(config_file), 'ALLEGRO_OAUTH_ENABLED': '1', 'ALLEGRO_CALLBACK_LOGS_REDACTED': '1',
-                    'ALLEGRO_ENVIRONMENT': 'SANDBOX', 'ALLEGRO_CLIENT_ID': 'synthetic-client-123',
+                    'ALLEGRO_ENVIRONMENT': 'SANDBOX', 'ALLEGRO_AUTH_FLOW': 'DEVICE', 'ALLEGRO_CLIENT_ID': 'synthetic-client-123',
                     'ALLEGRO_CLIENT_SECRET': 'SYNTHETIC_NOT_A_CREDENTIAL', 'ALLEGRO_TOKEN_KEY': __import__('base64').b64encode(secrets.token_bytes(32)).decode(),
                     'ALLEGRO_STORAGE_DIR': str(vault), 'ALLEGRO_REDIRECT_URI': 'https://sandbox.example.test/admin/allegro/callback'})
         # Missing config/key is safe, then a complete synthetic configuration remains OFF.
@@ -645,8 +645,8 @@ class ReleaseTests(unittest.TestCase):
             self.assertEqual(status, 200)
             self.assertIn('OAuth w konfiguracji</dt><dd>Wyłączony', body)
             self.assertNotIn('name="action" value="connect"', body)
-            self.assertIn('Niepotwierdzona — BLOCKER PRZED PRODUKCYJNYM OAUTH', body)
-            for action in ['connect', 'finish', 'check']:
+            self.assertIn('Device Flow', body)
+            for action in ['connect', 'check-device', 'finish', 'check']:
                 result = request('/admin/allegro/', cookie, {'action': action, 'csrf': csrf, 'resume': 'a' * 64})
                 self.assertEqual(result[0], 400)
                 self.assertIsNone(result[1].get('Location'))

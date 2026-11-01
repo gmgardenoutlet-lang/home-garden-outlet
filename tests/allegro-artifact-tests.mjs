@@ -47,7 +47,7 @@ try {
     await assertPrivateAllegroAbsent(artifact);
     const config = await readFile(path.join(artifact, 'admin/allegro/config.php'));
     assert.equal(createHash('sha256').update(config).digest('hex'),
-      'd1042b53f70713be38edde0158ee656c619a624a2034cbea26f44f138e00bfd9', 'immutable reviewed OFF payload');
+      '102d4086ae3f0ee00024c295621c0216f6c260474dea60d4469b2e84dc60478e', 'immutable reviewed OFF payload');
   }
   console.log('PASS: Allegro source allowlist, private sentinels excluded, Git/FTPS/routing protections');
 } finally {

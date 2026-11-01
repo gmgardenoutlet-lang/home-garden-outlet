@@ -7,6 +7,7 @@ function allegro_http_policy(string $method, string $url): void
     $allowed = [];
     foreach (['PROD', 'SANDBOX'] as $environment) {
         $hosts = allegro_hosts($environment);
+        $allowed[] = ['POST', $hosts['auth'] . '/auth/oauth/device'];
         $allowed[] = ['POST', $hosts['auth'] . '/auth/oauth/token'];
         $allowed[] = ['GET', $hosts['api'] . '/me'];
     }
@@ -20,23 +21,21 @@ function allegro_request_spec(array $config, string $method, string $path, strin
         && strlen($token) <= 32768 && !preg_match('/[\x00-\x20\x7f]/', $token)) {
         $request = ['method' => 'GET', 'url' => $hosts['api'] . '/me', 'body' => '',
             'headers' => ['Accept: application/vnd.allegro.public.v1+json', 'Accept-Language: pl-PL', 'Authorization: Bearer ' . $token]];
+    } elseif ($method === 'POST' && $path === '/auth/oauth/device' && $token === '' && $grant === []) {
+        $request = ['method' => 'POST', 'url' => $hosts['auth'] . $path,
+            'headers' => ['Accept: application/json', 'Content-Type: application/x-www-form-urlencoded',
+                'Authorization: Basic ' . base64_encode($config['client_id'] . ':' . $config['secret'])],
+            'body' => http_build_query(['client_id' => $config['client_id'], 'scope' => ALLEGRO_B_SCOPE], '', '&', PHP_QUERY_RFC3986)];
     } elseif ($method === 'POST' && $path === '/auth/oauth/token' && $token === '') {
         $type = $grant['grant_type'] ?? '';
-        $headers = ['Accept: application/json', 'Content-Type: application/x-www-form-urlencoded'];
-        if ($type === 'authorization_code' && count($grant) === 3 && isset($grant['code'], $grant['code_verifier'])
-            && is_string($grant['code']) && $grant['code'] !== '' && strlen($grant['code']) <= 4096
-            && !preg_match('/[\x00-\x20\x7f]/', $grant['code'])
-            && is_string($grant['code_verifier']) && preg_match('/^[A-Za-z0-9._~-]{43,128}$/D', $grant['code_verifier'])) {
-            // Allegro's current PKCE flow uses client_id and verifier instead of Basic.
-            $fields = $grant + ['client_id' => $config['client_id'], 'redirect_uri' => $config['redirect_uri']];
-        } elseif ($type === 'refresh_token' && count($grant) === 2 && is_string($grant['refresh_token'] ?? null)
-            && $grant['refresh_token'] !== '' && strlen($grant['refresh_token']) <= 32768
-            && !preg_match('/[\x00-\x20\x7f]/', $grant['refresh_token'])) {
-            $fields = $grant;
-            $headers[] = 'Authorization: Basic ' . base64_encode($config['client_id'] . ':' . $config['secret']);
-        } else { throw new AllegroSafeException('policy'); }
-        $request = ['method' => 'POST', 'url' => $hosts['auth'] . '/auth/oauth/token', 'headers' => $headers,
-            'body' => http_build_query($fields, '', '&', PHP_QUERY_RFC3986)];
+        $field = $type === 'refresh_token' ? 'refresh_token' : ($type === 'urn:ietf:params:oauth:grant-type:device_code' ? 'device_code' : '');
+        if ($field === '' || count($grant) !== 2 || !is_string($grant[$field] ?? null)
+            || $grant[$field] === '' || strlen($grant[$field]) > ($field === 'device_code' ? 4096 : 32768)
+            || preg_match('/[\x00-\x20\x7f]/', $grant[$field])) throw new AllegroSafeException('policy');
+        $request = ['method' => 'POST', 'url' => $hosts['auth'] . $path,
+            'headers' => ['Accept: application/json', 'Content-Type: application/x-www-form-urlencoded',
+                'Authorization: Basic ' . base64_encode($config['client_id'] . ':' . $config['secret'])],
+            'body' => http_build_query($grant, '', '&', PHP_QUERY_RFC3986)];
     } else { throw new AllegroSafeException('policy'); }
     allegro_http_policy($request['method'], $request['url']);
     return $request;
@@ -75,12 +74,17 @@ function allegro_http(array $config, string $method, string $path, string $token
     try {
         $response = ($transport ?? 'allegro_curl')($request);
         $status = is_int($response['status'] ?? null) ? $response['status'] : 0;
-        if (in_array($status, [400, 401, 403], true)) throw new AllegroSafeException('auth');
-        if ($status !== 200 || !is_string($response['body'] ?? null) || strlen($response['body']) > 131072) {
-            throw new AllegroSafeException('network');
-        }
+        if (!is_string($response['body'] ?? null) || strlen($response['body']) > 131072) throw new AllegroSafeException('network');
         $data = json_decode($response['body'], true, 32, JSON_THROW_ON_ERROR);
         if (!is_array($data)) throw new AllegroSafeException('network');
+        if (array_key_exists('device_result', $data)) throw new AllegroSafeException('auth');
+        if ($status === 400 && ($grant['grant_type'] ?? '') === 'urn:ietf:params:oauth:grant-type:device_code') {
+            $codes = ['authorization_pending' => 'pending', 'slow_down' => 'slow_down', 'access_denied' => 'denied',
+                'Invalid device code' => 'expired', 'invalid_grant' => 'expired', 'expired_token' => 'expired'];
+            return ['device_result' => $codes[$data['error'] ?? ''] ?? 'expired'];
+        }
+        if (in_array($status, [400, 401, 403], true)) throw new AllegroSafeException('auth');
+        if ($status !== 200) throw new AllegroSafeException('network');
     } catch (Throwable $e) {
         $kind = $e instanceof AllegroSafeException ? $e->kind : 'network';
         allegro_log($config, 'http', ['httpStatus' => $status, 'errorCode' => $kind]);

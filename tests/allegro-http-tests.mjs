@@ -6,7 +6,6 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { randomBytes, createHash } from 'node:crypto';
 import net from 'node:net';
-import vm from 'node:vm';
 import { publicAdminSource } from '../scripts/getspace-artifact-privacy.mjs';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
@@ -32,12 +31,20 @@ try {
   const configText = `<?php return [
     'ALLEGRO_ENVIRONMENT' => 'SANDBOX', 'ALLEGRO_CLIENT_ID' => '${randomBytes(16).toString('hex')}',
     'ALLEGRO_CLIENT_SECRET' => '${secret}', 'ALLEGRO_TOKEN_KEY' => '${key}',
-    'ALLEGRO_REDIRECT_URI' => 'https://sandbox-admin.example.test/admin/allegro/callback',
+    'ALLEGRO_AUTH_FLOW' => 'DEVICE',
     'ALLEGRO_STORAGE_DIR' => ${phpString(path.join(temp, 'vault'))},
-    'ALLEGRO_OAUTH_ENABLED' => '1', 'ALLEGRO_CALLBACK_LOGS_REDACTED' => '1',
+    'ALLEGRO_OAUTH_ENABLED' => '1', 'ALLEGRO_CALLBACK_LOGS_REDACTED' => '0',
   ];`;
   await writeFile(path.join(temp, 'config.php'), configText);
+  const httpCopy = path.join(site, 'admin/allegro/http.php');
+  await writeFile(httpCopy, (await readFile(httpCopy, 'utf8')).replace("$transport ?? 'allegro_curl'", "$transport ?? 'fixture_device_transport'"));
   await writeFile(path.join(temp, 'router.php'), `<?php
+    function fixture_device_transport($request) {
+      file_put_contents(${phpString(path.join(temp, 'device-requests'))}, '+', FILE_APPEND | LOCK_EX);
+      return ['status'=>200, 'body'=>json_encode(['user_code'=>'abc123xyz','device_code'=>'DEVICE_PRIVATE_NO_HTML',
+        'expires_in'=>3600,'interval'=>5,'verification_uri'=>'https://allegro.pl.allegrosandbox.pl/skojarz-aplikacje',
+        'verification_uri_complete'=>'https://allegro.pl.allegrosandbox.pl/skojarz-aplikacje?code=abc123xyz'])];
+    }
     $path = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH);
     if ($path === '/fixture-config-flags') {
       require ${phpString(path.join(site, 'admin/allegro/lib.php'))};
@@ -114,7 +121,7 @@ try {
   const setCookie = response.headers.get('set-cookie');
   assert.match(setCookie, /HttpOnly/i); assert.match(setCookie, /SameSite=Strict/i);
   const cookie = setCookie.split(';')[0]; const { csrf } = await response.json();
-  for (const action of ['connect', 'finish', 'check', 'disconnect']) {
+  for (const action of ['connect', 'check-device', 'finish', 'check', 'disconnect']) {
     response = await post({ action, csrf: 'wrong', confirm_disconnect: 'yes' }, cookie);
     assert.equal(response.status, 400, `${action}: CSRF rejected`);
     assert.equal(response.headers.get('location'), null);
@@ -125,39 +132,30 @@ try {
   assert.match(await response.text(), /<strong>SANDBOX<\/strong>/, 'GET cannot select environment');
   response = await post({ action: 'connect', csrf }, cookie);
   assert.equal(response.status, 303);
-  const authorize = new URL(response.headers.get('location'));
-  assert.equal(authorize.origin, 'https://allegro.pl.allegrosandbox.pl');
-  assert.equal(authorize.searchParams.get('code_challenge_method'), 'S256');
-  assert.equal(authorize.searchParams.get('scope'), 'allegro:api:profile:read');
-  const state = authorize.searchParams.get('state');
-  const callback = `/admin/allegro/callback?state=${state}&code=fixture-code-NO-HTML`;
-  response = await request(callback); // Strict cookie intentionally absent.
-  assert.equal(response.status, 200); assert.equal(response.headers.get('set-cookie'), null);
-  assert.equal(response.headers.get('referrer-policy'), 'no-referrer');
-  assert.match(response.headers.get('cache-control'), /no-store/);
-  const html = await response.text();
-  assert(!html.includes('fixture-code-NO-HTML') && !html.includes(state));
-  assert.match(html, /http-equiv="refresh" content="0;url=\/admin\/allegro\/\?resume=/, 'immediate same-origin navigation');
-  const resume = html.match(/\?resume=([a-f0-9]{64})/)[1];
-  response = await request(callback); assert.equal(response.status, 400, 'replay');
-  response = await request('/admin/allegro/callback?state[]=bad&code=x'); assert.equal(response.status, 400, 'array input');
-  response = await request(`/admin/allegro/?resume=${resume}`, { headers: { cookie } });
-  const bridgeHtml = await response.text();
-  assert.match(bridgeHtml, /Dokończ połączenie Allegro/);
-  assert.match(bridgeHtml, /data-allegro-finish/);
-  assert.match(bridgeHtml, /src="\/admin\/allegro\/bridge.js" defer/);
-  assert(bridgeHtml.includes(`name="csrf" value="${csrf}"`), 'automatic POST uses existing session CSRF');
-  const script = await readFile(path.join(site, 'admin/allegro/bridge.js'), 'utf8');
-  let submissions = 0; let replaced = '';
-  vm.runInNewContext(script, { document: { querySelector: () => ({ getAttribute: () => '/admin/allegro/', method: 'post', requestSubmit: () => submissions++ }) },
-    history: { replaceState: (data, title, url) => { replaced = url; } } });
-  assert.equal(submissions, 1, 'bridge automatically submits once'); assert.equal(replaced, '/admin/allegro/');
-  vm.runInNewContext(script, { document: { querySelector: () => ({ getAttribute: () => 'https://evil.example/', method: 'post', requestSubmit: () => submissions++ }) } });
-  assert.equal(submissions, 1, 'bridge cannot post to an external action');
+  assert.equal(response.headers.get('location'), '/admin/allegro/', 'same-origin PRG, no authorization URL');
+  response = await request('/admin/allegro/', { headers: { cookie } });
+  const deviceHtml = await response.text();
+  assert.match(deviceHtml, /abc 123 xyz/);
+  assert.match(deviceHtml, /https:\/\/allegro.pl.allegrosandbox.pl\/skojarz-aplikacje\?code=abc123xyz/);
+  assert.match(deviceHtml, /name="action" value="check-device"/);
+  for (const text of ['DEVICE_PRIVATE_NO_HTML', secret, key, 'bridge.js', 'data-allegro-finish', 'code_verifier', 'resume=', '/auth/oauth/authorize']) assert(!deviceHtml.includes(text));
+  response = await post({ action: 'check-device', csrf }, cookie);
+  assert.equal(response.status, 303);
+  assert.equal(await readFile(path.join(temp, 'device-requests'), 'utf8'), '+', 'early poll zero extra HTTP');
+  response = await request('/admin/allegro/', { headers: { cookie } });
+  assert.match(await response.text(), /Allegro czeka jeszcze na potwierdzenie konta/);
   response = await request('/fixture-login');
   const otherCookie = response.headers.get('set-cookie').split(';')[0]; const otherCsrf = (await response.json()).csrf;
-  response = await post({ action: 'finish', csrf: otherCsrf, resume }, otherCookie);
-  assert.equal(response.status, 400, 'other authenticated session cannot finish');
+  response = await request('/admin/allegro/', { headers: { cookie: otherCookie } });
+  assert(!(await response.text()).includes('abc 123 xyz'), 'other session cannot see user code');
+  response = await post({ action: 'check-device', csrf: otherCsrf }, otherCookie);
+  assert.equal(response.status, 400, 'other session cannot poll');
+  response = await post({ action: 'finish', csrf }, cookie); assert.equal(response.status, 400, 'legacy finish refused');
+  for (const target of ['/admin/allegro/callback?state=FAKE_STATE&code=FAKE_CODE', '/admin/allegro/callback.php?state=FAKE_STATE&code=FAKE_CODE']) {
+    response = await request(target); const body = await response.text();
+    assert.equal(response.status, 400); assert.equal(response.headers.get('set-cookie'), null);
+    assert(!body.includes('FAKE_STATE') && !body.includes('FAKE_CODE') && !body.includes('resume='));
+  }
   await worker('seed');
   await Promise.all([worker('refresh'), worker('refresh')]);
   assert.equal(await readFile(path.join(temp, 'refresh-count'), 'utf8'), '+', 'exactly one refresh across PHP processes');
@@ -190,12 +188,9 @@ try {
   assert.equal(response.status, 303);
   response = await request('/admin/allegro/', { headers: { cookie } });
   const disconnected = await response.text(); assert.match(disconnected, /Nie połączono/); assert(!disconnected.includes('fixture&amp;seller'));
-  await writeFile(path.join(temp, 'config.php'), configText.replace("'ALLEGRO_CALLBACK_LOGS_REDACTED' => '1'", "'ALLEGRO_CALLBACK_LOGS_REDACTED' => '0'"));
-  assert((await readFile(path.join(temp, 'config.php'), 'utf8')).includes("'ALLEGRO_CALLBACK_LOGS_REDACTED' => '0'"));
-  response = await request('/fixture-config-flags');
-  assert.deepEqual(await response.json(), { logs_safe: false, file_flag_off: true, opcache: '0' }, 'updated test configuration flags');
+  await writeFile(path.join(temp, 'config.php'), configText.replace("'ALLEGRO_OAUTH_ENABLED' => '1'", "'ALLEGRO_OAUTH_ENABLED' => '0'"));
   response = await request('/admin/allegro/', { headers: { cookie } });
-  const blocked = await response.text(); assert.match(blocked, /BLOCKER PRZED PRODUKCYJNYM OAUTH/); assert(!blocked.includes('>Połącz z Allegro<'));
+  const blocked = await response.text(); assert(!blocked.includes('>Połącz z Allegro<'));
   response = await post({ action: 'connect', csrf }, cookie); assert.equal(response.status, 400);
   for (const target of ['/private_allegro/config.php', '/config.php', '/admin/allegro/storage/account.enc']) {
     response = await request(target);
@@ -204,8 +199,8 @@ try {
     assert(!(await response.text()).includes(secret));
   }
   const logs = await readFile(logsPath, 'utf8');
-  for (const value of [secret, key, state, 'fixture-access', 'fixture-refresh', 'fixture-rotated', 'fixture-code-NO-HTML']) assert(!logs.includes(value));
-  console.log('PASS: Allegro HTTP login/CSRF/Strict bridge/HTML, concurrent refresh, atomic reads, isolated product save');
+  for (const value of [secret, key, 'DEVICE_PRIVATE_NO_HTML', 'abc123xyz', 'fixture-access', 'fixture-refresh', 'fixture-rotated', 'fixture-code-NO-HTML']) assert(!logs.includes(value));
+  console.log('PASS: Allegro HTTP login/CSRF/Device POST/HTML, concurrent refresh, atomic reads, isolated product save');
 } finally {
   if (server) {
     server.kill();

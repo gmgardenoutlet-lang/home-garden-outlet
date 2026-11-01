@@ -51,6 +51,7 @@ function allegro_config(): array
     allegro_hosts($environment); // Never select environment from a request.
     return [
         'environment' => $environment,
+        'auth_flow' => $read('ALLEGRO_AUTH_FLOW'),
         'client_id' => $read('ALLEGRO_CLIENT_ID'),
         'secret' => $read('ALLEGRO_CLIENT_SECRET'),
         'redirect_uri' => $read('ALLEGRO_REDIRECT_URI', $environment === 'PROD' ? ALLEGRO_PROD_CALLBACK : ''),
@@ -71,26 +72,20 @@ function allegro_validate_config(array $config, bool $oauth = false): string
         throw new AllegroSafeException('config');
     }
     if ($oauth) {
-        $uri = $config['redirect_uri'] ?? '';
-        $parts = parse_url($uri);
         if (!preg_match('/^[a-zA-Z0-9_-]{8,128}$/D', $config['client_id'] ?? '')
             || ($config['secret'] ?? '') === '' || preg_match('/[\x00-\x20\x7f]/', $config['secret'])
-            || !function_exists('curl_init') || !is_array($parts) || ($parts['scheme'] ?? '') !== 'https'
-            || empty($parts['host']) || !preg_match('/^[a-z0-9.-]+$/D', $parts['host'])
-            || filter_var($parts['host'], FILTER_VALIDATE_IP) || !str_contains($parts['host'], '.')
-            || ($parts['path'] ?? '') !== '/admin/allegro/callback'
-            || array_intersect(['user', 'pass', 'port', 'query', 'fragment'], array_keys($parts))
-            || ($config['environment'] === 'PROD' && $uri !== ALLEGRO_PROD_CALLBACK)
-            || ($config['environment'] === 'SANDBOX' && $uri === ALLEGRO_PROD_CALLBACK)) {
+            || strlen($config['secret']) > 4096 || str_contains($config['client_id'], ':')
+            || !function_exists('curl_init') || ($config['auth_flow'] ?? '') !== 'DEVICE') {
             throw new AllegroSafeException('config');
         }
-        if (empty($config['enabled']) || empty($config['logs_safe'])) throw new AllegroSafeException('disabled');
+        if (empty($config['enabled'])) throw new AllegroSafeException('disabled');
     }
     return $key;
 }
 
 function allegro_context(array $config): array
 {
-    return ['schemaVersion' => 1, 'environment' => $config['environment'],
-        'clientHash' => hash('sha256', ($config['client_id'] ?? '') . "\n" . ($config['redirect_uri'] ?? ''))];
+    // Different context rejects legacy authorization-code vaults; no silent token reuse.
+    return ['schemaVersion' => 2, 'environment' => $config['environment'],
+        'clientHash' => hash('sha256', ($config['client_id'] ?? '') . "\n" . ($config['auth_flow'] ?? ''))];
 }

@@ -82,7 +82,7 @@ try:
     env = {k: v for k, v in os.environ.items() if not k.startswith(('HGO_', 'ALLEGRO_'))}
     env.update({'HGO_PUBLIC_PRODUCTS_SNAPSHOT': str(snapshot), 'HGO_ALLEGRO_CONFIG': str(config),
                 'ALLEGRO_OAUTH_ENABLED': '1', 'ALLEGRO_CALLBACK_LOGS_REDACTED': '1',
-                'ALLEGRO_ENVIRONMENT': 'SANDBOX', 'ALLEGRO_CLIENT_ID': 'synthetic-client-123',
+                'ALLEGRO_ENVIRONMENT': 'SANDBOX', 'ALLEGRO_AUTH_FLOW': 'DEVICE', 'ALLEGRO_CLIENT_ID': 'synthetic-client-123',
                 'ALLEGRO_CLIENT_SECRET': 'SYNTHETIC_NOT_A_CREDENTIAL',
                 'ALLEGRO_TOKEN_KEY': __import__('base64').b64encode(bytes(range(32))).decode(),
                 'ALLEGRO_STORAGE_DIR': str(vault),
@@ -99,7 +99,7 @@ try:
         if target.startswith('admin/allegro/'):
             assert full == bodies[target], 'Module payload must match byte for byte: ' + target
         hashes[target] = digest(full)
-    assert hashes['admin/allegro/config.php'] == 'd1042b53f70713be38edde0158ee656c619a624a2034cbea26f44f138e00bfd9'
+    assert hashes['admin/allegro/config.php'] == '102d4086ae3f0ee00024c295621c0216f6c260474dea60d4469b2e84dc60478e'
     assert {p.name for p in (publish / 'admin/allegro').iterdir()} == {Path(p).name for p in release.ALLOWLIST if p.startswith('admin/allegro/')}
     for path in publish.rglob('*'):
         if path.is_file():

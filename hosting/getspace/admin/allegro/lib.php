@@ -8,7 +8,7 @@ final class AllegroSafeException extends RuntimeException
     {
         $messages = [
             'config' => 'Konfiguracja Allegro jest niekompletna lub niebezpieczna.',
-            'disabled' => 'OAuth Allegro jest zablokowany. Wymagane potwierdzenie konfiguracji i ochrony logów hostingu.',
+            'disabled' => 'OAuth Allegro jest wyłączony. Wymagana konfiguracja aplikacji Device i osobna zgoda na włączenie.',
             'storage' => 'Nie można bezpiecznie odczytać lub zapisać prywatnych danych Allegro.',
             'state' => 'Nieprawidłowe lub wygasłe połączenie Allegro. Rozpocznij je ponownie.',
             'session' => 'Połączenie nie należy do tej sesji administratora lub zostało wykorzystane.',
