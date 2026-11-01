@@ -44,6 +44,7 @@ const publicDirectories = [
   "meble-ogrodowe-wroclaw",
   "outlet-meblowy-wroclaw",
   "polityka-prywatnosci",
+  "integracja-allegro",
   "hosting/getspace/stats"
 ];
 
