@@ -798,6 +798,86 @@ class ReleaseTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             smoke.evaluate('/admin/allegro/', 302, headers, '')
 
+    def test_device_ready_profile_is_explicit_and_not_deployable(self):
+        ready = self.base / 'device-ready'
+        manifest = release.build(ready, release.DEVICE_READY_PROFILE)
+        self.assertEqual(release.verify(ready)['config_transform'], 'DEVICE_READY_CONFIG_OFF')
+        self.assertEqual(manifest['oauth_enabled'], 'private_config')
+        self.assertFalse(manifest['sale_api_enabled'])
+        self.assertFalse(manifest['callback_logs_redacted'])
+        self.assertEqual(len(manifest['files']), 11)
+        for target in release.ALLOWLIST:
+            if target != 'admin/allegro/config.php':
+                self.assertEqual((ready / 'runtime' / target).read_bytes(), (self.bundle / 'runtime' / target).read_bytes())
+        config = (ready / 'runtime/admin/allegro/config.php').read_text()
+        self.assertNotIn('immutable release gate', config)
+        self.assertIn("($private['ALLEGRO_OAUTH_ENABLED'] ?? '0') === '1'", config)
+        private_reader = config.split('$readPrivate = static function', 1)[1].split('    };', 1)[0]
+        self.assertIn("$value = $private[$key] ?? '';", private_reader)
+        self.assertIn("if (!is_string($value)) throw new AllegroSafeException('config');", private_reader)
+        self.assertNotIn('getenv', private_reader)
+        for key in ['ALLEGRO_CLIENT_ID', 'ALLEGRO_CLIENT_SECRET', 'ALLEGRO_TOKEN_KEY']:
+            self.assertEqual(config.count("$readPrivate('" + key + "')"), 1)
+            self.assertNotIn("$read('" + key + "')", config)
+        self.assertEqual(release.verify(self.bundle)['config_transform'], release.OFF_PROFILE['profile'])
+        for action in ['inspect', 'backup', 'deploy', 'rollback']:
+            argv = ['release', action, '--release', str(ready), '--execute']
+            with mock.patch.object(sys, 'argv', argv), \
+                    mock.patch.object(release, 'environment_guard', side_effect=AssertionError('Remote guard forbidden')), \
+                    mock.patch.object(release, 'execution_guard', side_effect=AssertionError('Remote guard forbidden')), \
+                    mock.patch.object(release, 'FTPS', side_effect=AssertionError('FTPS forbidden')), \
+                    mock.patch.object(release, 'ReadOnlyFTPS', side_effect=AssertionError('FTPS forbidden')):
+                with self.assertRaisesRegex(ValueError, 'local review only'):
+                    release.main()
+        changed = copy.deepcopy(manifest)
+        changed['oauth_enabled'] = False  # An activatable profile must never masquerade as immutable OFF.
+        (ready / release.MANIFEST).write_text(json.dumps(changed))
+        with self.assertRaises(ValueError):
+            release.verify(ready)
+
+    def test_device_ready_private_config_validation_and_panel(self):
+        php = os.environ.get('HGO_TEST_PHP', 'php')
+        php_args = json.loads(os.environ.get('HGO_TEST_PHP_ARGS', '[]'))
+        ready = self.base / 'ready'
+        release.build(ready, release.DEVICE_READY_PROFILE)
+        site = ready / 'runtime'
+        private = self.base / 'synthetic-private'
+        (private / 'storage').mkdir(parents=True)
+        (private / 'sessions').mkdir()
+        env = {k: v for k, v in os.environ.items() if not k.startswith(('ALLEGRO_', 'HGO_'))}
+        env.update({'HGO_ALLEGRO_CONFIG': str(private / 'config.php'),
+                    'HGO_STORAGE_DIR': str(private / 'admin-storage'),
+                    'HGO_PRIVATE_CONFIG_FILE': str(private / 'absent-paynow.php'),
+                    'ALLEGRO_OAUTH_ENABLED': '1'})
+        args = [php, *php_args, '-d', 'disable_functions=curl_exec', '-d', 'allow_url_fopen=0',
+                '-d', 'opcache.enable=0', '-d', 'opcache.enable_cli=0',
+                '-d', 'session.save_path=' + str(private / 'sessions')]
+        result = subprocess.run([*args, str(ROOT / 'tests/allegro-device-ready-tests.php'), str(site), str(private)],
+                                env=env, capture_output=True, check=True)
+        self.assertIn(b'network calls=0', result.stdout)
+        for rel in ['admin/lib.php', 'admin/product-identity.php', 'catalog.php', 'shop-test/config.php',
+                    'lib/geoip.php', 'lib/stats-exclusion.php', 'lib/stats-writer.php']:
+            dest = site / rel
+            dest.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copyfile(ROOT / 'hosting/getspace' / rel, dest)
+        def quoted(p):
+            return "'" + str(p).replace('\\', '/').replace("'", "\\'") + "'"
+        script = ("session_name('hgo_admin'); session_start(); $_SESSION['logged_in']=true; session_write_close(); "
+                  "require " + quoted(site / 'admin/allegro/index.php') + ';')
+        result = subprocess.run([*args, '-r', script], env=env, capture_output=True, check=True)
+        self.assertIn('OAuth w konfiguracji</dt><dd>Wyłączony', result.stdout.decode())
+        self.assertIn('Nie połączono', result.stdout.decode())
+        self.assertNotIn(b'name="action" value="connect"', result.stdout)
+        private_values = subprocess.run([*args, '-r', "$a=require " + quoted(private / 'config.php') +
+                                        ";$a['ALLEGRO_OAUTH_ENABLED']='1';file_put_contents(" + quoted(private / 'config.php') +
+                                        ", '<?php return '.var_export($a,true).';');"],
+                                       env=env, capture_output=True, check=True)
+        self.assertEqual(private_values.stdout, b'')
+        result = subprocess.run([*args, '-r', script], env=env, capture_output=True, check=True)
+        self.assertIn('Konfiguracja OAuth</dt><dd>Gotowa', result.stdout.decode())
+        self.assertIn(b'name="action" value="connect"', result.stdout)
+        self.assertNotIn(b'Fatal error', result.stdout)
+
     def test_packaged_php_oauth_off_even_with_enabled_environment(self):
         php = os.environ.get('HGO_TEST_PHP', 'php')
         php_args = json.loads(os.environ.get('HGO_TEST_PHP_ARGS', '[]'))

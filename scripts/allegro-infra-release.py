@@ -42,6 +42,10 @@ OFF_PROFILE = json.loads((ROOT / 'scripts/allegro-off-profile.json').read_text(e
 require_profile = OFF_PROFILE.get('schema') == 1 and OFF_PROFILE.get('profile') == 'B.1.1-OAUTH-OFF-v1'
 if not require_profile:
     raise ValueError('Unknown Allegro OFF profile')
+DEVICE_READY_PROFILE = json.loads((ROOT / 'scripts/allegro-device-ready-profile.json').read_text(encoding='utf-8'))
+if DEVICE_READY_PROFILE.get('schema') != 1 or DEVICE_READY_PROFILE.get('profile') != 'DEVICE_READY_CONFIG_OFF':
+    raise ValueError('Unknown Allegro Device ready profile')
+PROFILES = {OFF_PROFILE['profile']: OFF_PROFILE, DEVICE_READY_PROFILE['profile']: DEVICE_READY_PROFILE}
 
 
 def require(ok, message):
@@ -65,7 +69,8 @@ def clean_source(data):
     return text
 
 
-def expected_files():
+def expected_files(profile=OFF_PROFILE):
+    require(profile in PROFILES.values(), 'Unknown release profile')
     rows = []
     bodies = {}
     reviewed = hashlib.sha256()
@@ -85,11 +90,11 @@ def expected_files():
             require(text.replace(addition, '', 1) == baseline, 'Unrelated shared code change; review required')
             previous = [sha(baseline.encode()), sha(baseline.replace('\n', '\r\n').encode())]
         if target == 'admin/allegro/config.php':
-            require(sha(text.encode()) == OFF_PROFILE['source_sha256'], 'Unreviewed config source')
-            for before, after in OFF_PROFILE['replacements']:
+            require(sha(text.encode()) == profile['source_sha256'], 'Unreviewed config source')
+            for before, after in profile['replacements']:
                 require(text.count(before) == 1, 'Config transform no longer exact; review required')
                 text = text.replace(before, after, 1)
-            require(sha(text.encode()) == OFF_PROFILE['payload_sha256'], 'Wrong OFF payload')
+            require(sha(text.encode()) == profile['payload_sha256'], 'Wrong reviewed config payload')
         body = text.encode('utf-8')
         rows.append({'source': source, 'target': target, 'source_sha256': sha(raw), 'sha256': sha(body),
                      'allowed_previous_sha256': previous, 'allow_absent': target not in SHARED_ADDITIONS})
@@ -99,17 +104,18 @@ def expected_files():
     return rows, bodies
 
 
-def build(directory):
+def build(directory, profile=OFF_PROFILE):
     require(not directory.exists(), 'Release directory must be new; never reuse a partial build')
-    rows, bodies = expected_files()
+    rows, bodies = expected_files(profile)
     commit = subprocess.check_output(['git', 'rev-parse', 'HEAD'], cwd=ROOT, text=True).strip()
     ref = os.environ.get('GITHUB_REF', subprocess.check_output(['git', 'branch', '--show-current'], cwd=ROOT, text=True).strip())
     fingerprint = sha(json.dumps(rows, sort_keys=True).encode())
     manifest = {'schema': 1, 'commit': commit, 'ref': ref, 'source_sha256': fingerprint,
                 'created_utc': dt.datetime.now(dt.timezone.utc).isoformat(), 'required_php': '8.3',
                 'qualification_node': '22', 'build_node': subprocess.check_output(['node', '--version'], text=True).strip(),
-                'oauth_enabled': False, 'callback_logs_redacted': False, 'sale_api_enabled': False,
-                'config_transform': 'B.1.1-OAUTH-OFF-v1', 'files': rows}
+                'oauth_enabled': False if profile == OFF_PROFILE else 'private_config',
+                'callback_logs_redacted': False, 'sale_api_enabled': False,
+                'config_transform': profile['profile'], 'files': rows}
     for target, body in bodies.items():
         dest = directory / 'runtime' / target
         dest.parent.mkdir(parents=True, exist_ok=True)
@@ -121,13 +127,17 @@ def build(directory):
 
 def verify(directory):
     manifest = json.loads(regular(directory / MANIFEST))
-    rows, bodies = expected_files()
+    require(manifest.get('config_transform') in PROFILES, 'Unknown release profile')
+    profile = PROFILES[manifest['config_transform']]
+    rows, bodies = expected_files(profile)
     require(manifest.get('schema') == 1 and manifest.get('files') == rows, 'Manifest/source/destination allowlist or hashes differ')
     require(manifest.get('source_sha256') == sha(json.dumps(rows, sort_keys=True).encode()), 'Source fingerprint differs')
     require(manifest.get('commit') == subprocess.check_output(['git', 'rev-parse', 'HEAD'], cwd=ROOT, text=True).strip(), 'Wrong release commit')
     require(manifest.get('required_php') == '8.3' and manifest.get('qualification_node') == '22'
-            and manifest.get('config_transform') == 'B.1.1-OAUTH-OFF-v1', 'Invalid qualification policy')
-    require(all(manifest.get(k) is False for k in ['oauth_enabled', 'callback_logs_redacted', 'sale_api_enabled']), 'Unsafe release flags')
+            and manifest.get('config_transform') == profile['profile'], 'Invalid qualification policy')
+    require(manifest.get('oauth_enabled') is False if profile == OFF_PROFILE else
+            manifest.get('oauth_enabled') == 'private_config', 'Wrong OAuth control policy')
+    require(all(manifest.get(k) is False for k in ['callback_logs_redacted', 'sale_api_enabled']), 'Unsafe release flags')
     require(set(manifest) == {'schema', 'commit', 'ref', 'source_sha256', 'created_utc', 'required_php',
                              'qualification_node', 'build_node', 'oauth_enabled', 'callback_logs_redacted',
                              'sale_api_enabled', 'config_transform', 'files'}, 'Unexpected manifest metadata')
@@ -508,13 +518,18 @@ def main():
     parser.add_argument('--backup', type=Path)
     parser.add_argument('--report', type=Path)
     parser.add_argument('--execute', action='store_true')
+    parser.add_argument('--profile', choices=PROFILES, default=OFF_PROFILE['profile'],
+                        help='Explicit local build profile; existing workflow remains immutable OFF')
     args = parser.parse_args()
     if args.action == 'build':
-        build(args.release)
+        build(args.release, PROFILES[args.profile])
     elif args.action == 'verify':
         verify(args.release)
     else:
         require(args.execute, 'Remote action requires explicit --execute')
+        if args.action != 'guard':
+            require(verify(args.release)['config_transform'] == OFF_PROFILE['profile'],
+                    'Device ready profile is local review only; separate deployment authorization required')
         if args.action == 'rollback':
             # Recovery must not depend on a still-reachable GitHub API or fresh smoke cookie.
             # Exact prior release/backup journal is checked again by rollback().

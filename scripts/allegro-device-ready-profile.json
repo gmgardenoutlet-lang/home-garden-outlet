@@ -1,0 +1,32 @@
+{
+  "schema": 1,
+  "profile": "DEVICE_READY_CONFIG_OFF",
+  "source_sha256": "5f99a467f18500634075fe805c9b3bfff30829726a9e9bacbe974ca0fc944211",
+  "payload_sha256": "968b3cd989a56db20d2d8cb33c6f41d7aa334630354a1a5303fd247f4b3a5497",
+  "replacements": [
+    [
+      "    $environment = $read('ALLEGRO_ENVIRONMENT', 'SANDBOX');",
+      "    $readPrivate = static function (string $key) use ($private): string {\n        $value = $private[$key] ?? '';\n        if (!is_string($value)) throw new AllegroSafeException('config');\n        return $value;\n    };\n    $environment = $read('ALLEGRO_ENVIRONMENT', 'PROD');\n    if ($environment !== 'PROD') throw new AllegroSafeException('config');"
+    ],
+    [
+      "'enabled' => $read('ALLEGRO_OAUTH_ENABLED', '0') === '1',",
+      "'enabled' => ($private['ALLEGRO_OAUTH_ENABLED'] ?? '0') === '1', // Private config is the sole OAuth switch."
+    ],
+    [
+      "'logs_safe' => $read('ALLEGRO_CALLBACK_LOGS_REDACTED', '0') === '1',",
+      "'logs_safe' => false, // Device Flow does not use callback query logging."
+    ],
+    [
+      "$read('ALLEGRO_CLIENT_ID')",
+      "$readPrivate('ALLEGRO_CLIENT_ID')"
+    ],
+    [
+      "$read('ALLEGRO_CLIENT_SECRET')",
+      "$readPrivate('ALLEGRO_CLIENT_SECRET')"
+    ],
+    [
+      "$read('ALLEGRO_TOKEN_KEY')",
+      "$readPrivate('ALLEGRO_TOKEN_KEY')"
+    ]
+  ]
+}
