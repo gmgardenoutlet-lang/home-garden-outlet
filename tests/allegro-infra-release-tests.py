@@ -482,6 +482,112 @@ class ReleaseTests(unittest.TestCase):
                 release.deploy(self.bundle, self.backup, remote)
         self.assertTrue(all(op == 'read' for op, target in remote.operations))
 
+    def user_agent_remote(self, previous=True):
+        files = {p: (self.bundle / 'runtime' / p).read_bytes() for p in release.ALLOWLIST}
+        if previous:
+            files['admin/allegro/http.php'] = files['admin/allegro/http.php'].replace(
+                b'Home-&-Garden-Outlet-Allegro/1.0.0 (+https://mgoutlet.pl/integracja-allegro/)', b'HGO-Allegro-Stage-B/1')
+            self.assertEqual(release.sha(files['admin/allegro/http.php']),
+                             '5b7d2d8fdd7130e12a9518f118ad1a540857f58ff57b1ffc68b8ad9300094513')
+        return FakeRemote(files)
+
+    def test_user_agent_gate_exact_identity_and_attempt(self):
+        valid = {**self.migration_authorization(), 'GITHUB_RUN_NUMBER': '20'}
+        approved = {'admin/allegro/http.php': '5b7d2d8fdd7130e12a9518f118ad1a540857f58ff57b1ffc68b8ad9300094513'}
+        with mock.patch.dict(os.environ, valid, clear=True):
+            self.assertEqual(release.authorized_user_agent_preimages(), approved)
+            self.assertIsNone(release.authorized_migration_preimages())
+        for key, value in [('GITHUB_RUN_NUMBER', '19'), ('GITHUB_RUN_NUMBER', '21'),
+                           ('GITHUB_RUN_NUMBER', '16'), ('GITHUB_RUN_ATTEMPT', '2'),
+                           ('GITHUB_JOB', 'inspect'), ('GITHUB_REF', 'refs/heads/other'),
+                           ('GITHUB_REPOSITORY', 'other/repo'), ('GITHUB_WORKFLOW_REF', 'other'),
+                           ('GITHUB_ACTIONS', 'false'), ('GITHUB_EVENT_NAME', 'push'),
+                           ('ALLEGRO_DEPLOY_CONFIRM', ''), ('ALLEGRO_DEPLOY_CONFIRM', 'wrong')]:
+            with self.subTest(key=key, value=value), mock.patch.dict(os.environ, {**valid, key: value}, clear=True):
+                self.assertIsNone(release.authorized_user_agent_preimages())
+        with mock.patch.dict(os.environ, self.migration_authorization(), clear=True):
+            self.assertEqual(release.authorized_migration_preimages(), release.INSPECT_MIGRATION_PREIMAGES)
+            self.assertIsNone(release.authorized_user_agent_preimages())
+
+    def test_user_agent_backup_deploy_readback_and_unchanged_rollback(self):
+        remote = self.user_agent_remote()
+        original = dict(remote.files)
+        approved = {'admin/allegro/http.php': release.sha(original['admin/allegro/http.php'])}
+        with mock.patch.object(release, 'authorized_user_agent_preimages', return_value=approved):
+            state = release.backup(self.bundle, self.backup, remote)
+            self.assertEqual(state['before'], {p: release.sha(b) for p, b in original.items()})
+            self.assertTrue(all(op == 'read' for op, p in remote.operations))
+            release.deploy(self.bundle, self.backup, remote)
+        self.assertEqual(len([1 for op, p in remote.operations if op == 'write']), 11)
+        for p in release.ALLOWLIST:
+            self.assertEqual(remote.files[p], (self.bundle / 'runtime' / p).read_bytes())
+        release.rollback(self.bundle, self.backup, remote)
+        self.assertEqual(remote.files, original)
+
+    def test_user_agent_rejects_every_drift_missing_and_historical_preimage(self):
+        remote = self.user_agent_remote()
+        approved = {'admin/allegro/http.php': release.sha(remote.files['admin/allegro/http.php'])}
+        with mock.patch.object(release, 'authorized_user_agent_preimages', return_value=approved):
+            for i, p in enumerate(release.ALLOWLIST):
+                original = remote.files[p]
+                for label, body in [('drift', original + b'drift'), ('missing', None),
+                                    ('historical', self.migration_remote().files[p])]:
+                    # Three historical paths are also exact current targets, not alternative preimages.
+                    if body is not None and release.sha(body) == release.sha((self.bundle / 'runtime' / p).read_bytes()):
+                        continue
+                    if body is None:
+                        del remote.files[p]
+                    else:
+                        remote.files[p] = body
+                    dest = self.base / (label + str(i))
+                    with self.subTest(path=p, case=label), self.assertRaises(ValueError):
+                        release.backup(self.bundle, dest, remote)
+                    self.assertFalse(dest.exists())
+                    remote.files[p] = original
+        self.assertTrue(all(op == 'read' for op, p in remote.operations))
+
+    def test_user_agent_backup_reuse_and_historical_gate_cannot_authorize(self):
+        remote = self.user_agent_remote()
+        approved = {'admin/allegro/http.php': release.sha(remote.files['admin/allegro/http.php'])}
+        with mock.patch.object(release, 'authorized_migration_preimages', return_value=release.INSPECT_MIGRATION_PREIMAGES):
+            with self.assertRaises(ValueError):
+                release.backup(self.bundle, self.backup, remote)
+        with mock.patch.object(release, 'authorized_user_agent_preimages', return_value=approved):
+            release.backup(self.bundle, self.backup, remote)
+        with mock.patch.object(release, 'authorized_user_agent_preimages', return_value=None):
+            with self.assertRaises(ValueError):
+                release.deploy(self.bundle, self.backup, remote)
+        self.assertTrue(all(op == 'read' for op, p in remote.operations))
+
+    def test_user_agent_all_targets_work_without_special_authorization(self):
+        remote = self.user_agent_remote(previous=False)
+        with mock.patch.object(release, 'authorized_user_agent_preimages', return_value=None):
+            release.backup(self.bundle, self.backup, remote)
+            release.deploy(self.bundle, self.backup, remote)
+        self.assertEqual(len([1 for op, p in remote.operations if op == 'write']), 11)
+
+    def test_user_agent_per_file_drift_and_expired_authorization_block_stor(self):
+        for expired in [False, True]:
+            remote = self.user_agent_remote()
+            p = 'admin/allegro/http.php'
+            approved = {p: release.sha(remote.files[p])}
+            dest = self.base / str(expired)
+            with mock.patch.object(release, 'authorized_user_agent_preimages', return_value=approved) as gate:
+                release.backup(self.bundle, dest, remote)
+                original_write = remote.write
+                def write(target, body):
+                    original_write(target, body)
+                    if target == release.ALLOWLIST[0]:
+                        if expired:
+                            gate.return_value = None
+                        else:
+                            remote.files[p] += b'drift'
+                remote.write = write
+                with self.assertRaises(ValueError):
+                    release.deploy(self.bundle, dest, remote)
+                self.assertNotIn(('write', p), remote.operations)
+            release.rollback(self.bundle, dest, remote)
+
     def test_inspect_guard_identity_main_and_cookie_not_required(self):
         valid = {'GITHUB_ACTIONS': 'true', 'GITHUB_REPOSITORY': release.REPOSITORY,
                  'GITHUB_REF': 'refs/heads/main', 'GITHUB_EVENT_NAME': 'workflow_dispatch',
