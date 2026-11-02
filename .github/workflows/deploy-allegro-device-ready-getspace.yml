@@ -1,0 +1,316 @@
+# Separate candidate: production authorization defaults to blocked.
+# FTPS has no CAS; require maintenance window. Forced runner loss needs manual recovery.
+name: Allegro Device Ready isolated transition
+'on':
+  workflow_dispatch:
+    inputs:
+      mode:
+        type: choice
+        description: Qualification by default; remote modes require separately approved source runs
+        options:
+        - qualify-only
+        - inspect-device-ready
+        - deploy-device-ready
+        - rollback-device-ready
+        default: qualify-only
+      confirmation:
+        type: string
+        default: ''
+        description: confirmation
+      release_sha:
+        type: string
+        default: ''
+        description: release_sha
+      qualification_run_id:
+        type: string
+        default: ''
+        description: qualification_run_id
+      inspection_run_id:
+        type: string
+        default: ''
+        description: inspection_run_id
+      recovery_run_id:
+        type: string
+        default: ''
+        description: recovery_run_id (completed production SOURCE RUN ID; recovery only)
+permissions:
+  contents: read
+  actions: read
+concurrency:
+  group: getspace-production
+  cancel-in-progress: false
+defaults:
+  run:
+    shell: bash
+jobs:
+  qualify:
+    name: QUALIFY
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+        persist-credentials: false
+    - uses: actions/setup-node@v4
+      with:
+        node-version: '22'
+    - uses: actions/setup-python@v5
+      with:
+        python-version: '3.12'
+    - uses: shivammathur/setup-php@v2
+      with:
+        php-version: '8.3'
+        extensions: curl, sodium
+        coverage: none
+    - run: |-
+        set -euo pipefail
+        php -r 'exit(PHP_MAJOR_VERSION === 8 && PHP_MINOR_VERSION === 3 ? 0 : 1);'
+        node -e 'if(process.versions.node.split(".")[0] !== "22") process.exit(1)'
+        python -c 'import sys; assert sys.version_info[:2] == (3,12)'
+        python -m pip install PyYAML==6.0.2
+        php tests/allegro-oauth-tests.php
+        node tests/allegro-http-tests.mjs
+        node tests/allegro-artifact-tests.mjs
+        python tests/allegro-infra-release-tests.py
+        python tests/allegro-device-ready-release-tests.py
+        python tests/allegro-full-build-off-tests.py
+        php tests/olx-oauth-tests.php
+        php tests/olx-preparation-tests.php
+        php tests/olx-publication-tests.php
+        node tests/olx-http-tests.mjs
+        node tests/olx-publication-http-tests.mjs
+        node tests/olx-identity-verification-tests.mjs
+        node tests/prerender-privacy-tests.mjs
+        node tests/public-products-snapshot-tests.mjs
+        find hosting/getspace/admin/allegro -name '*.php' -print0 | xargs -0 -n1 php -l
+        node --check hosting/getspace/admin/allegro/bridge.js
+        python -c "import ast,pathlib,yaml; [ast.parse(p.read_text(encoding='utf-8-sig')) for p in [pathlib.Path('scripts/allegro-device-ready-release.py'),pathlib.Path('scripts/allegro-device-ready-smoke.py'),pathlib.Path('tests/allegro-device-ready-release-tests.py')]]; d=yaml.load(pathlib.Path('.github/workflows/deploy-allegro-device-ready-getspace.yml').read_text(),Loader=yaml.BaseLoader); assert list(d['on']) == ['workflow_dispatch']"
+        git diff --check
+  build:
+    name: BUILD
+    needs: qualify
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+        persist-credentials: false
+    - uses: actions/setup-node@v4
+      with:
+        node-version: '22'
+    - uses: actions/setup-python@v5
+      with:
+        python-version: '3.12'
+    - run: python scripts/allegro-infra-release.py build --release .local-cache/allegro-device-ready-release --profile DEVICE_READY_CONFIG_OFF
+    - uses: actions/upload-artifact@v4
+      with:
+        name: allegro-device-ready-release
+        path: .local-cache/allegro-device-ready-release/
+        include-hidden-files: true
+        if-no-files-found: error
+        retention-days: 14
+  verify:
+    name: VERIFY
+    needs: build
+    runs-on: ubuntu-latest
+    env:
+      DR_RELEASE_SHA: ${{ github.sha }}
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+        persist-credentials: false
+    - uses: actions/setup-node@v4
+      with:
+        node-version: '22'
+    - uses: actions/setup-python@v5
+      with:
+        python-version: '3.12'
+    - uses: actions/download-artifact@v4
+      with:
+        name: allegro-device-ready-release
+        path: .local-cache/allegro-device-ready-release/
+    - run: python scripts/allegro-device-ready-release.py verify
+  inspect:
+    name: INSPECT
+    needs:
+    - qualify
+    - build
+    - verify
+    if: ${{ inputs.mode == 'inspect-device-ready' && inputs.confirmation == '' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment: allegro-infra-production
+    env:
+      GH_TOKEN: ${{ github.token }}
+      DR_MODE: ${{ inputs.mode }}
+      DR_CONFIRMATION: ${{ inputs.confirmation }}
+      DR_RELEASE_SHA: ${{ inputs.release_sha }}
+      DR_QUALIFICATION_RUN_ID: ${{ inputs.qualification_run_id }}
+      DR_INSPECTION_RUN_ID: ${{ inputs.inspection_run_id }}
+      DR_RECOVERY_RUN_ID: ${{ inputs.recovery_run_id }}
+      ALLEGRO_FTP_SERVER: ${{ secrets.ALLEGRO_FTP_SERVER }}
+      ALLEGRO_FTP_USERNAME: ${{ secrets.ALLEGRO_FTP_USERNAME }}
+      ALLEGRO_FTP_PASSWORD: ${{ secrets.ALLEGRO_FTP_PASSWORD }}
+      ALLEGRO_FTP_PUBLIC_DIR: ${{ secrets.ALLEGRO_FTP_PUBLIC_DIR }}
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+        persist-credentials: false
+    - uses: actions/setup-node@v4
+      with:
+        node-version: '22'
+    - uses: actions/setup-python@v5
+      with:
+        python-version: '3.12'
+    - uses: actions/download-artifact@v4
+      with:
+        name: allegro-device-ready-release
+        path: .local-cache/allegro-device-ready-release/
+    - run: python scripts/allegro-device-ready-release.py inspect --execute
+    - uses: actions/upload-artifact@v4
+      with:
+        name: allegro-device-ready-inspection
+        path: .local-cache/device-ready-inspection/inspection.json
+        include-hidden-files: true
+        if-no-files-found: error
+        retention-days: 14
+      if: ${{ always() }}
+  production:
+    name: PRODUCTION
+    needs:
+    - qualify
+    - build
+    - verify
+    if: ${{ inputs.mode == 'deploy-device-ready' && inputs.confirmation == 'DEPLOY_ALLEGRO_DEVICE_READY_CONFIG_OFF' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment: allegro-infra-production
+    env:
+      GH_TOKEN: ${{ github.token }}
+      DR_MODE: ${{ inputs.mode }}
+      DR_CONFIRMATION: ${{ inputs.confirmation }}
+      DR_RELEASE_SHA: ${{ inputs.release_sha }}
+      DR_QUALIFICATION_RUN_ID: ${{ inputs.qualification_run_id }}
+      DR_INSPECTION_RUN_ID: ${{ inputs.inspection_run_id }}
+      DR_RECOVERY_RUN_ID: ${{ inputs.recovery_run_id }}
+      ALLEGRO_FTP_SERVER: ${{ secrets.ALLEGRO_FTP_SERVER }}
+      ALLEGRO_FTP_USERNAME: ${{ secrets.ALLEGRO_FTP_USERNAME }}
+      ALLEGRO_FTP_PASSWORD: ${{ secrets.ALLEGRO_FTP_PASSWORD }}
+      ALLEGRO_FTP_PUBLIC_DIR: ${{ secrets.ALLEGRO_FTP_PUBLIC_DIR }}
+      ALLEGRO_SMOKE_ADMIN_COOKIE: ${{ secrets.ALLEGRO_SMOKE_ADMIN_COOKIE }}
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+        persist-credentials: false
+    - uses: actions/setup-node@v4
+      with:
+        node-version: '22'
+    - uses: actions/setup-python@v5
+      with:
+        python-version: '3.12'
+    - uses: actions/download-artifact@v4
+      with:
+        name: allegro-device-ready-release
+        path: .local-cache/allegro-device-ready-release/
+    - run: python scripts/allegro-device-ready-release.py guard --execute
+    - id: backup
+      run: python scripts/allegro-device-ready-release.py backup --execute
+    - uses: actions/upload-artifact@v4
+      with:
+        name: allegro-device-ready-backup-before
+        path: .local-cache/device-ready-backup/
+        include-hidden-files: true
+        if-no-files-found: error
+        retention-days: 14
+      id: backup_upload
+      if: ${{ steps.backup.outputs.required == 'true' }}
+    - if: ${{ steps.backup.outputs.required == 'true' }}
+      run: python scripts/allegro-device-ready-release.py intent --execute
+      env:
+        DR_BACKUP_ARTIFACT_ID: ${{ steps.backup_upload.outputs.artifact-id }}
+        DR_BACKUP_ARTIFACT_SHA256: ${{ steps.backup_upload.outputs.artifact-digest }}
+    - uses: actions/upload-artifact@v4
+      with:
+        name: allegro-device-ready-stor-intent
+        path: .local-cache/device-ready-intent/intent.json
+        include-hidden-files: true
+        if-no-files-found: error
+        retention-days: 14
+      id: intent_upload
+      if: ${{ steps.backup.outputs.required == 'true' }}
+    - id: transfer
+      if: ${{ steps.backup.outputs.required == 'true' }}
+      run: python scripts/allegro-device-ready-release.py deploy --execute
+      env:
+        DR_INTENT_ARTIFACT_ID: ${{ steps.intent_upload.outputs.artifact-id }}
+        DR_INTENT_ARTIFACT_SHA256: ${{ steps.intent_upload.outputs.artifact-digest }}
+    - id: smoke
+      run: python scripts/allegro-device-ready-smoke.py --execute --report .local-cache/device-ready-smoke.json
+    - name: Fail-closed same-run recovery; partial/unknown remote state requires manual intervention
+      if: ${{ always() && steps.intent_upload.outcome == 'success' && (failure() || cancelled()) }}
+      run: |-
+        set -euo pipefail
+        python scripts/allegro-device-ready-release.py rollback-live --execute
+        python scripts/allegro-device-ready-smoke.py --execute --state immutable-off --report .local-cache/device-ready-recovery-smoke.json
+    - uses: actions/upload-artifact@v4
+      with:
+        name: allegro-device-ready-smoke
+        path: .local-cache/device-ready-*smoke.json
+        include-hidden-files: true
+        if-no-files-found: error
+        retention-days: 14
+      if: ${{ always() && steps.smoke.outcome != 'skipped' }}
+  recovery:
+    name: RECOVERY
+    needs:
+    - qualify
+    - build
+    - verify
+    if: ${{ inputs.mode == 'rollback-device-ready' && inputs.confirmation == 'ROLLBACK_ALLEGRO_DEVICE_READY_TO_IMMUTABLE_OFF' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment: allegro-infra-production
+    env:
+      GH_TOKEN: ${{ github.token }}
+      DR_MODE: ${{ inputs.mode }}
+      DR_CONFIRMATION: ${{ inputs.confirmation }}
+      DR_RELEASE_SHA: ${{ inputs.release_sha }}
+      DR_QUALIFICATION_RUN_ID: ${{ inputs.qualification_run_id }}
+      DR_INSPECTION_RUN_ID: ${{ inputs.inspection_run_id }}
+      DR_RECOVERY_RUN_ID: ${{ inputs.recovery_run_id }}
+      ALLEGRO_FTP_SERVER: ${{ secrets.ALLEGRO_FTP_SERVER }}
+      ALLEGRO_FTP_USERNAME: ${{ secrets.ALLEGRO_FTP_USERNAME }}
+      ALLEGRO_FTP_PASSWORD: ${{ secrets.ALLEGRO_FTP_PASSWORD }}
+      ALLEGRO_FTP_PUBLIC_DIR: ${{ secrets.ALLEGRO_FTP_PUBLIC_DIR }}
+      ALLEGRO_SMOKE_ADMIN_COOKIE: ${{ secrets.ALLEGRO_SMOKE_ADMIN_COOKIE }}
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+        persist-credentials: false
+    - uses: actions/setup-node@v4
+      with:
+        node-version: '22'
+    - uses: actions/setup-python@v5
+      with:
+        python-version: '3.12'
+    - uses: actions/download-artifact@v4
+      with:
+        name: allegro-device-ready-release
+        path: .local-cache/allegro-device-ready-release/
+    - run: |-
+        set -euo pipefail
+        python scripts/allegro-device-ready-release.py recover --execute
+        python scripts/allegro-device-ready-smoke.py --execute --state immutable-off --report .local-cache/device-ready-recovery-smoke.json
+    - uses: actions/upload-artifact@v4
+      with:
+        name: allegro-device-ready-recovery-smoke
+        path: .local-cache/device-ready-recovery-smoke.json
+        include-hidden-files: true
+        if-no-files-found: error
+        retention-days: 14
+      if: ${{ always() }}
