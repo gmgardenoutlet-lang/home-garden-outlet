@@ -112,7 +112,9 @@ class API:
 class Tests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        cls.temp = tempfile.TemporaryDirectory(dir=ROOT / '.local-cache')
+        cache = ROOT / '.local-cache'
+        cache.mkdir(parents=True, exist_ok=True)
+        cls.temp = tempfile.TemporaryDirectory(dir=cache)
         cls.release = Path(cls.temp.name) / 'release'
         with patch.dict(os.environ, {'GITHUB_REF':'refs/heads/main'}):
             r.core.build(cls.release, r.core.DEVICE_READY_PROFILE)
