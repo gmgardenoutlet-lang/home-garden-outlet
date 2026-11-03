@@ -97,15 +97,31 @@ function allegro_pilot_fingerprint(array $product): string
 {
     return hash('sha256',json_encode($product,JSON_THROW_ON_ERROR | JSON_UNESCAPED_UNICODE));
 }
-function allegro_pilot_metadata(array $config, string $category, ?callable $transport = null): array
+/** Resolve only the requested path from current API children, never a storefront ID. */
+function allegro_pilot_category(callable $get): array
 {
-    allegro_pilot_need(preg_match('/^[0-9]{1,32}$/D',$category)===1,'Wybierz kategorię Allegro.');
-    return allegro_locked($config,static function($v,$k)use($config,$category,$transport){
+    $path=['Dom i Ogród','Ogród','Przedmioty dekoracyjne','Rzeźby i figury'];
+    $parent=null; $cat=[];
+    foreach ($path as $level=>$name) {
+        $data=$get($parent===null ? '/sale/categories' : '/sale/categories?parent.id='.$parent);
+        allegro_pilot_need(isset($data['categories']) && is_array($data['categories']),'Nie można potwierdzić drzewa kategorii Allegro. Oferta nie zostanie utworzona.');
+        $matches=array_values(array_filter($data['categories'],static fn($row)=>is_array($row) && ($row['name'] ?? null)===$name));
+        allegro_pilot_need(count($matches)===1,'Brak jednoznacznej kategorii w aktualnym drzewie Allegro: '.implode(' → ',array_slice($path,0,$level+1)).'. Oferta nie zostanie utworzona.');
+        $cat=$matches[0];
+        allegro_pilot_need(is_string($cat['id'] ?? null) && preg_match('/^[0-9]{1,32}$/D',$cat['id'])===1
+            && is_bool($cat['leaf'] ?? null),'API nie potwierdziło id, name i leaf kategorii. Oferta nie zostanie utworzona.');
+        allegro_pilot_need($cat['leaf']===($level===count($path)-1),'Ścieżka kategorii Allegro zmieniła się lub nie kończy się na najniższym poziomie. Oferta nie zostanie utworzona.');
+        $parent=$cat['id'];
+    }
+    return $cat;
+}
+function allegro_pilot_metadata(array $config, ?callable $transport = null): array
+{
+    return allegro_locked($config,static function($v,$k)use($config,$transport){
         $token=allegro_pilot_access($config,$v,$k,$transport);
         $get=static fn($p)=>allegro_pilot_api($config,'GET',$p,$token,[],$transport)['data'];
-        $cat=$get('/sale/categories/'.$category);
-        allegro_pilot_need(($cat['id'] ?? '')===$category,'Niezgodna kategoria.');
-        allegro_pilot_need(($cat['leaf'] ?? false)===true,'To nie jest kategoria najniższego poziomu. Wybierz ID kategorii podrzędnej w Allegro.');
+        $cat=allegro_pilot_category($get);
+        $category=$cat['id'];
         $params=$get('/sale/categories/'.$category.'/parameters');
         allegro_pilot_need(isset($params['parameters']) && is_array($params['parameters']),'Brak parametrów kategorii.');
         $meta=['category'=>$cat,'parameters'=>$params['parameters'],'seller'=>$v['account']['id'],'at'=>time(),
@@ -302,8 +318,7 @@ function allegro_pilot_action(array $config, string $action): void
     $product=$products[$id];
     if ($action==='pilot-load') {
         unset($_SESSION['allegro_pilot_preview'],$_SESSION['allegro_pilot_meta']);
-        $category=$_POST['category'] ?? '';allegro_pilot_need(is_string($category),'Nieprawidłowa kategoria.');
-        $_SESSION['allegro_pilot_meta']=allegro_pilot_metadata($config,$category)+['productId'=>$id];return;
+        $_SESSION['allegro_pilot_meta']=allegro_pilot_metadata($config)+['productId'=>$id];return;
     }
     if ($action==='pilot-preview') {
         $meta=$_SESSION['allegro_pilot_meta'] ?? [];
@@ -358,7 +373,7 @@ function allegro_pilot_render(array $config, array $status): void
     allegro_pilot_form_start('pilot-load');
     echo '<p><label>Figura <select name="product_id" required><option value="">Wybierz figurę</option>';
     foreach ($products as $id=>$p) echo '<option value="'.e($id).'">'.e((string)$p['name']).' — '.e(catalog_sale_price_text($p)).'</option>';
-    echo '</select></label></p><p><label>ID kategorii Allegro <input name="category" value="148446" pattern="[0-9]+" required></label> Rzeźby i figury; najniższy poziom będzie sprawdzony przez API.</p><button class="btn" type="submit">Pobierz kategorię, parametry i warunki konta</button></form>';
+    echo '</select></label></p><p>Kategoria zostanie odnaleziona w aktualnym drzewie API: Dom i Ogród → Ogród → Przedmioty dekoracyjne → Rzeźby i figury.</p><button class="btn" type="submit">Pobierz kategorię, parametry i warunki konta</button></form>';
     $meta=$_SESSION['allegro_pilot_meta'] ?? []; $id=$meta['productId'] ?? '';
     if (!isset($products[$id])) {echo '</section>';return;}
     $p=$products[$id];

@@ -41,6 +41,48 @@ $transport=static function($r)use(&$requests,&$createMode,&$operationPending,&$p
 };
 try {
  pilot_check(allegro_scope_matches(implode(' ',array_reverse(ALLEGRO_PILOT_SCOPES))));
+ // IDs are supplied by the API fixture, unrelated to the obsolete storefront ID.
+ $tree=[
+  '/sale/categories'=>['categories'=>[['id'=>'101','name'=>'Dom i Ogród','leaf'=>false]]],
+  '/sale/categories?parent.id=101'=>['categories'=>[['id'=>'202','name'=>'Ogród','leaf'=>false]]],
+  '/sale/categories?parent.id=202'=>['categories'=>[['id'=>'303','name'=>'Przedmioty dekoracyjne','leaf'=>false]]],
+  '/sale/categories?parent.id=303'=>['categories'=>[['id'=>'404','name'=>'Rzeźby i figury','leaf'=>true]]],
+ ];
+ $categoryReads=[];
+ $getCategory=static function($p)use($tree,&$categoryReads){$categoryReads[]=$p;return $tree[$p];};
+ $resolved=allegro_pilot_category($getCategory);
+ pilot_check($resolved===['id'=>'404','name'=>'Rzeźby i figury','leaf'=>true]);
+ pilot_check($categoryReads===array_keys($tree));
+ foreach (['missing','duplicate','not-leaf','missing-leaf','invalid-id','premature-leaf'] as $case) {
+  $badTree=$tree;$last='/sale/categories?parent.id=303';
+  if($case==='missing')$badTree[$last]['categories']=[];
+  if($case==='duplicate')$badTree[$last]['categories'][]=$badTree[$last]['categories'][0];
+  if($case==='not-leaf')$badTree[$last]['categories'][0]['leaf']=false;
+  if($case==='missing-leaf')unset($badTree[$last]['categories'][0]['leaf']);
+  if($case==='invalid-id')$badTree[$last]['categories'][0]['id']='404?token=bad';
+  if($case==='premature-leaf')$badTree['/sale/categories']['categories'][0]['leaf']=true;
+  pilot_reject(fn()=>allegro_pilot_category(static fn($p)=>$badTree[$p]));
+ }
+ $seed(allegro_scope_request());$metadataReads=[];
+ $metaTransport=static function($r)use($config,$tree,$meta,&$metadataReads){
+  $path=substr($r['url'],strlen(allegro_hosts($config['environment'])['api']));$metadataReads[]=$path;
+  if(isset($tree[$path]))$body=$tree[$path];
+  elseif($path==='/sale/categories/404/parameters')$body=['parameters'=>$meta['parameters']];
+  else {
+   $keys=['/sale/shipping-rates'=>'shippingRates','/after-sales-service-conditions/return-policies'=>'returnPolicies',
+    '/after-sales-service-conditions/implied-warranties'=>'impliedWarranties','/sale/responsible-producers'=>'responsibleProducers',
+    '/sale/responsible-persons'=>'responsiblePersons'];
+   if(!isset($keys[$path]))throw new LogicException('Unexpected metadata path');
+   $body=[$keys[$path]=>$meta[$keys[$path]]];
+  }
+  return ['status'=>200,'body'=>json_encode($body)];
+ };
+ $currentMeta=allegro_pilot_metadata($config,$metaTransport);
+ pilot_check($currentMeta['category']['id']==='404' && $currentMeta['parameters']===$meta['parameters']);
+ pilot_check($metadataReads===[...array_keys($tree),'/sale/categories/404/parameters','/sale/shipping-rates',
+  '/after-sales-service-conditions/return-policies','/after-sales-service-conditions/implied-warranties',
+  '/sale/responsible-producers','/sale/responsible-persons']);
+
  pilot_check(!allegro_scope_matches(ALLEGRO_B_SCOPE));pilot_check(!allegro_scope_matches(allegro_scope_request().' allegro:api:orders:read'));
  $token=['access_token'=>'SYNTHETIC_ACCESS','refresh_token'=>'SYNTHETIC_REFRESH','token_type'=>'bearer','expires_in'=>3600,'scope'=>implode(' ',array_reverse(ALLEGRO_PILOT_SCOPES))];
  pilot_check(allegro_tokens($token,$now)['scope']===allegro_scope_request());
