@@ -10,6 +10,7 @@ function allegro_scope_matches(string $scope, bool $legacy = false): bool
     $expected = $legacy ? [ALLEGRO_B_SCOPE] : ALLEGRO_PILOT_SCOPES;
     sort($actual); sort($expected); return $actual === $expected;
 }
+const ALLEGRO_PILOT_CATEGORY_ID_PATTERN = '(?:[0-9]{1,32}|[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12})';
 /** Narrow pilot allowlist; never orders, payments or bulk endpoints. */
 function allegro_pilot_path(string $method, string $path): bool
 {
@@ -18,7 +19,7 @@ function allegro_pilot_path(string $method, string $path): bool
     if ($method !== 'GET') return false;
     if (in_array($path, ['/sale/categories','/sale/shipping-rates','/after-sales-service-conditions/return-policies',
         '/after-sales-service-conditions/implied-warranties','/sale/responsible-producers','/sale/responsible-persons'], true)) return true;
-    return preg_match('~^/sale/categories(?:\?parent\.id=[0-9]{1,32}|/[0-9]{1,32}(?:/parameters)?)$~D', $path) === 1
+    return preg_match('~^/sale/categories(?:\?parent\.id='.ALLEGRO_PILOT_CATEGORY_ID_PATTERN.'|/'.ALLEGRO_PILOT_CATEGORY_ID_PATTERN.'(?:/parameters)?)$~D', $path) === 1
         || preg_match('~^/sale/product-offers/[0-9]{1,32}(?:/operations/[A-Za-z0-9-]{1,80})?$~D', $path) === 1
         || preg_match('~^/sale/offers\?external\.id=prd_[a-f0-9]{32}$~D', $path) === 1;
 }

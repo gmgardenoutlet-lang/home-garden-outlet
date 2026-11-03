@@ -43,20 +43,20 @@ try {
  pilot_check(allegro_scope_matches(implode(' ',array_reverse(ALLEGRO_PILOT_SCOPES))));
  // IDs are supplied by the API fixture, unrelated to the obsolete storefront ID.
  $tree=[
-  '/sale/categories'=>['categories'=>[['id'=>'101','name'=>'Dom i Ogród','leaf'=>false]]],
-  '/sale/categories?parent.id=101'=>['categories'=>[['id'=>'202','name'=>'Ogród','leaf'=>false]]],
+  '/sale/categories'=>['categories'=>[['id'=>'123e4567-e89b-12d3-a456-426614174000','name'=>'Dom i Ogród','leaf'=>false]]],
+  '/sale/categories?parent.id=123e4567-e89b-12d3-a456-426614174000'=>['categories'=>[['id'=>'202','name'=>'Ogród','leaf'=>false]]],
   '/sale/categories?parent.id=202'=>['categories'=>[['id'=>'303','name'=>'Przedmioty dekoracyjne','leaf'=>false]]],
-  '/sale/categories?parent.id=303'=>['categories'=>[['id'=>'404','name'=>'Rzeźby i figury','leaf'=>true]]],
+  '/sale/categories?parent.id=303'=>['categories'=>[['id'=>'ABCDEF12-3456-7890-abcd-1234567890ab','name'=>'Rzeźby i figury','leaf'=>true]]],
  ];
  $categoryReads=[];
  $getCategory=static function($p)use($tree,&$categoryReads){$categoryReads[]=$p;return $tree[$p];};
  $state=allegro_pilot_category($getCategory);
  pilot_check($state['path']===[] && !$state['leaf'] && $categoryReads===['/sale/categories']);
- pilot_reject(fn()=>allegro_pilot_category($getCategory,[],'101'));
+ pilot_reject(fn()=>allegro_pilot_category($getCategory,[],'123e4567-e89b-12d3-a456-426614174000'));
  pilot_reject(fn()=>allegro_pilot_category($getCategory,$state,'999'));
- foreach (['101','202','303','404'] as $selection) $state=allegro_pilot_category($getCategory,$state,$selection);
- pilot_check($state['leaf'] && $state['options']===[] && array_column($state['path'],'id')===['101','202','303','404']);
- pilot_reject(fn()=>allegro_pilot_category($getCategory,$state,'404'));
+ foreach (['123e4567-e89b-12d3-a456-426614174000','202','303','ABCDEF12-3456-7890-abcd-1234567890ab'] as $selection) $state=allegro_pilot_category($getCategory,$state,$selection);
+ pilot_check($state['leaf'] && $state['options']===[] && array_column($state['path'],'id')===['123e4567-e89b-12d3-a456-426614174000','202','303','ABCDEF12-3456-7890-abcd-1234567890ab']);
+ pilot_reject(fn()=>allegro_pilot_category($getCategory,$state,'ABCDEF12-3456-7890-abcd-1234567890ab'));
  // Arbitrary API names and a root leaf work without any predefined path/depth.
  $rootLeaf=['categories'=>[['id'=>'777','name'=>'Dowolna kategoria','leaf'=>true]]];
  $roots=allegro_pilot_category(static fn($p)=>$rootLeaf);
@@ -70,11 +70,32 @@ try {
   if($case==='missing-name')unset($bad['categories'][0]['name']);
   pilot_reject(fn()=>allegro_pilot_category(static fn($p)=>$bad));
  }
+ // Category-only UUID policy: no extra query arguments, escapes or path manipulation.
+ foreach (['123','123e4567-e89b-12d3-a456-426614174000','ABCDEF12-3456-7890-abcd-1234567890ab'] as $categoryId) {
+  foreach (['/sale/categories?parent.id='.$categoryId,'/sale/categories/'.$categoryId.'/parameters'] as $path) {
+   pilot_check(allegro_pilot_path('GET',$path));
+   allegro_http_policy('GET',allegro_hosts('SANDBOX')['api'].$path);
+  }
+ }
+ foreach (['','abc','123e4567-e89b-12d3-a456-42661417400','123e4567-e89b-12d3-a456-42661417400g',
+  '{123e4567-e89b-12d3-a456-426614174000}','../123','123/parameters','123&parent.id=456',
+  '123?extra=1','123#fragment','123%26extra=1','123%2F456','123;extra=1','123 ',"123\n",str_repeat('1',33)] as $badId) {
+  $bad=['categories'=>[['id'=>$badId,'name'=>'Test','leaf'=>true]]];
+  pilot_reject(fn()=>allegro_pilot_category(static fn($p)=>$bad));
+  foreach (['/sale/categories?parent.id='.$badId,'/sale/categories/'.$badId.'/parameters'] as $path) {
+   pilot_check(!allegro_pilot_path('GET',$path));
+   pilot_reject(fn()=>allegro_http_policy('GET',allegro_hosts('SANDBOX')['api'].$path));
+  }
+ }
+ pilot_check(!allegro_pilot_path('GET','/sale/categories?parent.id=123&parent.id=456'));
+ pilot_check(!allegro_pilot_path('GET','/sale/product-offers/123e4567-e89b-12d3-a456-426614174000'));
+ pilot_check(!allegro_pilot_path('PATCH','/sale/product-offers/123e4567-e89b-12d3-a456-426614174000'));
+ pilot_reject(fn()=>allegro_pilot_category($getCategory,allegro_pilot_category($getCategory),'ffffffff-ffff-ffff-ffff-ffffffffffff'));
  $seed(allegro_scope_request());$metadataReads=[];
  $metaTransport=static function($r)use($config,$tree,$meta,&$metadataReads){
   $path=substr($r['url'],strlen(allegro_hosts($config['environment'])['api']));$metadataReads[]=$path;
   if(isset($tree[$path]))$body=$tree[$path];
-  elseif($path==='/sale/categories/404/parameters')$body=['parameters'=>$meta['parameters']];
+  elseif($path==='/sale/categories/ABCDEF12-3456-7890-abcd-1234567890ab/parameters')$body=['parameters'=>$meta['parameters']];
   else {
    $keys=['/sale/shipping-rates'=>'shippingRates','/after-sales-service-conditions/return-policies'=>'returnPolicies',
     '/after-sales-service-conditions/implied-warranties'=>'impliedWarranties','/sale/responsible-producers'=>'responsibleProducers',
@@ -86,9 +107,9 @@ try {
  };
  $currentMeta=allegro_pilot_metadata($config,[],'',$metaTransport);
  pilot_check(!isset($currentMeta['parameters']) && $metadataReads===['/sale/categories']);
- foreach (['101','202','303','404'] as $selection) $currentMeta=allegro_pilot_metadata($config,$currentMeta,$selection,$metaTransport);
- pilot_check($currentMeta['category']['id']==='404' && $currentMeta['parameters']===$meta['parameters']);
- pilot_check($metadataReads===['/sale/categories','/sale/categories','/sale/categories?parent.id=101','/sale/categories?parent.id=101','/sale/categories?parent.id=202','/sale/categories?parent.id=202','/sale/categories?parent.id=303','/sale/categories?parent.id=303','/sale/categories/404/parameters','/sale/shipping-rates',
+ foreach (['123e4567-e89b-12d3-a456-426614174000','202','303','ABCDEF12-3456-7890-abcd-1234567890ab'] as $selection) $currentMeta=allegro_pilot_metadata($config,$currentMeta,$selection,$metaTransport);
+ pilot_check($currentMeta['category']['id']==='ABCDEF12-3456-7890-abcd-1234567890ab' && $currentMeta['parameters']===$meta['parameters']);
+ pilot_check($metadataReads===['/sale/categories','/sale/categories','/sale/categories?parent.id=123e4567-e89b-12d3-a456-426614174000','/sale/categories?parent.id=123e4567-e89b-12d3-a456-426614174000','/sale/categories?parent.id=202','/sale/categories?parent.id=202','/sale/categories?parent.id=303','/sale/categories?parent.id=303','/sale/categories/ABCDEF12-3456-7890-abcd-1234567890ab/parameters','/sale/shipping-rates',
   '/after-sales-service-conditions/return-policies','/after-sales-service-conditions/implied-warranties',
   '/sale/responsible-producers','/sale/responsible-persons']);
 

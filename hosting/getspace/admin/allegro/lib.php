@@ -108,7 +108,7 @@ function allegro_pilot_category(callable $get, array $state = [], string $select
         $rows=[];$ids=[];
         foreach ($data['categories'] as $row) {
             allegro_pilot_need(is_array($row) && is_string($row['id'] ?? null)
-                && preg_match('/^[0-9]{1,32}$/D',$row['id'])===1 && is_string($row['name'] ?? null)
+                && preg_match('~^'.ALLEGRO_PILOT_CATEGORY_ID_PATTERN.'$~D',$row['id'])===1 && is_string($row['name'] ?? null)
                 && trim($row['name'])!=='' && is_bool($row['leaf'] ?? null) && !isset($ids[$row['id']]),'API nie potwierdziło id, name i leaf kategorii.');
             $ids[$row['id']]=true;$rows[]=['id'=>$row['id'],'name'=>$row['name'],'leaf'=>$row['leaf']];
         }
