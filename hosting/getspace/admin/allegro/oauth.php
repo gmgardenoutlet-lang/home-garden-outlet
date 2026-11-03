@@ -19,18 +19,14 @@ function allegro_device_response(array $config, array $data): array
 {
     $user = $data['user_code'] ?? null;
     $code = $data['device_code'] ?? null;
-    if (!is_string($user) || !preg_match('/^[A-Za-z0-9-]{6,32}$/D', $user)
+    if (!is_string($user) || $user === '' || strlen($user) > 128 || preg_match('/[\x00-\x20\x7f]/', $user)
         || !is_string($code) || $code === '' || strlen($code) > 4096 || preg_match('/[\x00-\x20\x7f]/', $code)) {
         throw new AllegroSafeException('auth');
     }
     $base = allegro_hosts($config['environment'])['auth'] . '/skojarz-aplikacje';
-    // Canonical exact URLs reject ports, userinfo, fragments, alternate paths and extra query fields.
-    if (($data['verification_uri'] ?? null) !== $base
-        || ($data['verification_uri_complete'] ?? null) !== $base . '?code=' . rawurlencode($user)) {
-        throw new AllegroSafeException('auth');
-    }
+    // Never trust response URLs; derive both links from the configured Allegro host.
     return ['device_code' => $code, 'user_code' => $user, 'verification_uri' => $base,
-        'verification_uri_complete' => $data['verification_uri_complete'],
+        'verification_uri_complete' => $base . '?code=' . rawurlencode($user),
         'expires_in' => allegro_device_seconds($data['expires_in'] ?? null, 86400),
         'interval' => allegro_device_seconds($data['interval'] ?? null, 300)];
 }
@@ -220,8 +216,8 @@ function allegro_public_status(array $config, string $binding = ''): array
         $device = $vault['device'] ?? [];
         $publicDevice = null;
         if (is_string($device['binding'] ?? null) && hash_equals($device['binding'], $binding)) {
-            // Revalidate decrypted public URLs before rendering them.
-            allegro_device_response($config, $device + ['expires_in' => 1]);
+            // Rebuild canonical links also for already stored device responses.
+            $device = array_replace($device, allegro_device_response($config, $device + ['expires_in' => 1]));
             $publicDevice = array_intersect_key($device, array_flip(['user_code', 'verification_uri', 'verification_uri_complete', 'expires', 'next_poll_at']));
         }
         return ['device' => $publicDevice, 'environment' => $config['environment'], 'status' => $vault['status'] ?? 'disconnected',

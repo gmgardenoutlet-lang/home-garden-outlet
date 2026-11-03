@@ -135,8 +135,24 @@ try {
     a_check(allegro_device_response($prodConfig,$prodDevice)['user_code']==='abc123xyz','PROD response host');
     a_check(allegro_request_spec($prodConfig,'POST','/auth/oauth/device')['url']==='https://allegro.pl/auth/oauth/device','PROD device policy');
     a_check(allegro_request_spec($prodConfig,'GET','/me','fixture')['url']==='https://api.allegro.pl/me','PROD identity policy');
-    foreach(['https://allegro.pl.allegrosandbox.pl.evil.test/skojarz-aplikacje','https://x@allegro.pl.allegrosandbox.pl/skojarz-aplikacje','https://allegro.pl.allegrosandbox.pl:443/skojarz-aplikacje','https://allegro.pl.allegrosandbox.pl/skojarz-aplikacje#secret'] as $url)
-        a_reject(fn()=>allegro_device_response($config,array_replace($device,['verification_uri'=>$url])),'strict verification URI');
+    foreach ([$config, $prodConfig] as $urlConfig) {
+        $base = allegro_hosts($urlConfig['environment'])['auth'] . '/skojarz-aplikacje';
+        foreach ([[], ['verification_uri'=>'https://evil.test/', 'verification_uri_complete'=>'https://evil.test/?code=foreign'],
+            ['verification_uri'=>[], 'verification_uri_complete'=>null]] as $returnedUrls) {
+            $response = array_replace(array_diff_key($device, array_flip(['verification_uri','verification_uri_complete'])), $returnedUrls);
+            $canonical = allegro_device_response($urlConfig, $response);
+            a_check($canonical['verification_uri']===$base && $canonical['verification_uri_complete']===$base.'?code='.rawurlencode($device['user_code']), 'response URLs ignored; canonical host');
+        }
+        foreach (['x', 'a&code=foreign/?#%', str_repeat('x',128)] as $user) {
+            $canonical = allegro_device_response($urlConfig, array_replace($device,['user_code'=>$user]));
+            a_check($canonical['verification_uri_complete']===$base.'?code='.rawurlencode($user),'user code safely URL encoded');
+        }
+    }
+    $savedVault=$read();$start();
+    allegro_locked($config,function($v,$k)use($config){$v['device']['verification_uri']='https://evil.test/';$v['device']['verification_uri_complete']='https://evil.test/?code=foreign';allegro_write_vault($config,$k,$v);});
+    $safeDevice=allegro_public_status($config,$binding)['device'];
+    a_check($safeDevice['verification_uri']===$device['verification_uri'] && $safeDevice['verification_uri_complete']===$device['verification_uri_complete'],'stored response URLs never exposed for rendering');
+    allegro_locked($config,function($v,$k)use($config,$savedVault){allegro_write_vault($config,$k,$savedVault);});
     $path=allegro_storage_dir($config).'/account.enc';$cipher=file_get_contents($path);
     a_reject(fn()=>allegro_locked($config,function($v,$k)use($config){$v['oversized']=str_repeat('x',110000);allegro_write_vault($config,$k,$v);}), 'atomic failed write');
     a_check(file_get_contents($path)===$cipher && glob(dirname($path).'/.allegro-*')===[],'old complete file retained');
@@ -146,10 +162,16 @@ try {
     a_reject(fn()=>allegro_public_status(array_replace($config,['client_id'=>'another-client'])),'cross client','storage');
     a_reject(fn()=>allegro_public_status(array_replace($config,['auth_flow'=>'AUTHORIZATION_CODE'])),'legacy context','storage');
     foreach ([['token_type'=>'mac'],['token_type'=>[]],['scope'=>ALLEGRO_B_SCOPE.' allegro:api:sale:offers:write'],['expires_in'=>0],['expires_in'=>1.2],['access_token'=>"bad\r\n"],['refresh_token'=>'']] as $bad) a_reject(fn()=>allegro_tokens(array_replace($tokenData,$bad),$now),'strict token');
-    foreach (['user_code'=>['','bad code',[]], 'device_code'=>['',"bad\n",[]], 'expires_in'=>[0,-1,86401,'1e3',true,1.2], 'interval'=>[0,301,[],true], 'verification_uri'=>['http://allegro.pl/skojarz-aplikacje','https://evil.test/skojarz-aplikacje'], 'verification_uri_complete'=>['https://evil.test/','https://allegro.pl.allegrosandbox.pl/skojarz-aplikacje?code=wrong']] as $field=>$values) {
+    foreach (['user_code'=>['','bad code',[],str_repeat('x',129)], 'device_code'=>['',"bad\n",[],str_repeat('x',4097)], 'expires_in'=>[0,-1,86401,'1e3',true,1.2], 'interval'=>[0,301,[],true] ] as $field=>$values) {
         foreach($values as $bad)a_reject(fn()=>allegro_device_response($config,array_replace($device,[$field=>$bad])),'malformed device');
     }
     a_check(allegro_device_response($config,array_replace($device,['expires_in'=>'3600','interval'=>'5']))['interval']===5,'documented decimal strings');
+    foreach (array_merge(range(0,32),[127]) as $control) foreach (['user_code','device_code'] as $field) {
+        a_reject(fn()=>allegro_device_response($config,array_replace($device,[$field=>'valid'.chr($control).'code'])),'control characters rejected');
+    }
+    $limits=allegro_device_response($config,array_replace($device,['expires_in'=>'86400','interval'=>'300','device_code'=>str_repeat('x',4096)]));
+    a_check($limits['expires_in']===86400 && $limits['interval']===300 && strlen($limits['device_code'])===4096,'device numeric and code upper bounds');
+
     foreach(['POST','GET','PATCH','PUT','DELETE'] as $method)foreach(['/sale/offers','/offers','/sale/categories','https://evil.test/me','/auth/oauth/authorize','/me?x=1'] as $p){
         $n=0;a_reject(function()use($config,$method,$p,&$n){allegro_http($config,$method,$p,'fixture',[],function()use(&$n){$n++;return [];});},'HTTP policy','policy');a_check($n===0,'policy before transport');
     }
