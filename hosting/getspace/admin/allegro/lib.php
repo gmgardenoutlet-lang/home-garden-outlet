@@ -242,7 +242,7 @@ function allegro_pilot_handling_note(): string
 }
 function allegro_pilot_receipt_note(): string
 {
-    return "Nasze figury są starannie zabezpieczane na czas transportu. Ze względu na charakter i wagę produktów prosimy o sprawdzenie stanu przesyłki w obecności kuriera, jeśli jest to możliwe.\n\nW przypadku zauważenia uszkodzeń opakowania lub produktu zalecamy wykonanie zdjęć oraz sporządzenie z kurierem protokołu szkody.\n\nJeżeli uszkodzenia zostaną zauważone dopiero po odbiorze przesyłki, prosimy o kontakt za pośrednictwem Allegro i przesłanie zdjęć uszkodzenia oraz opakowania.\n\nSprawdzenie przesyłki i sporządzenie protokołu szkody ułatwiają wyjaśnienie sytuacji z przewoźnikiem, jednak ich brak nie ogranicza ustawowych praw kupującego do reklamacji.";
+    return "Ze względu na wagę i charakter figur betonowych prosimy, jeśli to możliwe, o sprawdzenie przesyłki przy kurierze.\n\nW razie widocznych uszkodzeń zalecamy wykonanie zdjęć i sporządzenie protokołu szkody.\n\nJeśli uszkodzenie zauważysz po odbiorze, zgłoś je przez Allegro i dołącz zdjęcia produktu oraz opakowania.\n\nBrak sprawdzenia przesyłki przy kurierze lub protokołu szkody nie ogranicza prawa do reklamacji.";
 }
 function allegro_pilot_painting_note(): string
 {
@@ -372,6 +372,7 @@ function allegro_pilot_payload(array $product, array $meta, array $input): array
     $handlingInfo=$input['handling_info'] ?? allegro_pilot_handling_note();
     allegro_pilot_need(is_string($handlingInfo) && allegro_pilot_length($handlingInfo)<=2000,'Informacja o realizacji w podglądzie może mieć do 2000 znaków.');
     $receipt=$input['receipt_info'] ?? allegro_pilot_receipt_note();
+    if (is_string($receipt)) $receipt=str_replace(["\r\n","\r"],"\n",$receipt);
     allegro_pilot_need(is_string($receipt) && allegro_pilot_length($receipt)<=650,'Informacje o odbiorze mogą mieć maksymalnie 650 znaków (limit Allegro).');
     allegro_pilot_need(($input['handling_confirmed'] ?? '')==='yes','Potwierdź maksymalny czas nadania: 7 dni roboczych (P7D).');
     $values=$input['parameters'] ?? [];allegro_pilot_need(is_array($values),'Nieprawidłowe parametry.');
@@ -622,7 +623,7 @@ function allegro_pilot_action(array $config, string $action): void
 }
 function allegro_pilot_form_start(string $action, string $id=''): void
 {
-    echo '<form method="post" action="/admin/allegro/"><input type="hidden" name="csrf" value="'.e(csrf_token()).'"><input type="hidden" name="action" value="'.e($action).'"><input type="hidden" name="product_id" value="'.e($id).'">';
+    echo '<form method="post" action="/admin/allegro/"'.($action==='pilot-preview'?' id="pilot-preview-form"':'').'><input type="hidden" name="csrf" value="'.e(csrf_token()).'"><input type="hidden" name="action" value="'.e($action).'"><input type="hidden" name="product_id" value="'.e($id).'">';
 }
 function allegro_pilot_select(string $field, string $label, array $rows, bool $optional=false): void
 {
@@ -751,6 +752,96 @@ for (const group of document.querySelectorAll('[data-allegro-parameters]')) {
     const preview = form.querySelector('[data-allegro-description-preview]');
     if (description && preview) description.addEventListener('input', () => preview.replaceChildren(...allegroPilotDescription(description.value)));
 }
+// Layout and counters only: this code never fetches, submits or mutates sales state automatically.
+{
+    const workspace = document.querySelector?.('.allegro-workspace');
+    if (workspace) {
+        const tabs = [...workspace.querySelectorAll('[data-allegro-tab]')];
+        const panels = [...workspace.querySelectorAll('[data-allegro-panel]')];
+        function activate(key, focus = false) {
+            if (!panels.some(p => p.dataset.allegroPanel === key)) return;
+            for (const p of panels) p.hidden = p.dataset.allegroPanel !== key;
+            for (const tab of tabs) {
+                const active = tab.dataset.allegroTab === key;
+                tab.setAttribute('aria-selected', String(active)); tab.tabIndex = active ? 0 : -1;
+                if (active && focus) tab.focus();
+            }
+            try { sessionStorage.setItem('allegro-pilot-tab', key); } catch {}
+        }
+        for (const tab of tabs) {
+            tab.addEventListener('click', () => activate(tab.dataset.allegroTab));
+            tab.addEventListener('keydown', event => {
+                const index = tabs.indexOf(tab);
+                let next;
+                if (event.key === 'ArrowRight') next = (index + 1) % tabs.length;
+                if (event.key === 'ArrowLeft') next = (index + tabs.length - 1) % tabs.length;
+                if (event.key === 'Home') next = 0;
+                if (event.key === 'End') next = tabs.length - 1;
+                if (next !== undefined) { event.preventDefault(); activate(tabs[next].dataset.allegroTab, true); }
+            });
+        }
+        let initial = 'description';
+        try { initial = sessionStorage.getItem('allegro-pilot-tab') || initial; } catch {}
+        activate(initial); document.body.classList.add('allegro-compact');
+        const receipt = workspace.querySelector('[data-receipt-limit]');
+        if (receipt) {
+            const counter = workspace.querySelector('[data-receipt-count]');
+            const warning = workspace.querySelector('[data-receipt-warning]');
+            const updateReceipt = () => {
+                const count = Array.from(receipt.value.replace(/\r\n?/g, '\n')).length;
+                const over = count > Number(receipt.dataset.receiptLimit);
+                counter.textContent = `${count} / 650`;
+                warning.textContent = over ? 'Przekroczono limit 650 znaków. Skróć tekst lub przywróć nową wersję domyślną.' : '';
+                receipt.setCustomValidity(over ? 'Informacje o odbiorze mogą mieć maksymalnie 650 znaków.' : '');
+                receipt.setAttribute('aria-invalid', String(over));
+            };
+            receipt.addEventListener('input', updateReceipt); updateReceipt();
+            workspace.querySelector('[data-receipt-reset]').addEventListener('click', () => {
+                if (receipt.value !== receipt.dataset.receiptDefault && !window.confirm('Zastąpić wpisany tekst nową wersją domyślną? Twoje zmiany zostaną zastąpione.')) return;
+                receipt.value = receipt.dataset.receiptDefault;
+                receipt.dispatchEvent(new Event('input', {bubbles: true})); receipt.focus();
+            });
+        }
+        const form = workspace.querySelector('#pilot-preview-form');
+        if (form) {
+            const reveal = element => {
+                const panel = element.closest('[data-allegro-panel]');
+                if (panel) activate(panel.dataset.allegroPanel);
+                element.focus(); element.scrollIntoView({block: 'nearest'});
+            };
+            const updateSummary = () => {
+                const price = form.elements.namedItem('price'); const quantity = form.elements.namedItem('quantity');
+                workspace.querySelector('[data-live-price]').textContent = price?.value || '—';
+                workspace.querySelector('[data-live-quantity]').textContent = quantity?.value || '—';
+                const missing = [...form.elements].filter(el => el.required && el.validity && !el.validity.valid).length;
+                workspace.querySelector('[data-required-summary]').textContent = missing ? `Wymagają uzupełnienia lub poprawy: ${missing} pól.` : 'Wymagane pola uzupełnione. Sprawdź podgląd.';
+            };
+            workspace.addEventListener('input', updateSummary); workspace.addEventListener('change', updateSummary); updateSummary();
+            // Validate hidden panels deliberately, then reveal the first invalid field before focusing it.
+            form.noValidate = true;
+            form.addEventListener('submit', event => {
+                const invalid = [...form.elements].find(el => el.willValidate && !el.validity.valid);
+                if (invalid) {event.preventDefault(); reveal(invalid); invalid.reportValidity(); return;}
+                try {sessionStorage.setItem('allegro-pilot-tab', 'preview');} catch {}
+            });
+            const serverError = workspace.querySelector('.flash-error');
+            if (serverError) {
+                const text = serverError.textContent; let target;
+                for (const group of workspace.querySelectorAll('[data-allegro-parameters]')) {
+                    for (const p of JSON.parse(group.dataset.allegroParameters)) {
+                        if (text.includes(p.name)) target = [...form.elements].find(el => el.name === `parameters[${p.id}]` || el.name === `parameters[${p.id}][]`);
+                    }
+                }
+                const messages = {name: 'Tytuł', price: 'cenę', quantity: 'liczbę', description: 'opis', shipping: 'shippingRates',
+                    return: 'returnPolicies', warranty: 'impliedWarranties', producer: 'producenta', safety: 'bezpieczeństwa',
+                    gpsr_confirmed: 'GPSR', handling_confirmed: 'czas nadania', receipt_info: '650 znaków'};
+                if (!target) for (const [name, fragment] of Object.entries(messages)) if (text.includes(fragment)) {target = form.elements.namedItem(name); break;}
+                if (target) {target.setAttribute('aria-invalid', 'true'); reveal(target);}
+            }
+        }
+    }
+}
+
 JS;
 }
 function allegro_pilot_category_buttons(array $state): void
@@ -761,91 +852,156 @@ function allegro_pilot_category_buttons(array $state): void
         echo '<input type="hidden" name="navigation_nonce" value="'.e($state['nonce']).'"><button class="btn btn-secondary" type="submit">'.e($label).'</button></form>';
     }
 }
+/** Module-local layout only; no global admin styles or sales state are changed. */
+function allegro_pilot_styles(): string
+{
+    return <<<'CSS'
+.allegro-workspace{max-width:none!important;margin:0!important;padding:12px!important;min-height:100vh;color:#29342d}
+.allegro-workspace *{box-sizing:border-box}.allegro-workspace [hidden]{display:none!important}
+.allegro-workspace .allegro-top{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
+.allegro-workspace h1{font-size:20px;margin:0}.allegro-workspace h2{font-size:17px;margin:0 0 10px}.allegro-workspace h3{font-size:15px;margin:12px 0 7px}
+.allegro-workspace p{margin:6px 0}.allegro-workspace label{font-size:13px}.allegro-workspace input,.allegro-workspace select,.allegro-workspace textarea{width:100%;max-width:100%;padding:8px;font:inherit;min-width:0}
+.allegro-workspace input[type=checkbox]{width:auto;min-height:0;padding:0;margin-right:5px;vertical-align:middle}.allegro-workspace input:not([type=checkbox]),.allegro-workspace select{min-height:34px}.allegro-workspace textarea{resize:vertical}.allegro-workspace .btn{min-height:34px;padding:7px 9px;font-size:13px;white-space:normal}
+.allegro-workspace .card{padding:12px;margin:0;min-width:0;box-shadow:none}.allegro-workspace .allegro-notices:empty{display:none}
+.allegro-workspace .flash{margin:0;padding:9px 12px}.allegro-workspace .allegro-notices{max-height:100px;overflow:auto;flex-shrink:0}
+.allegro-workspace .allegro-connection{font-size:13px}.allegro-workspace summary{cursor:pointer}.allegro-workspace .allegro-connection-body{padding:12px;max-height:65vh;overflow:auto;background:#fff;border:1px solid #dce5da;border-radius:8px}
+.allegro-workspace .allegro-status{display:flex;gap:12px;align-items:center;flex-wrap:wrap;font-size:13px}
+.allegro-workspace .allegro-pilot{min-width:0}.allegro-workspace .allegro-toolbar{display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;align-items:center;padding:9px 0}
+.allegro-workspace .allegro-grid{display:grid;grid-template-columns:minmax(225px,270px) minmax(0,1fr) minmax(225px,265px);gap:12px;min-height:0}
+.allegro-workspace .allegro-product,.allegro-workspace .allegro-editor,.allegro-workspace .allegro-actions{min-width:0}.allegro-workspace .allegro-product{font-size:13px;line-height:1.35}
+.allegro-workspace .allegro-images{display:flex;gap:6px;flex-wrap:wrap;margin:8px 0}.allegro-workspace .allegro-images img{object-fit:contain;width:30px;height:30px;border:1px solid #dce5da;border-radius:5px;background:#f6f3ec}
+.allegro-workspace .allegro-images img:first-child{width:100%;height:80px}.allegro-workspace .allegro-path{font-size:12px;overflow-wrap:anywhere}
+.allegro-workspace .allegro-actions .btn{width:100%;margin:4px 0}.allegro-workspace .allegro-actions form{margin:8px 0}
+.allegro-workspace .allegro-tabbar{display:flex;gap:4px;flex-wrap:wrap;border-bottom:1px solid #dce5da;padding-bottom:8px}
+.allegro-workspace [role=tab]{border:1px solid #dce5da;background:#f6f3ec;color:#244533;border-radius:5px;padding:8px;cursor:pointer;font-size:12px}
+.allegro-workspace [role=tab][aria-selected=true]{background:#244533;color:#fff;border-color:#244533}
+.allegro-workspace [role=tab]:focus-visible{outline:3px solid #b28b45}.allegro-workspace .allegro-tab-panel{padding:10px 2px}
+.allegro-workspace .allegro-counter{font-size:12px;display:flex;justify-content:space-between;gap:8px;align-items:center}
+.allegro-workspace .allegro-counter button{font-size:12px;cursor:pointer}.allegro-workspace .allegro-warning{color:#a63d36;font-weight:600}
+.allegro-workspace [aria-invalid=true]{outline:2px solid #a63d36}.allegro-workspace pre{white-space:pre-wrap;overflow-wrap:anywhere}
+.allegro-workspace .allegro-summary{font-size:13px;overflow-wrap:anywhere}.allegro-workspace .allegro-summary strong{display:block;margin:5px 0}
+@media(min-width:1100px){
+ body.allegro-compact{height:100dvh;overflow:hidden}.allegro-compact .allegro-workspace{height:100dvh;min-height:0;display:flex;flex-direction:column;gap:7px}
+ .allegro-compact .allegro-pilot{flex:1;min-height:0;display:flex;flex-direction:column}.allegro-compact .allegro-grid{flex:1;min-height:0}
+ .allegro-compact .allegro-product,.allegro-compact .allegro-actions{overflow:auto}
+ .allegro-compact .allegro-editor{display:flex;flex-direction:column;overflow:hidden}.allegro-compact #pilot-preview-form{display:flex;flex-direction:column;min-height:0;height:100%;margin:0}
+ .allegro-compact .allegro-tab-panel{overflow:auto;min-height:0;flex:1}.allegro-compact .allegro-tabbar{flex-shrink:0}
+ .allegro-compact .allegro-connection[open] .allegro-connection-body{position:absolute;left:12px;right:12px;z-index:20;box-shadow:0 12px 30px #0003}
+}
+@media(max-width:1099px){.allegro-workspace .allegro-grid{grid-template-columns:1fr}.allegro-workspace{padding:8px!important}.allegro-workspace .allegro-actions{position:static}.allegro-workspace .allegro-tabbar{position:sticky;top:0;background:#fff;z-index:2}}
+CSS;
+}
 function allegro_pilot_render(array $config, array $status): void
 {
-    echo '<section class="card"><h2>Pierwsza figura — pilot Allegro</h2>';
-    if (empty($status['sales_ready'])) {echo '<p>Obecny token nie ma wszystkich uprawnień sprzedaży. Użyj świadomej ponownej autoryzacji powyżej. Dotychczasowe połączenie pozostaje zachowane do udanego zakończenia nowej zgody.</p></section>';return;}
+    echo '<section class="allegro-pilot"><header class="allegro-toolbar"><h2>Pierwsza figura — pilot Allegro</h2>';
+    if (empty($status['sales_ready'])) {echo '</header><p>Obecny token nie ma wszystkich uprawnień sprzedaży. Użyj świadomej ponownej autoryzacji powyżej. Dotychczasowe połączenie pozostaje zachowane do udanego zakończenia nowej zgody.</p></section>';return;}
     try {$products=allegro_pilot_products(load_catalog());}
-    catch (Throwable $e) {echo '<p>Nie można bezpiecznie odczytać katalogu produktów.</p></section>';return;}
+    catch (Throwable $e) {echo '</header><p>Nie można bezpiecznie odczytać katalogu produktów.</p></section>';return;}
     $record=allegro_locked($config,static fn($v,$k)=>$v['pilot'] ?? []);
-    if ($record!==[]) {
-        echo '<p>Produkt: '.e((string)($record['productId'] ?? '')).' · Status: '.e((string)($record['status'] ?? 'UNKNOWN')).'</p>';
-        if (isset($record['offerId']) && preg_match('/^[0-9]{1,32}$/D',(string)$record['offerId'])) {
-            $host=$config['environment']==='PROD'?'https://allegro.pl':'https://allegro.pl.allegrosandbox.pl';
-            echo '<p><a target="_blank" rel="noopener noreferrer" href="'.e($host.'/oferta/'.$record['offerId']).'">Otwórz ofertę w Allegro</a></p>';
-        }
-        if (($record['status'] ?? '')==='UNKNOWN' && empty($record['offerId']) && empty($record['operation']) && empty($record['activationAttempted'])) {
-            $checks=$record['absenceChecks'] ?? [];
-            echo '<p>Kontrole braku oferty: '.count($checks).'/2. Wymagane dwa osobne odczyty, co najmniej 60 sekund od siebie. Domyślny odczyt obejmuje wszystkie statusy ofert.</p>';
-            allegro_pilot_form_start('pilot-unlock-check',$record['productId']);
-            echo '<button class="btn" type="submit">Sprawdź brak oferty i odblokuj próbę</button></form>';
-            if (count($checks)===2 && isset($record['recoveryNonce'])) {
-                allegro_pilot_form_start('pilot-unlock',$record['productId']);
-                echo '<input type="hidden" name="recovery_nonce" value="'.e($record['recoveryNonce']).'"><p><label><input type="checkbox" name="unlock_confirm" value="yes" required> Potwierdzam świadome odblokowanie po dwóch kontrolach. Przed odblokowaniem panel jeszcze raz sprawdzi brak oferty.</label></p><button class="btn" type="submit">Odblokuj nieudaną próbę</button></form>';
-            }
-        }
-        allegro_pilot_form_start('pilot-check');echo '<button class="btn" type="submit">Sprawdź końcowy status / odzyskaj ID</button></form>';
+    echo '<div class="allegro-status"><span>Oferta: <strong data-offer-status>'.e((string)($record['status'] ?? 'BRAK SZKICU')).'</strong></span>';
+    if (isset($record['offerId']) && preg_match('/^[0-9]{1,32}$/D',(string)$record['offerId'])) {
+        $host=$config['environment']==='PROD'?'https://allegro.pl':'https://allegro.pl.allegrosandbox.pl';
+        echo '<a target="_blank" rel="noopener noreferrer" href="'.e($host.'/oferta/'.$record['offerId']).'">Otwórz ofertę w Allegro · '.e($record['offerId']).'</a>';
     }
-    if ($products===[]) {echo '<p>Brak dostępnej figury z poprawnym trwałym productId. Katalog nie jest modyfikowany przez integrację.</p></section>';return;}
+    echo '</div></header><div class="allegro-grid"><aside class="card allegro-product">';
+    $navigation=$_SESSION['allegro_pilot_categories'] ?? [];
+    $meta=$_SESSION['allegro_pilot_meta'] ?? [];$id=$meta['productId'] ?? '';
+    $ready=isset($products[$id]) && ($meta['environment'] ?? '')===$config['environment'];
+    $selectedId=$ready?$id:($navigation['productId'] ?? $record['productId'] ?? '');
+    $p=$products[$selectedId] ?? null;
     allegro_pilot_form_start('pilot-load');
     echo '<p><label>Figura <select name="product_id" required><option value="">Wybierz figurę</option>';
-    foreach ($products as $id=>$p) echo '<option value="'.e($id).'">'.e((string)$p['name']).' — '.e(catalog_sale_price_text($p)).'</option>';
+    foreach ($products as $pid=>$product) echo '<option value="'.e($pid).'"'.($pid===$selectedId?' selected':'').'>'.e((string)$product['name']).' — '.e(catalog_sale_price_text($product)).'</option>';
     echo '</select></label></p><button class="btn" type="submit">Wybierz kategorię Allegro</button></form>';
-    $navigation=$_SESSION['allegro_pilot_categories'] ?? [];$navigationId=$navigation['productId'] ?? '';
-    if (isset($products[$navigationId]) && ($navigation['environment'] ?? '')===$config['environment']) {
-        echo '<h3>'.e((string)$products[$navigationId]['name']).'</h3>';
-        echo '<p>Wybrana ścieżka: '.e(implode(' → ',array_column($navigation['path'],'name')) ?: 'Kategorie główne').'</p>';
+    if ($p!==null) {
+        echo '<h3>'.e((string)$p['name']).'</h3><div class="allegro-images">';
+        foreach (catalog_images($p) as $image) if (str_starts_with($image,'/uploads/') && !str_contains($image,'..')) echo '<img src="'.e($image).'" alt="'.e((string)$p['name']).'" loading="lazy">';
+        echo '</div>';
+    }
+    if ($ready) {
+        echo '<p class="allegro-path">Ścieżka: '.e(implode(' → ',array_column($meta['categoryPath'] ?? [$meta['category']],'name'))).'</p><p class="allegro-path">Kategoria Allegro: '.e((string)$meta['category']['name']).' ('.e((string)$meta['category']['id']).') — najniższy poziom.</p>';
+        allegro_pilot_category_buttons($meta);
+        $price=catalog_sale_price_text($p);preg_match('/^\s*([0-9]+(?:[.,][0-9]{1,2})?)\s*(?:zł|PLN)?\s*$/u',$price,$priceMatch);
+        echo '<p>Cena katalogowa: '.e($price).'</p><p><label>Cena PLN <input form="pilot-preview-form" name="price" value="'.e($priceMatch[1] ?? '').'" required data-summary-price></label></p>';
+        echo '<p><label>Dostępne sztuki <input form="pilot-preview-form" name="quantity" type="number" min="1" max="9999" required data-summary-quantity></label></p><p><label><input form="pilot-preview-form" type="checkbox" name="stock_confirmed" value="yes" required> Potwierdzam rzeczywistą ilość oraz cenę.</label></p>';
+    } elseif (isset($products[$navigation['productId'] ?? '']) && ($navigation['environment'] ?? '')===$config['environment']) {
+        echo '<p class="allegro-path">Wybrana ścieżka: '.e(implode(' → ',array_column($navigation['path'],'name')) ?: 'Kategorie główne').'</p>';
         allegro_pilot_category_buttons($navigation);
         if ($navigation['options']===[]) echo '<p>API nie zwróciło podkategorii. Rozpocznij wybór ponownie; oferta pozostaje zablokowana.</p>';
         else {
-            allegro_pilot_form_start('pilot-load',$navigationId);
+            allegro_pilot_form_start('pilot-load',$navigation['productId']);
             echo '<input type="hidden" name="navigation_nonce" value="'.e($navigation['nonce']).'">';
             allegro_pilot_select('category_id','Kategoria Allegro',$navigation['options']);
             echo '<button class="btn" type="submit">Wybierz kategorię / pobierz podkategorie lub parametry</button></form>';
         }
+    } elseif ($record!==[]) {
+        $saved=$record['sourcePayload'] ?? $record['payload'] ?? [];
+        echo '<p>Produkt: '.e((string)($record['productId'] ?? '')).'</p><p>Cena: '.e((string)($saved['sellingMode']['price']['amount'] ?? '—')).' PLN · Ilość: '.e((string)($saved['stock']['available'] ?? '—')).'</p><p>Zapisana oferta pozostaje bez zmian.</p>';
     }
-    $meta=$_SESSION['allegro_pilot_meta'] ?? []; $id=$meta['productId'] ?? '';
-    if (!isset($products[$id])) {echo '</section>';return;}
-    $p=$products[$id];
-    echo '<h3>'.e((string)$p['name']).'</h3><p>Ścieżka: '.e(implode(' → ',array_column($meta['categoryPath'] ?? [$meta['category']],'name'))).'</p><p>Kategoria Allegro: '.e((string)$meta['category']['name']).' ('.e((string)$meta['category']['id']).'), potwierdzony najniższy poziom.</p>';
-    allegro_pilot_category_buttons($meta);
-    foreach (catalog_images($p) as $image) {
-        if (str_starts_with($image,'/uploads/') && !str_contains($image,'..')) echo '<img src="'.e($image).'" alt="" style="max-width:160px;height:auto">';
+    echo '</aside><section class="card allegro-editor">';
+    $tabs=['description'=>'Opis produktu','parameters'=>'Parametry Allegro','delivery'=>'Dostawa i zwroty','gpsr'=>'GPSR i bezpieczeństwo','preview'=>'Podgląd oferty'];
+    if ($ready) allegro_pilot_form_start('pilot-preview',$id);
+    echo '<nav class="allegro-tabbar" role="tablist" aria-label="Dane oferty">';
+    foreach ($tabs as $key=>$label) echo '<button type="button" role="tab" id="tab-'.$key.'" aria-controls="panel-'.$key.'" aria-selected="'.($key==='description'?'true':'false').'" data-allegro-tab="'.$key.'">'.e($label).'</button>';
+    echo '</nav>';
+    foreach ($tabs as $key=>$label) {
+        echo '<section class="allegro-tab-panel" role="tabpanel" id="panel-'.$key.'" aria-labelledby="tab-'.$key.'" data-allegro-panel="'.$key.'"><h3>'.e($label).'</h3>';
+        if (!$ready) {
+            if ($key==='preview' && $record!==[]) echo '<p>Status zapisanej oferty: '.e((string)$record['status']).'.</p><p>Sprawdzenie statusu jest osobną, ręczną operacją. Panel nie ponawia tworzenia ani publikacji.</p>';
+            else echo '<p>Wybierz figurę i kategorię, aby przygotować nowy podgląd. Zapisanej oferty nie zmieniamy.</p>';
+        } elseif ($key==='description') {
+            $description=$meta['description'] ?? allegro_pilot_description($p);
+            echo '<p><label>Tytuł oferty <input name="name" value="'.e((string)$p['name']).'" minlength="12" maxlength="75" required></label></p><p><label>Opis <textarea name="description" rows="8" maxlength="15000" required>'.e($description).'</textarea></label></p>';
+            echo '<details><summary>Podgląd opisu produktu Allegro — informacje o dostawie w osobnej zakładce</summary><div data-allegro-description-preview>'.allegro_pilot_description_html($description).'</div></details>';
+            echo '<details><summary>Tekst do sekcji O sprzedającym — poza opisem oferty</summary><p>Dane showroomu umieść w O sprzedającym; nie są wysyłane w opisie produktu. Odbiór osobisty ustaw osobno tylko wtedy, gdy jest rzeczywiście dostępny.</p><h3>Home &amp; Garden Outlet – showroom pod Wrocławiem</h3><p>Home &amp; Garden Outlet prowadzi showroom w Kębłowicach koło Wrocławia, w klimatycznej przestrzeni dawnej stodoły. Dostępne na miejscu figury można obejrzeć na żywo i przyjrzeć się szczegółom ich wykończenia.</p></details>';
+        } elseif ($key==='parameters') {
+            echo '<p>Wymagalność i ograniczenia parametrów pochodzą z API.</p><div data-allegro-parameters="'.e(json_encode($meta['parameters'],JSON_THROW_ON_ERROR|JSON_UNESCAPED_UNICODE)).'">';
+            foreach ($meta['parameters'] as $param) allegro_pilot_parameter_control($param,$p,$meta['parameters'],$meta['formValues'] ?? []);
+            echo '</div><noscript><p>Bez JavaScript wymagalność warunkowa zostanie sprawdzona po wysłaniu podglądu przez PHP.</p></noscript>';
+        } elseif ($key==='delivery') {
+            allegro_pilot_select('shipping','Cennik dostawy',$meta['shippingRates']);
+            allegro_pilot_select('return','Warunki zwrotów',$meta['returnPolicies']);
+            allegro_pilot_select('warranty','Warunki reklamacji',$meta['impliedWarranties']);
+            echo '<h3>Czas nadania: do 7 dni roboczych</h3><p>delivery.handlingTime=P7D. To termin nadania, nie doręczenia.</p><textarea name="handling_info" rows="3" maxlength="2000">'.e($meta['handling_info'] ?? allegro_pilot_handling_note()).'</textarea><p><label><input type="checkbox" name="handling_confirmed" value="yes" required> Potwierdzam nadanie w maksymalnie 7 dni roboczych.</label></p>';
+            $receipt=$meta['receipt_info'] ?? allegro_pilot_receipt_note();
+            echo '<h3>Ważna informacja dotycząca odbioru przesyłki</h3><p>Informacje o dostawie poza opisem produktu. Limit Allegro: 650 znaków.</p><textarea name="receipt_info" rows="8" data-receipt-limit="650" data-receipt-default="'.e(allegro_pilot_receipt_note()).'" aria-describedby="receipt-count receipt-warning">'.e($receipt).'</textarea><div class="allegro-counter"><output id="receipt-count" data-receipt-count aria-live="polite">'.allegro_pilot_length(str_replace(["\r\n","\r"],"\n",$receipt)).' / 650</output><button type="button" data-receipt-reset>Przywróć domyślny tekst</button></div><p id="receipt-warning" class="allegro-warning" data-receipt-warning role="status"></p>';
+        } elseif ($key==='gpsr') {
+            allegro_pilot_select('producer','Odpowiedzialny producent (GPSR)',$meta['responsibleProducers']);
+            allegro_pilot_select('person','Osoba odpowiedzialna w UE, jeśli wymagana',$meta['responsiblePersons'],true);
+            echo '<p><label>Wybierz szablon informacji bezpieczeństwa <select data-gpsr-template><option value="">Wybierz szablon</option><option value="figure">Figura ogrodowa</option><option value="manual">Wpisz ręcznie</option></select></label></p><p>Szablon jest propozycją, nie instrukcją producenta. Możesz go zmienić lub usunąć; potwierdzenie GPSR pozostaje osobne.</p><p><label>Rzeczywiste informacje bezpieczeństwa GPSR <textarea name="safety" data-gpsr-text="'.e(allegro_pilot_gpsr_template()).'" required maxlength="5000">'.e($meta['safety'] ?? '').'</textarea></label></p><p><label><input type="checkbox" name="gpsr_confirmed" value="yes" required> Potwierdzam zgodność z rzeczywistym produktem i informacjami producenta.</label></p>';
+        } elseif ($key==='preview') {
+            $preview=$_SESSION['allegro_pilot_preview'] ?? [];
+            if (($preview['payload']['external']['id'] ?? '')===$id) {
+                $payload=$preview['payload'];
+                echo '<p>'.e($payload['name']).' · '.e($payload['sellingMode']['price']['amount']).' PLN · '.e((string)$payload['stock']['available']).' szt.</p><h3>Opis produktu</h3>'.allegro_pilot_description_html($meta['description'] ?? allegro_pilot_description($p));
+                echo '<h3>Czas nadania: do 7 dni roboczych</h3><p>'.e($preview['handlingInfo'] ?? allegro_pilot_handling_note()).'</p><h3>Odbiór przesyłki</h3><p>'.e($payload['delivery']['additionalInfo'] ?? '').'</p><details><summary>Wszystkie dane oferty</summary><pre>'.e(json_encode($payload,JSON_PRETTY_PRINT|JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES)).'</pre></details><p>Podgląd nie zmienia statusu oferty. Zapis i publikacja wymagają osobnego potwierdzenia.</p>';
+            } else echo '<p>Uzupełnij wymagane dane i wybierz „Podgląd oferty”. Żadna oferta nie zostanie wtedy utworzona ani opublikowana.</p>';
+        }
+        echo '</section>';
     }
-    allegro_pilot_form_start('pilot-preview',$id);
-    echo '<p>Pola szkicu: potwierdź cenę, ilość, dostawę, zwroty, reklamacje i GPSR. Wymagania parametrów poniżej pochodzą z API.</p>';
-    $price=catalog_sale_price_text($p);preg_match('/^\s*([0-9]+(?:[.,][0-9]{1,2})?)\s*(?:zł|PLN)?\s*$/u',$price,$priceMatch);
-    echo '<p><label>Tytuł oferty <input name="name" value="'.e((string)$p['name']).'" minlength="12" maxlength="75" required></label></p>';
-    $description=$meta['description'] ?? allegro_pilot_description($p);
-    echo '<p><label>Opis <textarea name="description" rows="7" maxlength="15000" required>'.e($description).'</textarea></label></p>';
-    echo '<details open><summary>Podgląd opisu produktu Allegro — informacje o dostawie poniżej</summary><div data-allegro-description-preview>'.allegro_pilot_description_html($description).'</div></details>';
-    echo '<details><summary>Tekst do sekcji O sprzedającym — poza opisem oferty</summary><p>Dane showroomu umieść w O sprzedającym; nie są wysyłane w opisie produktu. Odbiór osobisty ustaw osobno tylko wtedy, gdy jest rzeczywiście dostępny.</p><h3>Home &amp; Garden Outlet – showroom pod Wrocławiem</h3><p>Home &amp; Garden Outlet prowadzi showroom w Kębłowicach koło Wrocławia, w klimatycznej przestrzeni dawnej stodoły. Dostępne na miejscu figury można obejrzeć na żywo i przyjrzeć się szczegółom ich wykończenia.</p></details>';
-    echo '<p>Cena katalogowa: '.e($price).'</p><p><label>Cena PLN <input name="price" value="'.e($priceMatch[1] ?? '').'" required></label></p>';
-    echo '<p><label>Dostępne sztuki <input name="quantity" type="number" min="1" max="9999" required></label></p><p><label><input type="checkbox" name="stock_confirmed" value="yes" required> Potwierdzam rzeczywistą ilość oraz cenę.</label></p>';
-    $formParameters=json_encode($meta['parameters'],JSON_THROW_ON_ERROR|JSON_UNESCAPED_UNICODE);
-    echo '<div data-allegro-parameters="'.e($formParameters).'">';
-    foreach ($meta['parameters'] as $param) allegro_pilot_parameter_control($param,$p,$meta['parameters'],$meta['formValues'] ?? []);
-    echo '</div><noscript><p>Bez JavaScript wymagalność warunkowa zostanie sprawdzona po wysłaniu podglądu przez PHP.</p></noscript>';
-    allegro_pilot_select('shipping','Cennik dostawy',$meta['shippingRates']);
-    allegro_pilot_select('return','Warunki zwrotów',$meta['returnPolicies']);
-    allegro_pilot_select('warranty','Warunki reklamacji',$meta['impliedWarranties']);
-    allegro_pilot_select('producer','Odpowiedzialny producent (GPSR)',$meta['responsibleProducers']);
-    allegro_pilot_select('person','Osoba odpowiedzialna w UE, jeśli wymagana',$meta['responsiblePersons'],true);
-    echo '<h3>Czas realizacji zamówienia</h3><p>Do Allegro wysyłamy delivery.handlingTime=P7D: maksymalnie 7 dni roboczych na nadanie. To nie jest termin doręczenia. Poniższy edytowalny tekst służy podglądowi administratora; klient widzi dedykowany czas wysyłki Allegro.</p><textarea name="handling_info" rows="4" maxlength="2000">'.e($meta['handling_info'] ?? allegro_pilot_handling_note()).'</textarea><p><label><input type="checkbox" name="handling_confirmed" value="yes" required> Potwierdzam nadanie w maksymalnie 7 dni roboczych i zgodność informacji z rzeczywistą realizacją.</label></p>';
-    echo '<h3>Ważna informacja dotycząca odbioru przesyłki</h3><p>Osobne informacje o dostawie, poza opisem produktu. API dopuszcza do 650 znaków; pole dodatkowych informacji jest przestarzałe i widoczne tylko na Allegro.pl. Brak protokołu nie ogranicza praw kupującego.</p><textarea name="receipt_info" rows="10" maxlength="650">'.e($meta['receipt_info'] ?? allegro_pilot_receipt_note()).'</textarea>';
-    echo '<p><label>Wybierz szablon informacji bezpieczeństwa <select data-gpsr-template><option value="">Wybierz szablon</option><option value="figure">Figura ogrodowa</option><option value="manual">Wpisz ręcznie</option></select></label></p>';
-    echo '<p>Szablon jest propozycją, nie instrukcją producenta. Możesz go zmienić lub całkowicie usunąć. Potwierdzenie GPSR pozostaje osobne.</p>';
-    echo '<p><label>Rzeczywiste informacje bezpieczeństwa GPSR <textarea name="safety" data-gpsr-text="'.e(allegro_pilot_gpsr_template()).'" required maxlength="5000">'.e($meta['safety'] ?? '').'</textarea></label></p><p><label><input type="checkbox" name="gpsr_confirmed" value="yes" required> Potwierdzam producenta i zgodność danych GPSR; wskazałem osobę odpowiedzialną, jeśli wymagana.</label></p><button class="btn" type="submit">Podgląd oferty</button></form>';
+    if ($ready) echo '</form>';
+    echo '</section><aside class="card allegro-actions"><h3>Podsumowanie</h3><div class="allegro-summary"><strong>'.e((string)($p['name'] ?? $record['payload']['name'] ?? 'Wybierz figurę')).'</strong><p>Cena: <span data-live-price>'.e((string)($record['payload']['sellingMode']['price']['amount'] ?? '—')).'</span> PLN · Ilość: <span data-live-quantity>'.e((string)($record['payload']['stock']['available'] ?? '—')).'</span></p><p data-required-summary aria-live="polite">Uzupełnij wymagane dane.</p></div>';
+    if ($ready) echo '<button class="btn" type="submit" form="pilot-preview-form">Podgląd oferty</button>';
     $preview=$_SESSION['allegro_pilot_preview'] ?? [];
-    if (($preview['payload']['external']['id'] ?? '')===$id) {
-        $payload=$preview['payload'];
-        echo '<h3>Czas realizacji zamówienia — podgląd</h3><p>'.e($preview['handlingInfo'] ?? allegro_pilot_handling_note()).'</p><p>Wysyłka Allegro: '.e($payload['delivery']['handlingTime'] ?? '').'.</p><h3>Ważna informacja dotycząca odbioru przesyłki — podgląd</h3><p>'.e($payload['delivery']['additionalInfo'] ?? '').'</p>';
-        echo '<h3>Podgląd</h3><p>'.e($payload['name']).' · '.e($payload['sellingMode']['price']['amount']).' PLN · '.e((string)$payload['stock']['available']).' szt.</p><p>Stan szkicu: INACTIVE. Utworzenie szkicu nie publikuje oferty.</p><details><summary>Wszystkie dane oferty</summary><pre style="white-space:pre-wrap">'.e(json_encode($payload,JSON_PRETTY_PRINT|JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES)).'</pre></details>';
-        $publish=isset($record['offerId']);
-        allegro_pilot_form_start($publish?'pilot-publish':'pilot-create',$id);
+    $canCreate=$record===[];$canPublish=($record['status'] ?? '')==='INACTIVE' && isset($record['offerId']) && empty($record['operation']) && empty($record['activationAttempted']);
+    if ($ready && ($preview['payload']['external']['id'] ?? '')===$id && ($canCreate || $canPublish)) {
+        allegro_pilot_form_start($canPublish?'pilot-publish':'pilot-create',$id);
         echo '<input type="hidden" name="preview_nonce" value="'.e($preview['nonce']).'">';
-        if ($publish) echo '<p><label>Potwierdź liczbę dostępnych sztuk <input type="number" name="publish_quantity" min="1" max="9999" required></label></p><p><label><input type="checkbox" name="stock_confirmed" value="yes" required> Ilość jest nadal dostępna.</label></p>';
-        echo '<p><label><input type="checkbox" name="confirm" value="'.($publish?'PUBLISH':'DRAFT').'" required> '.($publish?'Zgadzam się opublikować tę jedną ofertę w Allegro.':'Zgadzam się utworzyć ten jeden szkic INACTIVE.').'</label></p><button class="btn" type="submit">'.($publish?'Opublikuj ofertę':'Utwórz szkic').'</button></form>';
+        if ($canPublish) echo '<p><label>Potwierdź dostępne sztuki <input type="number" name="publish_quantity" min="1" max="9999" required></label></p><p><label><input type="checkbox" name="stock_confirmed" value="yes" required> Ilość jest nadal dostępna.</label></p>';
+        echo '<p><label><input type="checkbox" name="confirm" value="'.($canPublish?'PUBLISH':'DRAFT').'" required> '.($canPublish?'Zgadzam się opublikować tę jedną ofertę.':'Zgadzam się utworzyć jeden szkic INACTIVE.').'</label></p><button class="btn" type="submit">'.($canPublish?'Opublikuj ofertę':'Utwórz szkic').'</button></form>';
     }
-    echo '</section>';
+    if ($record!==[]) {
+        echo '<p>Status: <strong>'.e((string)$record['status']).'</strong></p>';
+        if (($record['status'] ?? '')==='UNKNOWN' && empty($record['offerId']) && empty($record['operation']) && empty($record['activationAttempted'])) {
+            $checks=$record['absenceChecks'] ?? [];
+            echo '<p>Kontrole braku oferty: '.count($checks).'/2, odstęp minimum 60 sekund.</p>';
+            allegro_pilot_form_start('pilot-unlock-check',$record['productId']);echo '<button class="btn" type="submit">Sprawdź brak oferty i odblokuj próbę</button></form>';
+            if (count($checks)===2 && isset($record['recoveryNonce'])) {
+                allegro_pilot_form_start('pilot-unlock',$record['productId']);
+                echo '<input type="hidden" name="recovery_nonce" value="'.e($record['recoveryNonce']).'"><p><label><input type="checkbox" name="unlock_confirm" value="yes" required> Potwierdzam świadome odblokowanie po dwóch kontrolach.</label></p><button class="btn" type="submit">Odblokuj nieudaną próbę</button></form>';
+            }
+        }
+        allegro_pilot_form_start('pilot-check');echo '<button class="btn btn-secondary" type="submit">Sprawdź końcowy status / odzyskaj ID</button></form>';
+    }
+    echo '<p>Operacje wykonywane są wyłącznie po ręcznym zatwierdzeniu.</p></aside></div></section>';
 }

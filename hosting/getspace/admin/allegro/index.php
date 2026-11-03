@@ -74,9 +74,10 @@ $labels = ['connected' => 'Połączono', 'reconnect' => 'Wymaga ponownego połą
 $expires = is_int($status['expires_at']) ? (new DateTimeImmutable('@' . $status['expires_at']))->setTimezone(new DateTimeZone('Europe/Warsaw'))->format('d.m.Y H:i:s T') : '—';
 ?>
 <!doctype html><html lang="pl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Allegro — Home &amp; Garden Outlet</title><link rel="stylesheet" href="/admin/style.css"><script src="/admin/allegro/?pilot_form_script=1" defer></script></head>
-<body><main class="narrow"><section class="card"><p><a href="/admin/">Wróć do panelu</a></p><h1>ALLEGRO</h1>
-<p>Połączenie konta i pilot jednej figury z katalogu MG Outlet. Tworzenie szkicu i publikacja wymagają osobnych potwierdzeń.</p>
+<title>Allegro — Home &amp; Garden Outlet</title><link rel="stylesheet" href="/admin/style.css"><script src="/admin/allegro/?pilot_form_script=1" defer></script><style><?= allegro_pilot_styles() ?></style></head>
+<body><main class="allegro-workspace"><header class="allegro-top"><h1>Allegro — Home &amp; Garden Outlet</h1><div class="allegro-status"><span>Połączenie: <strong><?= e($labels[$status['status']] ?? 'Nie można ustalić') ?></strong></span><span>Konto: <?= e($status['account']['login'] ?? '—') ?></span><a href="/admin/">Wróć do panelu</a></div></header>
+<div class="allegro-notices" aria-live="polite"><?php if ($message !== ''): ?><div class="flash flash-error" role="alert"><?= e($message) ?></div><?php endif; ?><?php foreach ($flashes as $flash): ?><div class="flash flash-<?= e($flash['type']) ?>"><?= e($flash['message']) ?></div><?php endforeach; ?></div>
+<details class="allegro-connection"<?= $status['status'] !== 'connected' || is_array($status['device']) ? ' open' : '' ?>><summary>Połączenie i ustawienia konta</summary><div class="allegro-connection-body">
 <dl>
 <dt>Środowisko</dt><dd><strong><?= e(($config['environment'] ?? '') === 'PROD' ? 'PRODUKCJA' : (($config['environment'] ?? '') === 'SANDBOX' ? 'SANDBOX' : 'Nie ustalono')) ?></strong></dd>
 <dt>Konfiguracja OAuth</dt><dd><?= $oauthReady ? 'Gotowa' : 'Niekompletna lub zablokowana' ?></dd>
@@ -89,8 +90,6 @@ $expires = is_int($status['expires_at']) ? (new DateTimeImmutable('@' . $status[
 <dt>Token ważny do</dt><dd><?= e($expires) ?></dd>
 <dt>Ostatnia diagnostyka</dt><dd><?= e($status['lastCheckedAt'] ?? '—') ?></dd>
 </dl>
-<?php if ($message !== ''): ?><div class="flash flash-error"><?= e($message) ?></div><?php endif; ?>
-<?php foreach ($flashes as $flash): ?><div class="flash flash-<?= e($flash['type']) ?>"><?= e($flash['message']) ?></div><?php endforeach; ?>
 <?php if ($oauthReady): ?>
 <form method="post" action="/admin/allegro/"><input type="hidden" name="csrf" value="<?= e(csrf_token()) ?>"><input type="hidden" name="action" value="connect"><?php if ($status['status'] === 'connected'): ?><p>Uprawnienia sprzedaży: <?= !empty($status['sales_ready']) ? 'Gotowe' : 'Wymagana nowa zgoda' ?>.</p><p><label><input type="checkbox" name="confirm_reauthorize" value="yes" required> Potwierdzam ponowną autoryzację z czterema scope’ami pilota. Dotychczasowy token pozostaje do czasu zakończenia nowej zgody.</label></p><?php endif; ?><p><button class="btn" type="submit"><?= $status['status'] === 'connected' ? 'Rozszerz zgodę Allegro — Device Flow' : 'Połącz z Allegro' ?></button></p></form>
 <?php if (is_array($status['device'])): $device = $status['device']; ?>
@@ -106,4 +105,4 @@ $expires = is_int($status['expires_at']) ? (new DateTimeImmutable('@' . $status[
 <?php endif; ?>
 <?php if ($storageReady): ?>
 <form method="post" action="/admin/allegro/"><input type="hidden" name="csrf" value="<?= e(csrf_token()) ?>"><input type="hidden" name="action" value="disconnect"><p><label><input type="checkbox" name="confirm_disconnect" value="yes" required> Potwierdzam usunięcie lokalnego połączenia.</label></p><button class="btn btn-danger" type="submit">Odłącz konto</button><p>Nie unieważnia zgody na Allegro i nie zmienia ofert.</p></form>
-<?php endif; ?></section><?php if ($storageReady && $config !== null) allegro_pilot_render($config, $status); ?></main></body></html>
+<?php endif; ?></div></details><?php if ($storageReady && $config !== null) allegro_pilot_render($config, $status); ?></main></body></html>

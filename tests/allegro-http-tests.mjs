@@ -4,7 +4,7 @@ import { spawn } from 'node:child_process';
 import { mkdtemp, mkdir, writeFile, readFile, rm, cp, readdir } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 import { randomBytes, createHash } from 'node:crypto';
 import net from 'node:net';
 import { publicAdminSource } from '../scripts/getspace-artifact-privacy.mjs';
@@ -29,6 +29,8 @@ try {
     productId: `prd_${'a'.repeat(32)}`, name: 'Fixture figura', slug: 'fixture-figura', saleType: 'garden_figure',
     material: 'Beton', description: 'Opis figury z katalogu.', longDescription: 'Szczegóły wykończenia figury.', shopVisible: true, shopStatus: 'Dostępny', category: 'Figury i dekoracje ogrodowe', image: '/uploads/fixture.webp', gallery: [], grossPrice: '100 zł',
   }] }));
+  await mkdir(path.join(site,'uploads'),{recursive:true});
+  await writeFile(path.join(site,'uploads/fixture.webp'),Buffer.from('UklGRiIAAABXRUJQVlA4IBYAAAAwAQCdASoBAAEAAQAcJaQAA3AA/v89WAAAAA==','base64'));
   const configText = `<?php return [
     'ALLEGRO_ENVIRONMENT' => 'SANDBOX', 'ALLEGRO_CLIENT_ID' => '${randomBytes(16).toString('hex')}',
     'ALLEGRO_CLIENT_SECRET' => '${secret}', 'ALLEGRO_TOKEN_KEY' => '${key}',
@@ -75,6 +77,13 @@ try {
       echo json_encode(['logs_safe'=>allegro_config()['logs_safe'], 'file_flag_off'=>str_contains(file_get_contents(getenv('HGO_ALLEGRO_CONFIG')), "'ALLEGRO_CALLBACK_LOGS_REDACTED' => '0'"),
         'opcache'=>ini_get('opcache.enable_cli')]); return;
     }
+    if ($path === '/fixture-preview-view' || $path === '/fixture-preview-clear') {
+      require ${phpString(path.join(site, 'admin/lib.php'))}; boot_admin(); require_login();
+      if ($path === '/fixture-preview-clear') unset($_SESSION['allegro_pilot_preview']);
+      else $_SESSION['allegro_pilot_preview'] = ['payload'=>['external'=>['id'=>'prd_'.str_repeat('a',32)],'name'=>'Zapisana figura',
+        'sellingMode'=>['price'=>['amount'=>'150.00']],'stock'=>['available'=>1],'delivery'=>['handlingTime'=>'P7D','additionalInfo'=>'Odbiór']], 'nonce'=>'synthetic-view-nonce'];
+      header('Content-Type: text/plain'); echo 'OK'; return;
+    }
     if ($path === '/fixture-login') {
       require ${phpString(path.join(site, 'admin/lib.php'))}; boot_admin();
       $_SESSION['logged_in'] = true; $_SESSION['username'] = 'fixture';
@@ -96,6 +105,18 @@ try {
       allegro_locked($config, function ($v, $k) use ($config) {
         allegro_write_vault($config, $k, ['status'=>'connected', 'account'=>['id'=>'123456','login'=>'<fixture&seller>'],
           'tokens'=>['access'=>'fixture-access-NO-HTML', 'refresh'=>'fixture-refresh-NO-HTML', 'expires_at'=>time()-1, 'scope'=>allegro_scope_request()]]);
+      });
+    } elseif (str_starts_with($mode, 'view-')) {
+      allegro_locked($config, function ($v, $k) use ($config, $mode) {
+        $status = substr($mode,5);
+        if ($status === 'CLEAR') unset($v['pilot']);
+        else {
+          $v['pilot'] = ['productId'=>'prd_'.str_repeat('a',32), 'status'=>$status,
+            'payload'=>['name'=>'Zapisana figura', 'sellingMode'=>['price'=>['amount'=>'150.00']], 'stock'=>['available'=>1]]];
+          if ($status !== 'UNKNOWN') $v['pilot']['offerId']='789';
+          if ($status === 'PROCESSING') $v['pilot']['operation']='/sale/product-offers/789/operations/op';
+        }
+        allegro_write_vault($config,$k,$v);
       });
     } elseif ($mode === 'refresh') {
       $token = allegro_access_token($config, time(), function ($request) {
@@ -134,7 +155,12 @@ try {
     '-d', 'opcache.enable_cli=0', '-d', 'opcache.enable=0',
     '-d', 'disable_functions=curl_exec', '-d', 'allow_url_fopen=0',
     '-S', `127.0.0.1:${port}`, '-t', site, path.join(temp, 'router.php')], { cwd: root, env: workerEnv, stdio: 'ignore' });
-  const request = (url, options = {}) => fetch(`http://127.0.0.1:${port}${url}`, { redirect: 'manual', ...options });
+  const request = async (url, options = {}) => {
+    const response = await fetch(`http://127.0.0.1:${port}${url}`, { redirect: 'manual', ...options });
+    // Drain local fixture responses, including ignored error pages, before another request.
+    const body = await response.arrayBuffer();
+    return new Response([204,205,304].includes(response.status) ? null : body, {status: response.status, headers: response.headers});
+  };
   const post = (fields, cookie = '') => request('/admin/allegro/', { method: 'POST', headers: { cookie }, body: new URLSearchParams(fields) });
   for (let i = 0; i < 60; i++) {
     try { await request('/admin/allegro/'); break; } catch { await new Promise(resolve => setTimeout(resolve, 50)); }
@@ -275,8 +301,105 @@ try {
   assert.match(categoryHtml, /Wybierz szablon informacji bezpieczeństwa/);
   assert.match(categoryHtml, /delivery.handlingTime=P7D/);
   assert.match(categoryHtml, /Ważna informacja dotycząca odbioru przesyłki/);
-  assert.match(categoryHtml, /name="receipt_info"[^>]*maxlength="650"/);
+  assert.match(categoryHtml, /name="receipt_info"[^>]*data-receipt-limit="650"/);
   assert.doesNotMatch(categoryHtml, /name="gpsr_confirmed"[^>]*checked/);
+  // Every rendered status preserves the saved encrypted offer and tokens byte-for-byte.
+  const viewVault = path.join(temp, 'vault/sandbox/account.enc');
+  await request('/fixture-preview-view',{headers:{cookie}});
+  for (const offerStatus of ['INACTIVE','PROCESSING','ACTIVE','UNKNOWN']) {
+    await worker(`view-${offerStatus}`);
+    const beforeView = createHash('sha256').update(await readFile(viewVault)).digest('hex');
+    const view = await (await request('/admin/allegro/', {headers: {cookie}})).text();
+    assert.match(view, new RegExp(`data-offer-status>${offerStatus}<`));
+    assert.equal(createHash('sha256').update(await readFile(viewVault)).digest('hex'), beforeView, 'render must not mutate saved offer/tokens');
+    if (offerStatus !== 'UNKNOWN') assert(view.includes('oferta/789'));
+    if (offerStatus === 'INACTIVE') assert(view.includes('>Opublikuj ofertę<'));
+    else assert(!view.includes('>Opublikuj ofertę<'));
+    assert(!view.includes('>Utwórz szkic<'), 'existing record cannot expose draft creation');
+  }
+  await worker('view-CLEAR');
+  await request('/fixture-preview-clear',{headers:{cookie}});
+  if (process.env.HGO_ALLEGRO_PLAYWRIGHT_MODULE) {
+    const {chromium} = await import(pathToFileURL(process.env.HGO_ALLEGRO_PLAYWRIGHT_MODULE).href);
+    const browser = await chromium.launch({headless: true, executablePath: process.env.HGO_ALLEGRO_BROWSER_EXECUTABLE});
+    try {
+      const context = await browser.newContext({viewport: {width: 1366, height: 768}});
+      const origin = `http://127.0.0.1:${port}`;
+      const separator = cookie.indexOf('=');
+      await context.addCookies([{name: cookie.slice(0,separator), value: cookie.slice(separator+1), url: origin}]);
+      let unexpectedWrites = 0;
+      await context.route('**/*', route => {
+        if (!route.request().url().startsWith(origin+'/')) return route.abort();
+        if (route.request().method() !== 'GET') {unexpectedWrites++; return route.abort();}
+        return route.continue();
+      });
+      const page = await context.newPage(); const jsErrors = [];
+      page.on('pageerror', error => jsErrors.push(error.message));
+      // A previously saved over-limit manual note must not be silently replaced on page load.
+      const oldNote = 'Ręczny tekst '.repeat(60);
+      const oldNoteResponse = await post({action:'pilot-preview',csrf,product_id:figureId,receipt_info:oldNote},cookie);
+      assert.equal(oldNoteResponse.status,400);
+      await page.goto(origin+'/admin/allegro/');
+      await page.waitForSelector('body.allegro-compact');
+      assert.equal(await page.locator('[role=tabpanel]:visible').count(), 1);
+      const tab = name => page.getByRole('tab', {name, exact: true}).click();
+      const fitsDesktop = async () => assert(await page.evaluate(() => document.documentElement.scrollHeight <= innerHeight+2 && document.documentElement.scrollWidth <= innerWidth+2), 'desktop workspace fits viewport');
+      await fitsDesktop();
+      await tab('Dostawa i zwroty');
+      assert.equal(await page.locator('[name=receipt_info]').inputValue(),oldNote);
+      assert.match(await page.locator('[data-receipt-warning]').textContent(),/Przekroczono limit/);
+      page.once('dialog',dialog=>dialog.accept()); await page.locator('[data-receipt-reset]').click();
+      await tab('Opis produktu');
+      await page.locator('[name=name]').fill('Figura ogrodowa testowa żółta');
+      await page.locator('[name=description]').fill('Ręcznie edytowany opis — żółć.');
+      await page.locator('[name=price]').fill('150'); await page.locator('[name=quantity]').fill('1');
+      await page.locator('[name=stock_confirmed]').check();
+      await tab('GPSR i bezpieczeństwo');
+      await page.getByRole('button', {name:'Podgląd oferty',exact:true}).click();
+      assert.equal(await page.getByRole('tab',{name:'Parametry Allegro',exact:true}).getAttribute('aria-selected'), 'true', 'invalid field opens the right tab');
+      await page.locator('[name="parameters[state]"]').selectOption('used');
+      await tab('Opis produktu');
+      assert.equal(await page.locator('[name=description]').inputValue(), 'Ręcznie edytowany opis — żółć.');
+      await tab('Dostawa i zwroty');
+      for (const name of ['shipping','return','warranty']) await page.locator(`[name=${name}]`).selectOption('fixture-setting');
+      await page.locator('[name=handling_confirmed]').check();
+      const receipt = page.locator('[name=receipt_info]');
+      const defaultReceipt = await receipt.inputValue();
+      assert(defaultReceipt.length < 650 && !defaultReceipt.includes('**'));
+      assert.equal(await page.locator('[data-receipt-count]').textContent(), `${Array.from(defaultReceipt).length} / 650`);
+      await receipt.fill('Mój ręcznie zmieniony tekst.');
+      page.once('dialog', dialog => dialog.dismiss());
+      await page.locator('[data-receipt-reset]').click();
+      assert.equal(await receipt.inputValue(),'Mój ręcznie zmieniony tekst.');
+      page.once('dialog', dialog => dialog.accept());
+      await page.locator('[data-receipt-reset]').click();
+      assert.equal(await receipt.inputValue(),defaultReceipt);
+      await receipt.fill('ą'.repeat(651));
+      assert.equal(await page.locator('[data-receipt-count]').textContent(), '651 / 650');
+      assert.match(await page.locator('[data-receipt-warning]').textContent(), /Przekroczono limit/);
+      await tab('GPSR i bezpieczeństwo');
+      await page.locator('[name=producer]').selectOption('fixture-setting');
+      await page.locator('[name=safety]').fill('Rzeczywiste ostrzeżenia producenta.');
+      await page.locator('[name=gpsr_confirmed]').check();
+      await page.getByRole('button', {name:'Podgląd oferty',exact:true}).click();
+      assert.equal(await page.getByRole('tab',{name:'Dostawa i zwroty',exact:true}).getAttribute('aria-selected'), 'true');
+      assert.equal(await page.evaluate(()=>document.activeElement.name), 'receipt_info');
+      page.once('dialog',dialog=>dialog.accept()); await page.locator('[data-receipt-reset]').click();
+      const screenshots = path.join(root,'.local-cache/allegro-compact-ui'); await mkdir(screenshots,{recursive:true});
+      await page.locator('.allegro-product').evaluate(el=>{el.scrollTop=0;});
+      await page.screenshot({path:path.join(screenshots,'desktop-1366.png')});
+      await page.setViewportSize({width:1920,height:1080}); await fitsDesktop();
+      await tab('Parametry Allegro');
+      await page.screenshot({path:path.join(screenshots,'desktop-1920.png')});
+      await page.setViewportSize({width:390,height:844});
+      assert(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+2),'mobile has no horizontal page overflow');
+      assert.equal(await page.locator('.allegro-grid').evaluate(el=>getComputedStyle(el).gridTemplateColumns.trim().split(' ').length),1);
+      await page.screenshot({path:path.join(screenshots,'mobile-390.png'),fullPage:true});
+      assert.equal(unexpectedWrites,0,'UI checks never submit a sales operation');
+      assert.deepEqual(jsErrors,[]);
+      console.log('PASS: Allegro browser 1366/1920/mobile, tabs, validation focus, receipt counter/reset; zero writes');
+    } finally {await browser.close();}
+  }
   response = await post({action: 'pilot-preview', csrf, product_id: figureId, description: 'Mój ręcznie zmieniony opis.', 'parameters[cn]': '68109100'}, cookie);
   assert.equal(response.status, 400, 'missing draft fields are rejected by PHP');
   categoryHtml = await (await request('/admin/allegro/', {headers: {cookie}})).text();

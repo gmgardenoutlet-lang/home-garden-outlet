@@ -276,7 +276,8 @@ try {
  pilot_reject(fn()=>allegro_pilot_write($config,$failedPreview,false,$uploadFailure,$product));
  pilot_check(empty($read()['pilot']) && count(array_filter($uploadRequests,static fn($r)=>$r['method']==='POST' && str_ends_with($r['url'],'/sale/product-offers')))===0);
  // Delivery lives outside the product description. Full receipt text fits 650 characters.
- pilot_check(allegro_pilot_length(allegro_pilot_receipt_note())===647);
+ pilot_check(allegro_pilot_length(allegro_pilot_receipt_note())<650 && !str_contains(allegro_pilot_receipt_note(),'**') && str_contains(allegro_pilot_receipt_note(),'nie ogranicza prawa do reklamacji'));
+ pilot_check(allegro_pilot_payload($product,$meta,array_replace($input,['receipt_info'=>str_replace("\n","\r\n",allegro_pilot_receipt_note())]))['delivery']['additionalInfo']===allegro_pilot_receipt_note());
  pilot_check($payloadForUpload['delivery']['handlingTime']==='P7D' && $payloadForUpload['delivery']['additionalInfo']===allegro_pilot_receipt_note());
  pilot_check(!str_contains($payloadForUpload['description']['sections'][0]['items'][0]['content'],'protokół'));
  pilot_reject(fn()=>allegro_pilot_payload($product,$meta,array_replace($input,['handling_confirmed'=>''])));
