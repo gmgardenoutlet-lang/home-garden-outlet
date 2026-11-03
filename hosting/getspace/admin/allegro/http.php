@@ -1,6 +1,28 @@
 <?php
 declare(strict_types=1);
 
+const ALLEGRO_PILOT_SCOPES = ['allegro:api:profile:read', 'allegro:api:sale:offers:read',
+    'allegro:api:sale:offers:write', 'allegro:api:sale:settings:read'];
+function allegro_scope_request(): string { return implode(' ', ALLEGRO_PILOT_SCOPES); }
+function allegro_scope_matches(string $scope, bool $legacy = false): bool
+{
+    $actual = preg_split('/\s+/', trim($scope));
+    $expected = $legacy ? [ALLEGRO_B_SCOPE] : ALLEGRO_PILOT_SCOPES;
+    sort($actual); sort($expected); return $actual === $expected;
+}
+/** Narrow pilot allowlist; never orders, payments or bulk endpoints. */
+function allegro_pilot_path(string $method, string $path): bool
+{
+    if ($method === 'POST') return $path === '/sale/product-offers';
+    if ($method === 'PATCH') return preg_match('~^/sale/product-offers/[0-9]{1,32}$~D', $path) === 1;
+    if ($method !== 'GET') return false;
+    if (in_array($path, ['/sale/categories','/sale/shipping-rates','/after-sales-service-conditions/return-policies',
+        '/after-sales-service-conditions/implied-warranties','/sale/responsible-producers','/sale/responsible-persons'], true)) return true;
+    return preg_match('~^/sale/categories(?:\?parent\.id=[0-9]{1,32}|/[0-9]{1,32}(?:/parameters)?)$~D', $path) === 1
+        || preg_match('~^/sale/product-offers/[0-9]{1,32}(?:/operations/[A-Za-z0-9-]{1,80})?$~D', $path) === 1
+        || preg_match('~^/sale/offers\?external\.id=prd_[a-f0-9]{32}$~D', $path) === 1;
+}
+
 /** Defence in depth: enforced both before an injected transport and in real cURL. */
 function allegro_http_policy(string $method, string $url): void
 {
@@ -10,6 +32,10 @@ function allegro_http_policy(string $method, string $url): void
         $allowed[] = ['POST', $hosts['auth'] . '/auth/oauth/device'];
         $allowed[] = ['POST', $hosts['auth'] . '/auth/oauth/token'];
         $allowed[] = ['GET', $hosts['api'] . '/me'];
+    }
+    foreach (['PROD','SANDBOX'] as $environment) {
+        $prefix = allegro_hosts($environment)['api'];
+        if (str_starts_with($url, $prefix . '/') && allegro_pilot_path($method, substr($url, strlen($prefix)))) return;
     }
     if (!in_array([$method, $url], $allowed, true)) throw new AllegroSafeException('policy');
 }
@@ -25,7 +51,7 @@ function allegro_request_spec(array $config, string $method, string $path, strin
         $request = ['method' => 'POST', 'url' => $hosts['auth'] . $path,
             'headers' => ['Accept: application/json', 'Content-Type: application/x-www-form-urlencoded',
                 'Authorization: Basic ' . base64_encode($config['client_id'] . ':' . $config['secret'])],
-            'body' => http_build_query(['client_id' => $config['client_id'], 'scope' => ALLEGRO_B_SCOPE], '', '&', PHP_QUERY_RFC3986)];
+            'body' => http_build_query(['client_id' => $config['client_id'], 'scope' => allegro_scope_request()], '', '&', PHP_QUERY_RFC3986)];
     } elseif ($method === 'POST' && $path === '/auth/oauth/token' && $token === '') {
         $type = $grant['grant_type'] ?? '';
         $field = $type === 'refresh_token' ? 'refresh_token' : ($type === 'urn:ietf:params:oauth:grant-type:device_code' ? 'device_code' : '');
@@ -48,20 +74,24 @@ function allegro_curl(array $request): array
     if (!function_exists('curl_init')) throw new AllegroSafeException('config');
     $ch = curl_init($request['url']);
     if ($ch === false) throw new AllegroSafeException('network');
-    $body = '';
+    $body = ''; $headers = [];
     try {
         curl_setopt_array($ch, [CURLOPT_CUSTOMREQUEST => $request['method'], CURLOPT_FOLLOWLOCATION => false,
             CURLOPT_MAXREDIRS => 0, CURLOPT_CONNECTTIMEOUT => 8, CURLOPT_TIMEOUT => 25,
             CURLOPT_SSL_VERIFYPEER => true, CURLOPT_SSL_VERIFYHOST => 2, CURLOPT_PROTOCOLS => CURLPROTO_HTTPS,
             CURLOPT_HTTPHEADER => $request['headers'], CURLOPT_USERAGENT => 'Home-&-Garden-Outlet-Allegro/1.0.0 (+https://mgoutlet.pl/integracja-allegro/)',
+            CURLOPT_HEADERFUNCTION => static function ($unused, string $line) use (&$headers): int {
+                if (preg_match('/^(Location|Retry-After):\s*(.*?)\s*$/i', trim($line), $m)) $headers[strtolower($m[1])] = $m[2];
+                return strlen($line);
+            },
             CURLOPT_WRITEFUNCTION => static function ($unused, string $chunk) use (&$body): int {
                 if (strlen($body) + strlen($chunk) > 131072) return 0;
                 $body .= $chunk;
                 return strlen($chunk);
             }]);
-        if ($request['method'] === 'POST') curl_setopt($ch, CURLOPT_POSTFIELDS, $request['body']);
+        if (in_array($request['method'], ['POST','PATCH'], true)) curl_setopt($ch, CURLOPT_POSTFIELDS, $request['body']);
         if (curl_exec($ch) === false) throw new AllegroSafeException('network');
-        return ['status' => (int)curl_getinfo($ch, CURLINFO_HTTP_CODE), 'body' => $body];
+        return ['status' => (int)curl_getinfo($ch, CURLINFO_HTTP_CODE), 'body' => $body, 'headers' => $headers];
     } finally { curl_close($ch); }
 }
 

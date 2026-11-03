@@ -26,7 +26,12 @@ try {
     catch (AllegroSafeException $e) { /* Show safe readiness indicators below, never config values. */ }
     if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
         $action = post_text('action');
-        if ($action === 'connect') {
+        if (str_starts_with($action, 'pilot-')) {
+            allegro_pilot_action($config, $action);
+            flash('success', 'Operacja pilota zakończona. Sprawdź podgląd lub końcowy status.');
+        } elseif ($action === 'connect') {
+            $current = allegro_public_status($config, $binding);
+            if ($current['status'] === 'connected' && post_text('confirm_reauthorize') !== 'yes') throw new AllegroSafeException('session');
             allegro_device_start($config, $binding, time());
             flash('success', 'Po zatwierdzeniu wróć tutaj i sprawdź połączenie.');
         } elseif ($action === 'check-device') {
@@ -50,7 +55,7 @@ try {
     $status = allegro_public_status($config, $binding);
 } catch (Throwable $e) {
     http_response_code(400);
-    $message = $e instanceof AllegroSafeException ? $e->getMessage() : 'Operacja Allegro nie powiodła się. Sprawdź sesję formularza i konfigurację.';
+    $message = $e instanceof AllegroSafeException || ($e instanceof RuntimeException && str_starts_with((string)($_POST['action'] ?? ''), 'pilot-')) ? $e->getMessage() : 'Operacja Allegro nie powiodła się. Sprawdź sesję formularza i konfigurację.';
     if ($storageReady) {
         try { allegro_log($config, 'http', ['errorCode' => $e instanceof AllegroSafeException ? $e->kind : 'session']); }
         catch (Throwable $ignored) {}
@@ -64,7 +69,7 @@ $expires = is_int($status['expires_at']) ? (new DateTimeImmutable('@' . $status[
 <!doctype html><html lang="pl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Allegro — Home &amp; Garden Outlet</title><link rel="stylesheet" href="/admin/style.css"></head>
 <body><main class="narrow"><section class="card"><p><a href="/admin/">Wróć do panelu</a></p><h1>ALLEGRO</h1>
-<p>Etap B: obsługa połączenia konta. Operacje na produktach, ofertach i zdjęciach Allegro są zablokowane.</p>
+<p>Połączenie konta i pilot jednej figury z katalogu MG Outlet. Tworzenie szkicu i publikacja wymagają osobnych potwierdzeń.</p>
 <dl>
 <dt>Środowisko</dt><dd><strong><?= e(($config['environment'] ?? '') === 'PROD' ? 'PRODUKCJA' : (($config['environment'] ?? '') === 'SANDBOX' ? 'SANDBOX' : 'Nie ustalono')) ?></strong></dd>
 <dt>Konfiguracja OAuth</dt><dd><?= $oauthReady ? 'Gotowa' : 'Niekompletna lub zablokowana' ?></dd>
@@ -80,7 +85,7 @@ $expires = is_int($status['expires_at']) ? (new DateTimeImmutable('@' . $status[
 <?php if ($message !== ''): ?><div class="flash flash-error"><?= e($message) ?></div><?php endif; ?>
 <?php foreach ($flashes as $flash): ?><div class="flash flash-<?= e($flash['type']) ?>"><?= e($flash['message']) ?></div><?php endforeach; ?>
 <?php if ($oauthReady): ?>
-<form method="post" action="/admin/allegro/"><input type="hidden" name="csrf" value="<?= e(csrf_token()) ?>"><input type="hidden" name="action" value="connect"><p><button class="btn" type="submit">Połącz z Allegro</button></p></form>
+<form method="post" action="/admin/allegro/"><input type="hidden" name="csrf" value="<?= e(csrf_token()) ?>"><input type="hidden" name="action" value="connect"><?php if ($status['status'] === 'connected'): ?><p>Uprawnienia sprzedaży: <?= !empty($status['sales_ready']) ? 'Gotowe' : 'Wymagana nowa zgoda' ?>.</p><p><label><input type="checkbox" name="confirm_reauthorize" value="yes" required> Potwierdzam ponowną autoryzację z czterema scope’ami pilota. Dotychczasowy token pozostaje do czasu zakończenia nowej zgody.</label></p><?php endif; ?><p><button class="btn" type="submit"><?= $status['status'] === 'connected' ? 'Rozszerz zgodę Allegro — Device Flow' : 'Połącz z Allegro' ?></button></p></form>
 <?php if (is_array($status['device'])): $device = $status['device']; ?>
 <h2>Połącz konto Allegro</h2>
 <p>Kod: <strong><?= e(trim(chunk_split($device['user_code'], 3, ' '))) ?></strong></p>
@@ -94,4 +99,4 @@ $expires = is_int($status['expires_at']) ? (new DateTimeImmutable('@' . $status[
 <?php endif; ?>
 <?php if ($storageReady): ?>
 <form method="post" action="/admin/allegro/"><input type="hidden" name="csrf" value="<?= e(csrf_token()) ?>"><input type="hidden" name="action" value="disconnect"><p><label><input type="checkbox" name="confirm_disconnect" value="yes" required> Potwierdzam usunięcie lokalnego połączenia.</label></p><button class="btn btn-danger" type="submit">Odłącz konto</button><p>Nie unieważnia zgody na Allegro i nie zmienia ofert.</p></form>
-<?php endif; ?></section></main></body></html>
+<?php endif; ?></section><?php if ($storageReady && $config !== null) allegro_pilot_render($config, $status); ?></main></body></html>

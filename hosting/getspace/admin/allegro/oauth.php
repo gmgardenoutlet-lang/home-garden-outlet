@@ -38,7 +38,8 @@ function allegro_device_start(array $config, string $binding, int $now, ?callabl
     allegro_locked($config, static function (array $vault, string $key) use ($config, $binding, $now, $transport): void {
         $now = max($now, time());
         // Invalidate even if initialization fails; never revive an old pending attempt.
-        $vault = allegro_context($config) + ['status' => 'disconnected'];
+        unset($vault['device']);
+        $vault['status'] = isset($vault['tokens'], $vault['account']) ? 'connected' : 'disconnected';
         allegro_write_vault($config, $key, $vault);
         $data = allegro_device_response($config, allegro_http($config, 'POST', '/auth/oauth/device', '', [], $transport));
         $vault['device'] = ['device_code' => $data['device_code'], 'user_code' => $data['user_code'],
@@ -68,8 +69,8 @@ function allegro_device_poll(array $config, string $binding, int $now, ?callable
         }
         if ($now < $device['next_poll_at']) return 'pending';
         // Consume before transport: crash, timeout, 429 or malformed response cannot replay credentials.
-        unset($vault['device'], $vault['tokens'], $vault['account']);
-        $vault['status'] = 'reconnect';
+        unset($vault['device']);
+        $vault['status'] = isset($vault['tokens'], $vault['account']) ? 'connected' : 'reconnect';
         allegro_write_vault($config, $key, $vault);
         $data = allegro_http($config, 'POST', '/auth/oauth/token', '',
             ['grant_type' => 'urn:ietf:params:oauth:grant-type:device_code', 'device_code' => $device['device_code']], $transport);
@@ -83,7 +84,7 @@ function allegro_device_poll(array $config, string $binding, int $now, ?callable
             $device['next_poll_at'] = max($now, time()) + $device['interval'];
             if ($device['expires'] <= max($now, time())) { allegro_log($config, 'device_expired'); return 'expired'; }
             $vault['device'] = $device;
-            $vault['status'] = 'disconnected';
+            $vault['status'] = isset($vault['tokens'], $vault['account']) ? 'connected' : 'disconnected';
             allegro_write_vault($config, $key, $vault);
             allegro_log($config, 'device_pending');
             return 'pending';
@@ -95,6 +96,7 @@ function allegro_device_poll(array $config, string $binding, int $now, ?callable
         if ($device['expires'] <= max($now, time())) throw new AllegroSafeException('state');
         $tokens = allegro_tokens($data, max($now, time()));
         $account = allegro_identity(allegro_http($config, 'GET', '/me', $tokens['access'], [], $transport));
+        if (isset($vault['account']['id']) && $vault['account']['id'] !== $account['id']) throw new AllegroSafeException('identity');
         $vault['tokens'] = $tokens;
         $vault['account'] = $account;
         $vault['status'] = 'connected';
@@ -105,18 +107,17 @@ function allegro_device_poll(array $config, string $binding, int $now, ?callable
     });
 }
 
-function allegro_tokens(array $data, int $now): array
+function allegro_tokens(array $data, int $now, bool $legacy = false): array
 {
     foreach (['access_token', 'refresh_token'] as $field) {
         if (!is_string($data[$field] ?? null) || $data[$field] === '' || strlen($data[$field]) > 32768
             || preg_match('/[\x00-\x20\x7f]/', $data[$field])) throw new AllegroSafeException('auth');
     }
-    $scope = is_string($data['scope'] ?? null) ? preg_split('/\s+/', trim($data['scope'])) : [];
     if (!is_string($data['token_type'] ?? null) || strtolower($data['token_type']) !== 'bearer' || !is_int($data['expires_in'] ?? null)
         || $data['expires_in'] <= 90 || $data['expires_in'] > 86400
-        || array_values(array_unique($scope)) !== [ALLEGRO_B_SCOPE]) throw new AllegroSafeException('auth');
+        || !allegro_scope_matches(is_string($data['scope'] ?? null) ? $data['scope'] : '', $legacy)) throw new AllegroSafeException('auth');
     return ['access' => $data['access_token'], 'refresh' => $data['refresh_token'],
-        'expires_at' => $now + $data['expires_in'], 'scope' => ALLEGRO_B_SCOPE];
+        'expires_at' => $now + $data['expires_in'], 'scope' => $legacy ? ALLEGRO_B_SCOPE : allegro_scope_request()];
 }
 
 function allegro_identity(array $data): array
@@ -139,12 +140,13 @@ function allegro_refresh_locked(array $config, array &$vault, string $key, int $
     }
     if ($vault['tokens']['expires_at'] > $now + 90) return $vault['tokens']['access'];
     $refresh = $vault['tokens']['refresh'];
+    $legacy = ($vault['tokens']['scope'] ?? '') === ALLEGRO_B_SCOPE;
     $vault['status'] = 'reconnect';
     unset($vault['tokens']);
     allegro_write_vault($config, $key, $vault); // Persist fail-closed before using a rotating credential.
     try {
         $tokens = allegro_tokens(allegro_http($config, 'POST', '/auth/oauth/token', '',
-            ['grant_type' => 'refresh_token', 'refresh_token' => $refresh], $transport), $now);
+            ['grant_type' => 'refresh_token', 'refresh_token' => $refresh], $transport), $now, $legacy);
         $vault['tokens'] = $tokens;
         $vault['status'] = 'connected';
         unset($vault['error']);
@@ -197,7 +199,7 @@ function allegro_disconnect(array $config): void
 {
     // Local deletion works even with OAuth disabled / missing Client Secret / unsafe hosting logs.
     allegro_locked($config, static function (array $vault, string $key) use ($config): void {
-        allegro_write_vault($config, $key, allegro_context($config) + ['status' => 'disconnected']);
+        allegro_write_vault($config, $key, allegro_context($config) + ['status' => 'disconnected'] + (isset($vault['pilot']) ? ['pilot' => $vault['pilot']] : []));
         allegro_log($config, 'disconnect');
     });
 }
@@ -222,6 +224,7 @@ function allegro_public_status(array $config, string $binding = ''): array
         }
         return ['device' => $publicDevice, 'environment' => $config['environment'], 'status' => $vault['status'] ?? 'disconnected',
             'account' => isset($vault['account']) ? allegro_identity($vault['account']) : null,
+            'sales_ready' => allegro_scope_matches((string)($vault['tokens']['scope'] ?? '')),
             'expires_at' => $vault['tokens']['expires_at'] ?? null, 'lastCheckedAt' => $vault['lastCheckedAt'] ?? null];
     });
 }

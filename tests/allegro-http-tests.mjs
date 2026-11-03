@@ -26,7 +26,7 @@ try {
   await mkdir(path.join(site, 'data'), { recursive: true });
   await writeFile(path.join(site, 'data/products.json'), JSON.stringify({ products: [{
     productId: `prd_${'a'.repeat(32)}`, name: 'Fixture figura', slug: 'fixture-figura', saleType: 'garden_figure',
-    category: 'Figury i dekoracje ogrodowe', image: '/uploads/fixture.webp', gallery: [], grossPrice: '100 zł',
+    shopVisible: true, shopStatus: 'Dostępny', category: 'Figury i dekoracje ogrodowe', image: '/uploads/fixture.webp', gallery: [], grossPrice: '100 zł',
   }] }));
   const configText = `<?php return [
     'ALLEGRO_ENVIRONMENT' => 'SANDBOX', 'ALLEGRO_CLIENT_ID' => '${randomBytes(16).toString('hex')}',
@@ -71,14 +71,14 @@ try {
     if ($mode === 'seed') {
       allegro_locked($config, function ($v, $k) use ($config) {
         allegro_write_vault($config, $k, ['status'=>'connected', 'account'=>['id'=>'123456','login'=>'<fixture&seller>'],
-          'tokens'=>['access'=>'fixture-access-NO-HTML', 'refresh'=>'fixture-refresh-NO-HTML', 'expires_at'=>time()-1, 'scope'=>ALLEGRO_B_SCOPE]]);
+          'tokens'=>['access'=>'fixture-access-NO-HTML', 'refresh'=>'fixture-refresh-NO-HTML', 'expires_at'=>time()-1, 'scope'=>allegro_scope_request()]]);
       });
     } elseif ($mode === 'refresh') {
       $token = allegro_access_token($config, time(), function ($request) {
         file_put_contents(${phpString(path.join(temp, 'refresh-count'))}, '+', FILE_APPEND | LOCK_EX);
         usleep(250000);
         return ['status'=>200, 'body'=>json_encode(['access_token'=>'fixture-rotated-NO-HTML', 'refresh_token'=>'fixture-rotated-refresh-NO-HTML',
-          'token_type'=>'bearer', 'expires_in'=>3600, 'scope'=>ALLEGRO_B_SCOPE])];
+          'token_type'=>'bearer', 'expires_in'=>3600, 'scope'=>allegro_scope_request()])];
       });
       if ($token !== 'fixture-rotated-NO-HTML') exit(2);
     } elseif ($mode === 'write') {
@@ -121,7 +121,7 @@ try {
   const setCookie = response.headers.get('set-cookie');
   assert.match(setCookie, /HttpOnly/i); assert.match(setCookie, /SameSite=Strict/i);
   const cookie = setCookie.split(';')[0]; const { csrf } = await response.json();
-  for (const action of ['connect', 'check-device', 'finish', 'check', 'disconnect']) {
+  for (const action of ['connect', 'check-device', 'finish', 'check', 'disconnect', 'pilot-load', 'pilot-preview', 'pilot-create', 'pilot-publish', 'pilot-check']) {
     response = await post({ action, csrf: 'wrong', confirm_disconnect: 'yes' }, cookie);
     assert.equal(response.status, 400, `${action}: CSRF rejected`);
     assert.equal(response.headers.get('location'), null);
@@ -165,6 +165,16 @@ try {
   const accountHtml = await response.text();
   assert.match(accountHtml, /&lt;fixture&amp;seller&gt;/, 'escaped account identity');
   assert.match(accountHtml, /123456/);
+  assert.match(accountHtml, /Pierwsza figura/);
+  assert.match(accountHtml, /name="product_id"/);
+  assert.match(accountHtml, /Fixture figura/);
+  response = await post({ action: 'connect', csrf }, cookie);
+  assert.equal(response.status, 400, 'working connection requires explicit scope-upgrade confirmation');
+  for (const action of ['pilot-create', 'pilot-publish']) {
+    response = await post({ action, csrf, product_id: `prd_${'a'.repeat(32)}`, confirm: 'PUBLISH' }, cookie);
+    assert.equal(response.status, 400, 'no remote write without server preview and nonce');
+  }
+
   for (const value of [secret, key, 'fixture-access', 'fixture-refresh', 'fixture-rotated', 'fixture-code-NO-HTML']) assert(!accountHtml.includes(value));
   // Real ordinary product save on an isolated copy. Network is disabled in this server.
   const vaultPath = path.join(temp, 'vault/sandbox/account.enc');

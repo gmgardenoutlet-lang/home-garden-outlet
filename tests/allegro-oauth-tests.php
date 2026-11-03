@@ -37,7 +37,7 @@ $device = ['user_code' => 'abc123xyz', 'device_code' => 'SYNTHETIC_DEVICE_PRIVAT
     'verification_uri' => 'https://allegro.pl.allegrosandbox.pl/skojarz-aplikacje',
     'verification_uri_complete' => 'https://allegro.pl.allegrosandbox.pl/skojarz-aplikacje?code=abc123xyz'];
 $tokenData = ['access_token' => 'fixture-access-private', 'refresh_token' => 'fixture-refresh-private',
-    'token_type' => 'bearer', 'expires_in' => 3600, 'scope' => ALLEGRO_B_SCOPE];
+    'token_type' => 'bearer', 'expires_in' => 3600, 'scope' => allegro_scope_request()];
 $requests = [];
 $tokenReply = $reply($tokenData);
 $transport = function ($r) use (&$requests, &$tokenReply, $reply, $device) {
@@ -61,7 +61,7 @@ try {
     $start();
     a_check(count($requests)===1, 'one initialization');
     $r=$requests[0]; parse_str($r['body'],$fields);
-    a_check($fields===['client_id'=>$config['client_id'],'scope'=>ALLEGRO_B_SCOPE], 'exact device init fields');
+    a_check($fields===['client_id'=>$config['client_id'],'scope'=>allegro_scope_request()], 'exact device init fields');
     a_check(in_array('Authorization: Basic '.base64_encode($config['client_id'].':'.$config['secret']),$r['headers'],true),'Basic');
     a_check(in_array('Content-Type: application/x-www-form-urlencoded',$r['headers'],true),'form body');
     a_check($r['url']==='https://allegro.pl.allegrosandbox.pl/auth/oauth/device','sandbox endpoint');
@@ -161,7 +161,7 @@ try {
     copy($path,allegro_storage_dir($prod).'/account.enc');a_reject(fn()=>allegro_public_status($prod),'cross env','storage');
     a_reject(fn()=>allegro_public_status(array_replace($config,['client_id'=>'another-client'])),'cross client','storage');
     a_reject(fn()=>allegro_public_status(array_replace($config,['auth_flow'=>'AUTHORIZATION_CODE'])),'legacy context','storage');
-    foreach ([['token_type'=>'mac'],['token_type'=>[]],['scope'=>ALLEGRO_B_SCOPE.' allegro:api:sale:offers:write'],['expires_in'=>0],['expires_in'=>1.2],['access_token'=>"bad\r\n"],['refresh_token'=>'']] as $bad) a_reject(fn()=>allegro_tokens(array_replace($tokenData,$bad),$now),'strict token');
+    foreach ([['token_type'=>'mac'],['token_type'=>[]],['scope'=>allegro_scope_request().' allegro:api:orders:read'],['expires_in'=>0],['expires_in'=>1.2],['access_token'=>"bad\r\n"],['refresh_token'=>'']] as $bad) a_reject(fn()=>allegro_tokens(array_replace($tokenData,$bad),$now),'strict token');
     foreach (['user_code'=>['','bad code',[],str_repeat('x',129)], 'device_code'=>['',"bad\n",[],str_repeat('x',4097)], 'expires_in'=>[0,-1,86401,'1e3',true,1.2], 'interval'=>[0,301,[],true] ] as $field=>$values) {
         foreach($values as $bad)a_reject(fn()=>allegro_device_response($config,array_replace($device,[$field=>$bad])),'malformed device');
     }
