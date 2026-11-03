@@ -145,7 +145,7 @@ try {
   const setCookie = response.headers.get('set-cookie');
   assert.match(setCookie, /HttpOnly/i); assert.match(setCookie, /SameSite=Strict/i);
   const cookie = setCookie.split(';')[0]; const { csrf } = await response.json();
-  for (const action of ['connect', 'check-device', 'finish', 'check', 'disconnect', 'pilot-load', 'pilot-category-back', 'pilot-category-restart', 'pilot-preview', 'pilot-create', 'pilot-publish', 'pilot-check']) {
+  for (const action of ['connect', 'check-device', 'finish', 'check', 'disconnect', 'pilot-load', 'pilot-category-back', 'pilot-category-restart', 'pilot-unlock-check', 'pilot-unlock', 'pilot-preview', 'pilot-create', 'pilot-publish', 'pilot-check']) {
     response = await post({ action, csrf: 'wrong', confirm_disconnect: 'yes' }, cookie);
     assert.equal(response.status, 400, `${action}: CSRF rejected`);
     assert.equal(response.headers.get('location'), null);
@@ -179,7 +179,7 @@ try {
   const livePreview = {replaceChildren: (...nodes) => {livePreview.nodes = nodes;}};
   const group = {dataset: {allegroParameters: JSON.stringify(dynamicParameters)}, querySelectorAll: () => [...liveRows.values()],
     addEventListener: (event, fn) => {listeners[event] = fn;}, closest: () => ({querySelector: selector => selector === '[name="description"]' ? descriptionInput : livePreview})};
-  const liveSandbox = {document: {querySelectorAll: () => [group], createElement: tag => ({tag})}};
+  const liveSandbox = {document: {querySelectorAll: selector => selector === '[data-allegro-parameters]' ? [group] : [], createElement: tag => ({tag})}};
   vm.createContext(liveSandbox); vm.runInContext(formScript, liveSandbox);
   assert.equal(liveRows.get('state').control.required, true);
   assert.equal(liveRows.get('code').control.required, false);
@@ -191,6 +191,19 @@ try {
   assert.equal(liveRows.get('ean').control.required, false);
   descriptionInput.value = 'Żółta figura.\n\nNowy akapit.'; listeners.description();
   assert.equal(livePreview.nodes[0].textContent, 'Żółta figura.');
+  const gpsrEvents = {};
+  const gpsrText = {value: '', dataset: {gpsrText: 'Informacje dotyczące bezpieczeństwa produktu\n\nNie jest zabawką.'}, focus() {}};
+  const compliance = {checked: false};
+  const gpsrSelect = {value: '', closest: () => ({querySelector: selector => selector === '[name="safety"]' ? gpsrText : compliance}),
+    addEventListener: (event, handler) => {gpsrEvents[event] = handler;}};
+  const gpsrSandbox = {document: {querySelectorAll: selector => selector === '[data-gpsr-template]' ? [gpsrSelect] : []}};
+  vm.createContext(gpsrSandbox); vm.runInContext(formScript, gpsrSandbox);
+  gpsrSelect.value = 'figure'; gpsrEvents.change();
+  assert.match(gpsrText.value, /Nie jest zabawką/);
+  assert.equal(compliance.checked, false, 'template never confirms GPSR');
+  gpsrText.value = 'Moje własne ostrzeżenia.'; gpsrSelect.value = 'manual'; gpsrEvents.change();
+  assert.equal(gpsrText.value, 'Moje własne ostrzeżenia.');
+  gpsrText.value = ''; gpsrEvents.change(); assert.equal(gpsrText.value, '');
   for (const value of [secret, key, 'fixture-access', 'fixture-refresh', 'Authorization:']) assert(!formScript.includes(value));
   response = await post({ action: 'connect', 'csrf[]': 'invalid-array' }, cookie);
   assert.equal(response.status, 400, 'array CSRF fails without PHP coercion');
@@ -259,6 +272,11 @@ try {
   assert.match(categoryHtml, /Kod producenta — <span data-requirement>Opcjonalne/);
   assert.doesNotMatch(categoryHtml, /name="parameters\[code\]"[^>]* required/);
   assert.match(categoryHtml, /O sprzedającym/);
+  assert.match(categoryHtml, /Wybierz szablon informacji bezpieczeństwa/);
+  assert.match(categoryHtml, /delivery.handlingTime=P7D/);
+  assert.match(categoryHtml, /Ważna informacja dotycząca odbioru przesyłki/);
+  assert.match(categoryHtml, /name="receipt_info"[^>]*maxlength="650"/);
+  assert.doesNotMatch(categoryHtml, /name="gpsr_confirmed"[^>]*checked/);
   response = await post({action: 'pilot-preview', csrf, product_id: figureId, description: 'Mój ręcznie zmieniony opis.', 'parameters[cn]': '68109100'}, cookie);
   assert.equal(response.status, 400, 'missing draft fields are rejected by PHP');
   categoryHtml = await (await request('/admin/allegro/', {headers: {cookie}})).text();

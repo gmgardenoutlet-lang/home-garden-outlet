@@ -7,11 +7,11 @@ $checks=0;
 function pilot_check(bool $ok): void {global $checks;if(!$ok)throw new RuntimeException('Pilot assertion failed');$checks++;}
 function pilot_reject(callable $f): void {try{$f();}catch(Throwable $e){pilot_check(true);return;}throw new RuntimeException('Unsafe pilot acceptance');}
 $root=sys_get_temp_dir().'/hgo-pilot-'.bin2hex(random_bytes(8));mkdir($root,0700);mkdir($root.'/vault',0700);mkdir($root.'/uploads',0700);
-define('SITE_ROOT',$root);file_put_contents($root.'/uploads/figure.jpg','synthetic-image');
+define('SITE_ROOT',$root);file_put_contents($root.'/uploads/figure.png',base64_decode('iVBORw0KGgoAAAANSUhEUgAAAfQAAAH0CAIAAABEtEjdAAAG8klEQVR4nO3UQQkAMAzAwPo33ZoYDMKdgrwyC0DO/A4A4D1zBwgyd4AgcwcIMneAIHMHCDJ3gCBzBwgyd4AgcwcIMneAIHMHCDJ3gCBzBwgyd4AgcwcIMneAIHMHCDJ3gCBzBwgyd4AgcwcIMneAIHMHCDJ3gCBzBwgyd4AgcwcIMneAIHMHCDJ3gCBzBwgyd4AgcwcIMneAIHMHCDJ3gCBzBwgyd4AgcwcIMneAIHMHCDJ3gCBzBwgyd4AgcwcIMneAIHMHCDJ3gCBzBwgyd4AgcwcIMneAIHMHCDJ3gCBzBwgyd4AgcwcIMneAIHMHCDJ3gCBzBwgyd4AgcwcIMneAIHMHCDJ3gCBzBwgyd4AgcwcIMneAIHMHCDJ3gCBzBwgyd4AgcwcIMneAIHMHCDJ3gCBzBwgyd4AgcwcIMneAIHMHCDJ3gCBzBwgyd4AgcwcIMneAIHMHCDJ3gCBzBwgyd4AgcwcIMneAIHMHCDJ3gCBzBwgyd4AgcwcIMneAIHMHCDJ3gCBzBwgyd4AgcwcIMneAIHMHCDJ3gCBzBwgyd4AgcwcIMneAIHMHCDJ3gCBzBwgyd4AgcwcIMneAIHMHCDJ3gCBzBwgyd4AgcwcIMneAIHMHCDJ3gCBzBwgyd4AgcwcIMneAIHMHCDJ3gCBzBwgyd4AgcwcIMneAIHMHCDJ3gCBzBwgyd4AgcwcIMneAIHMHCDJ3gCBzBwgyd4AgcwcIMneAIHMHCDJ3gCBzBwgyd4AgcwcIMneAIHMHCDJ3gCBzBwgyd4AgcwcIMneAIHMHCDJ3gCBzBwgyd4AgcwcIMneAIHMHCDJ3gCBzBwgyd4AgcwcIMneAIHMHCDJ3gCBzBwgyd4AgcwcIMneAIHMHCDJ3gCBzBwgyd4AgcwcIMneAIHMHCDJ3gCBzBwgyd4AgcwcIMneAIHMHCDJ3gCBzBwgyd4AgcwcIMneAIHMHCDJ3gCBzBwgyd4AgcwcIMneAIHMHCDJ3gCBzBwgyd4AgcwcIMneAIHMHCDJ3gCBzBwgyd4AgcwcIMneAIHMHCDJ3gCBzBwgyd4AgcwcIMneAIHMHCDJ3gCBzBwgyd4AgcwcIMneAIHMHCDJ3gCBzBwgyd4AgcwcIMneAIHMHCDJ3gCBzBwgyd4AgcwcIMneAIHMHCDJ3gCBzBwgyd4AgcwcIMneAIHMHCDJ3gCBzBwgyd4AgcwcIMneAIHMHCDJ3gCBzBwgyd4AgcwcIMneAIHMHCDJ3gCBzBwgyd4AgcwcIMneAIHMHCDJ3gCBzBwgyd4AgcwcIMneAIHMHCDJ3gCBzBwgyd4AgcwcIMneAIHMHCDJ3gCBzBwgyd4AgcwcIMneAIHMHCDJ3gCBzBwgyd4AgcwcIMneAIHMHCDJ3gCBzBwgyd4AgcwcIMneAIHMHCDJ3gCBzBwgyd4AgcwcIMneAIHMHCDJ3gCBzBwgyd4AgcwcIMneAIHMHCDJ3gCBzBwgyd4AgcwcIMneAIHMHCDJ3gCBzBwgyd4AgcwcIMneAIHMHCDJ3gCBzBwgyd4AgcwcIMneAIHMHCDJ3gCBzBwgyd4AgcwcIMneAIHMHCDJ3gCBzBwgyd4AgcwcIMneAIHMHCDJ3gCBzBwgyd4AgcwcIMneAIHMHCDJ3gCBzBwgyd4AgcwcIMneAIHMHCDJ3gCBzBwgyd4AgcwcIMneAIHMHCDJ3gCBzBwgyd4AgcwcIMneAIHMHCDJ3gCBzBwgyd4AgcwcIMneAIHMHCDJ3gCBzBwgyd4AgcwcIMneAIHMHCDJ3gCBzBwgyd4AgcwcIMneAIHMHCDJ3gCBzBwgyd4AgcwcIMneAIHMHCDJ3gCBzBwgyd4AgcwcIMneAIHMHCDJ3gCBzBwgyd4AgcwcIMneAIHMHCDJ3gCBzBwgyd4AgcwcIMneAIHMHCDJ3gCBzBwgyd4AgcwcIMneAIHMHCDJ3gCBzBwgyd4AgcwcIMneAIHMHCDJ3gCBzBwgyd4AgcwcIMneAIHMHCDJ3gCBzBwgyd4AgcwcIMneAIHMHCDJ3gCBzBwgyd4AgcwcIMneAIHMHCDJ3gCBzBwgyd4AgcwcIMneAIHMHCDJ3gCBzBwgyd4AgcwcIMneAIHMHCDJ3gCBzBwgyd4AgcwcIMneAIHMHCDJ3gCBzBwgyd4AgcwcIMneAIHMHCDJ3gCBzBwgyd4AgcwcIMneAIHMHCDJ3gCBzBwgyd4AgcwcIMneAIHMHCDJ3gCBzBwgyd4AgcwcIMneAIHMHCDJ3gCBzBwgyd4AgcwcIMneAIHMHCDJ3gCBzBwgyd4AgcwcIMneAIHMHCDJ3gCBzBwgyd4AgcwcIMneAIHMHCDJ3gCBzBwgyd4AgcwcIMneAIHMHCDJ3gKADlkfpS/HtDQIAAAAASUVORK5CYII='));
 $config=['environment'=>'SANDBOX','auth_flow'=>'DEVICE','client_id'=>'SYNTHETIC_CLIENT','secret'=>'SYNTHETIC_SECRET','key'=>base64_encode(random_bytes(32)),
  'storage_root'=>$root.'/vault','enabled'=>true];
 $pid='prd_'.str_repeat('a',32);$now=time();$binding=str_repeat('b',64);
-$product=['productId'=>$pid,'saleType'=>'garden_figure','shopVisible'=>true,'shopStatus'=>'Dostępny','name'=>'Figura ogrodowa testowa','grossPrice'=>'150 zł','description'=>'Opis katalogowy','image'=>'/uploads/figure.jpg'];
+$product=['productId'=>$pid,'saleType'=>'garden_figure','shopVisible'=>true,'shopStatus'=>'Dostępny','name'=>'Figura ogrodowa testowa','grossPrice'=>'150 zł','description'=>'Opis katalogowy','image'=>'/uploads/figure.png'];
 $meta=['at'=>$now,'environment'=>'SANDBOX','seller'=>'123','category'=>['id'=>'148446','name'=>'Figury','leaf'=>true],
  'parameters'=>[['id'=>'11323','name'=>'Stan','type'=>'dictionary','required'=>true,'requiredForProduct'=>false,'dictionary'=>[['id'=>'new','value'=>'Nowy']]],
  ['id'=>'material','name'=>'Materiał','type'=>'string','requiredForProduct'=>true,'restrictions'=>['minLength'=>2,'maxLength'=>20]],
@@ -20,16 +20,18 @@ $meta=['at'=>$now,'environment'=>'SANDBOX','seller'=>'123','category'=>['id'=>'1
  'impliedWarranties'=>[['id'=>'warranty','name'=>'Reklamacje']],'responsibleProducers'=>[['id'=>'producer','name'=>'Producent']], 'responsiblePersons'=>[]];
 $input=['name'=>$product['name'],'description'=>$product['description'],'price'=>'150,00','quantity'=>'1','stock_confirmed'=>'yes',
  'parameters'=>['11323'=>'new','material'=>'Beton'],'shipping'=>'shipping','return'=>'returns','warranty'=>'warranty','producer'=>'producer',
- 'safety'=>'Instrukcja bezpieczeństwa potwierdzona przez administratora.','gpsr_confirmed'=>'yes'];
+ 'safety'=>'Instrukcja bezpieczeństwa potwierdzona przez administratora.','gpsr_confirmed'=>'yes','handling_confirmed'=>'yes'];
 $seed=static function(string $scope)use($config,$now){allegro_locked($config,static function($v,$k)use($config,$now,$scope){allegro_write_vault($config,$k,
  ['status'=>'connected','account'=>['id'=>'123','login'=>'fixture'],'tokens'=>['access'=>'SYNTHETIC_ACCESS','refresh'=>'SYNTHETIC_REFRESH','expires_at'=>$now+3600,'scope'=>$scope]]);});};
 $read=static fn()=>allegro_locked($config,static fn($v,$k)=>$v);
 $requests=[];$createMode='201';$operationPending=true;$postThrows=false;$remoteOffer=[];
 $transport=static function($r)use(&$requests,&$createMode,&$operationPending,&$postThrows,&$remoteOffer,$config){
- $requests[]=$r;$path=substr($r['url'],strlen(allegro_hosts($config['environment'])['api']));
+ $requests[]=$r;
+ if(str_starts_with($r['url'],'https://upload.')) return ['status'=>201,'body'=>json_encode(['location'=>'https://a.allegroimg.com/original/fixture/image'])];
+ $path=substr($r['url'],strlen(allegro_hosts($config['environment'])['api']));
  $reply=static fn($d,$status=200,$h=[])=>['status'=>$status,'body'=>json_encode($d),'headers'=>$h];
  if($r['method']==='GET' && str_starts_with($path,'/sale/offers?'))return $reply(['totalCount'=>0,'offers'=>[]]);
- if($r['method']==='POST') {
+ if($r['method']==='POST' && str_ends_with($r['url'],'/sale/product-offers')) {
   if($postThrows)throw new AllegroSafeException('network');
   $remoteOffer=json_decode($r['body'],true);$remoteOffer['id']='789';
   if($createMode==='202')return $reply($remoteOffer,202,['location'=>'/sale/product-offers/789/operations/op-1','retry-after'=>'1']);
@@ -230,6 +232,102 @@ try {
  if (!function_exists('csrf_token')) {function csrf_token(): string {return 'synthetic-csrf';}}
  ob_start();allegro_pilot_category_buttons($currentMeta+['productId'=>$pid,'nonce'=>'fixture']);$buttons=ob_get_clean();
  pilot_check(str_contains($buttons,'Wróć o poziom') && str_contains($buttons,'Wybierz kategorię od początku') && str_contains($buttons,'navigation_nonce'));
+ // Official binary upload, including exact content type and safe server policy.
+ $image=allegro_pilot_image_file('/uploads/figure.png');
+ pilot_check($image['mime']==='image/png' && str_starts_with($image['bytes'],"\x89PNG"));
+ foreach (['PROD','SANDBOX'] as $environment) {
+  $seen=[];$uploadConfig=array_replace($config,['environment'=>$environment]);
+  $uploaded=allegro_pilot_image_upload($uploadConfig,$image,'SYNTHETIC_ACCESS',static function($r)use(&$seen){$seen=$r;return ['status'=>201,'body'=>json_encode(['location'=>'https://a.allegroimg.com/original/fixture/image'])];});
+  pilot_check($uploaded==='https://a.allegroimg.com/original/fixture/image' && $seen['body']===$image['bytes']);
+  pilot_check($seen['url']===($environment==='PROD'?'https://upload.allegro.pl':'https://upload.allegro.pl.allegrosandbox.pl').'/sale/images');
+  pilot_check(in_array('Content-Type: image/png',$seen['headers'],true));
+  allegro_http_policy('POST',$seen['url']);
+ }
+ foreach (['https://evil.test/sale/images','https://api.allegro.pl/sale/images','https://upload.allegro.pl/sale/images?url=evil','https://upload.allegro.pl/sale/product-offers'] as $url) pilot_reject(fn()=>allegro_http_policy('POST',$url));
+ foreach ([400,401,403,413,415,422,500] as $status) pilot_reject(fn()=>allegro_pilot_image_upload($config,$image,'SYNTHETIC_ACCESS',static fn($r)=>['status'=>$status,'body'=>'PRIVATE_BODY']));
+ foreach (['not json',json_encode(['location'=>'https://evil.test/image']),json_encode([])] as $body) pilot_reject(fn()=>allegro_pilot_image_upload($config,$image,'SYNTHETIC_ACCESS',static fn($r)=>['status'=>201,'body'=>$body]));
+ pilot_reject(fn()=>allegro_pilot_image_file('https://evil.test/uploads/figure.png'));
+ pilot_reject(fn()=>allegro_pilot_image_file('/uploads/../figure.png'));
+ pilot_reject(fn()=>allegro_pilot_image_file('/uploads/figure.png?secret=bad'));
+ file_put_contents($root.'/uploads/not-image.png','not an image');
+ pilot_reject(fn()=>allegro_pilot_image_file('/uploads/not-image.png'));
+ file_put_contents($root.'/uploads/wrong.jpg',$image['bytes']);
+ pilot_reject(fn()=>allegro_pilot_image_file('/uploads/wrong.jpg'));
+ file_put_contents($root.'/uploads/too-large.png',str_repeat('x',10485761));
+ pilot_reject(fn()=>allegro_pilot_image_file('/uploads/too-large.png'));
+ $small=$image['bytes'];$small=substr_replace($small,pack('NN',10,10),16,8);
+ file_put_contents($root.'/uploads/small.png',$small);
+ pilot_reject(fn()=>allegro_pilot_image_file('/uploads/small.png'));
+ $huge=substr_replace($image['bytes'],pack('NN',10000,10000),16,8);
+ file_put_contents($root.'/uploads/huge.png',$huge);
+ pilot_reject(fn()=>allegro_pilot_image_file('/uploads/huge.png'));
+ file_put_contents($root.'/uploads/unsupported.gif',base64_decode('R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7'));
+ pilot_reject(fn()=>allegro_pilot_image_file('/uploads/unsupported.gif'));
+ $payloadForUpload=allegro_pilot_payload($product,$meta,$input);
+ $uploadedPayload=allegro_pilot_uploaded_payload($config,$payloadForUpload,$product,'SYNTHETIC_ACCESS',static fn($r)=>['status'=>201,'body'=>json_encode(['location'=>'https://a.allegroimg.com/original/fixture/image'])]);
+ pilot_check($uploadedPayload['images']===['https://a.allegroimg.com/original/fixture/image'] && $uploadedPayload['productSet'][0]['product']['images']===$uploadedPayload['images']);
+ $otherPayload=$payloadForUpload;$otherPayload['images']=['https://mgoutlet.pl/uploads/not-image.png'];
+ pilot_reject(fn()=>allegro_pilot_uploaded_payload($config,$otherPayload,$product,'SYNTHETIC_ACCESS',static fn($r)=>throw new LogicException('must not upload')));
+ $many=array_replace($product,['gallery'=>array_map(static fn($i)=>'/uploads/extra-'.$i.'.png',range(1,17))]);
+ pilot_reject(fn()=>allegro_pilot_uploaded_payload($config,$payloadForUpload,$many,'SYNTHETIC_ACCESS',static fn($r)=>[]));
+ $seed(allegro_scope_request());$uploadRequests=[];
+ $uploadFailure=static function($r)use(&$uploadRequests){$uploadRequests[]=$r;return str_starts_with($r['url'],'https://upload.')?['status'=>422,'body'=>'PRIVATE']:['status'=>200,'body'=>json_encode(['totalCount'=>0,'offers'=>[]])];};
+ $failedPreview=['payload'=>$payloadForUpload,'fingerprint'=>allegro_pilot_fingerprint($product),'seller'=>'123','environment'=>'SANDBOX','at'=>$now];
+ pilot_reject(fn()=>allegro_pilot_write($config,$failedPreview,false,$uploadFailure,$product));
+ pilot_check(empty($read()['pilot']) && count(array_filter($uploadRequests,static fn($r)=>$r['method']==='POST' && str_ends_with($r['url'],'/sale/product-offers')))===0);
+ // Delivery lives outside the product description. Full receipt text fits 650 characters.
+ pilot_check(allegro_pilot_length(allegro_pilot_receipt_note())===647);
+ pilot_check($payloadForUpload['delivery']['handlingTime']==='P7D' && $payloadForUpload['delivery']['additionalInfo']===allegro_pilot_receipt_note());
+ pilot_check(!str_contains($payloadForUpload['description']['sections'][0]['items'][0]['content'],'protokół'));
+ pilot_reject(fn()=>allegro_pilot_payload($product,$meta,array_replace($input,['handling_confirmed'=>''])));
+ pilot_reject(fn()=>allegro_pilot_payload($product,$meta,array_replace($input,['receipt_info'=>str_repeat('x',651)])));
+ pilot_check(allegro_pilot_payload($product,$meta,array_replace($input,['receipt_info'=>'Ręcznie zmieniona informacja.']))['delivery']['additionalInfo']==='Ręcznie zmieniona informacja.');
+ pilot_check(str_contains(allegro_pilot_gpsr_template(),'Nie jest zabawką.') && str_contains(allegro_pilot_gpsr_template(),'nie instrukcją')===false);
+ pilot_reject(fn()=>allegro_pilot_payload($product,$meta,array_replace($input,['safety'=>allegro_pilot_gpsr_template(),'gpsr_confirmed'=>''])));
+ pilot_reject(fn()=>allegro_pilot_payload($product,$meta,array_replace($input,['safety'=>''])));
+ pilot_check(allegro_pilot_payload($product,$meta,array_replace($input,['safety'=>'Ręczne informacje producenta.']))['productSet'][0]['safetyInformation']['description']==='Ręczne informacje producenta.');
+ // UNKNOWN recovery never erases the whole vault, and cannot reopen an existing/ambiguous offer.
+ $seedUnknown=static function()use($config,$seed,$pid,$product){$seed(allegro_scope_request());allegro_locked($config,static function($v,$k)use($config,$pid,$product){$v['unrelatedMarker']='preserve';$v['pilot']=['productId'=>$pid,'status'=>'UNKNOWN','fingerprint'=>allegro_pilot_fingerprint($product),'failure'=>['httpStatus'=>422]];allegro_write_vault($config,$k,$v);});};
+ $absent=static fn($r)=>['status'=>200,'body'=>json_encode(['offers'=>[],'totalCount'=>0,'count'=>0])];
+ $seedUnknown();$clock=$now+100;
+ allegro_pilot_unlock_check($config,$pid,false,'',$absent,$clock);
+ pilot_check(count($read()['pilot']['absenceChecks'])===1);
+ pilot_reject(fn()=>allegro_pilot_unlock_check($config,$pid,true,'wrong',$absent,$clock+1));
+ pilot_reject(fn()=>allegro_pilot_unlock_check($config,$pid,false,'',$absent,$clock+1));
+ allegro_pilot_unlock_check($config,$pid,false,'',$absent,$clock+60);
+ pilot_check(count($read()['pilot']['absenceChecks'])===2);
+ $recoveryNonce=$read()['pilot']['recoveryNonce'];
+ allegro_pilot_unlock_check($config,$pid,true,$recoveryNonce,$absent,$clock+61);
+ pilot_check(empty($read()['pilot']) && $read()['unrelatedMarker']==='preserve' && $read()['tokens']['access']==='SYNTHETIC_ACCESS');
+ pilot_check($read()['pilotFailures'][0]['httpStatus']===422 && count($read()['pilotFailures'][0]['absenceChecks'])===2);
+ // A reopened attempt can create exactly one new INACTIVE draft, using uploaded URLs.
+ allegro_pilot_write($config,$failedPreview,false,$transport,$product);
+ pilot_check($read()['pilot']['status']==='INACTIVE' && count($read()['pilotFailures'])===1);
+ pilot_check($read()['pilot']['payload']['images']===['https://a.allegroimg.com/original/fixture/image']);
+ $remoteOffer['delivery']['handlingTime']='PT168H';allegro_pilot_check($config,$transport);pilot_check($read()['pilot']['status']==='INACTIVE');
+ $remoteOffer['delivery']['handlingTime']='P2D';pilot_reject(fn()=>allegro_pilot_check($config,$transport));
+ $remoteOffer['delivery']['handlingTime']='P7D';
+ pilot_reject(fn()=>allegro_pilot_write($config,$failedPreview,false,$transport,$product));
+ // Even a newly appearing offer on the final confirmation read prevents reopening.
+ $seedUnknown();allegro_pilot_unlock_check($config,$pid,false,'',$absent,$clock);
+ allegro_pilot_unlock_check($config,$pid,false,'',$absent,$clock+60);$proof=$read()['pilot']['recoveryNonce'];
+ pilot_reject(fn()=>allegro_pilot_unlock_check($config,$pid,true,$proof,static fn($r)=>['status'=>200,'body'=>json_encode(['offers'=>[['id'=>'987']],'totalCount'=>1])],$clock+61));
+ pilot_check(isset($read()['pilot']) && empty($read()['pilot']['absenceChecks']));
+ foreach ([['offers'=>[['id'=>'987']],'totalCount'=>1],['offers'=>[]],['offers'=>[],'totalCount'=>'0'],['offers'=>[],'totalCount'=>1],['offers'=>[],'totalCount'=>0,'count'=>1]] as $bad) {
+  $seedUnknown();allegro_pilot_unlock_check($config,$pid,false,'',$absent,$clock);
+  pilot_reject(fn()=>allegro_pilot_unlock_check($config,$pid,false,'',static fn($r)=>['status'=>200,'body'=>json_encode($bad)],$clock+60));
+  pilot_check(isset($read()['pilot']) && empty($read()['pilot']['absenceChecks']));
+ }
+ $seedUnknown();
+ try {allegro_pilot_unlock_check($config,$pid,false,'',static fn($r)=>['status'=>200,'body'=>json_encode(['offers'=>[['id'=>'987']],'totalCount'=>1])],$clock);throw new LogicException('must block');}
+ catch(RuntimeException $e){pilot_check(str_contains($e->getMessage(),'987'));}
+ $seedUnknown();allegro_pilot_unlock_check($config,$pid,false,'',$absent,$clock);
+ pilot_reject(fn()=>allegro_pilot_unlock_check($config,$pid,false,'',static fn($r)=>throw new AllegroSafeException('network'),$clock+60));
+ pilot_check(empty($read()['pilot']['absenceChecks']));
+ $seedUnknown();
+ allegro_locked($config,static function($v,$k)use($config){$v['pilot']['offerId']='987';allegro_write_vault($config,$k,$v);});
+ pilot_reject(fn()=>allegro_pilot_unlock_check($config,$pid,false,'',$absent,$clock));
+ $seed(allegro_scope_request());
  $called=false;
  pilot_reject(function()use($config,&$called){allegro_pilot_api($config,'GET','/sale/shipping-rates?token=SECRET','SYNTHETIC_TOKEN',[],function($r)use(&$called){$called=true;return [];});});
  pilot_check(!$called);
@@ -250,7 +348,8 @@ try {
  pilot_reject(fn()=>allegro_pilot_location($config,'https://evil.test/sale/product-offers/789','789',false));
  pilot_reject(fn()=>allegro_pilot_location($config,'/sale/product-offers/999/operations/op-1','789',true));
  $preview=['payload'=>$payload,'fingerprint'=>allegro_pilot_fingerprint($product),'seller'=>'123','environment'=>'SANDBOX','at'=>$now];
- $seed(ALLEGRO_B_SCOPE);pilot_reject(fn()=>allegro_pilot_write($config,$preview,false,$transport));pilot_check($requests===[]);
+ $requests=[];
+ $seed(ALLEGRO_B_SCOPE);pilot_reject(fn()=>allegro_pilot_write($config,$preview,false,$transport,$product));pilot_check($requests===[]);
  // Starting a scope upgrade neither disconnects nor overwrites the working token, even on failure.
  pilot_reject(fn()=>allegro_device_start($config,$binding,$now,static fn($r)=>throw new AllegroSafeException('network')));
  pilot_check($read()['tokens']['access']==='SYNTHETIC_ACCESS' && $read()['status']==='connected');
@@ -259,28 +358,28 @@ try {
  allegro_locked($config,static function($v,$k)use($config){$v['device']['next_poll_at']=time()-1;allegro_write_vault($config,$k,$v);});
  allegro_device_poll($config,$binding,$now,static fn($r)=>['status'=>400,'body'=>json_encode(['error'=>'access_denied'])]);
  pilot_check($read()['tokens']['access']==='SYNTHETIC_ACCESS' && $read()['status']==='connected');
- $seed(allegro_scope_request());allegro_pilot_write($config,$preview,false,$transport);
+ $seed(allegro_scope_request());allegro_pilot_write($config,$preview,false,$transport,$product);
  pilot_check($read()['pilot']['offerId']==='789' && $read()['pilot']['status']==='INACTIVE');
- $writes=count(array_filter($requests,static fn($r)=>$r['method']==='POST'));
- pilot_reject(fn()=>allegro_pilot_write($config,$preview,false,$transport));
- pilot_check(count(array_filter($requests,static fn($r)=>$r['method']==='POST'))===$writes);
- $changedPreview=$preview;$changedPreview['payload']['sellingMode']['price']['amount']='999.00';pilot_reject(fn()=>allegro_pilot_write($config,$changedPreview,true,$transport));
- allegro_pilot_write($config,$preview,true,$transport);pilot_check($read()['pilot']['status']==='ACTIVE');
- pilot_reject(fn()=>allegro_pilot_write($config,$preview,true,$transport));
+ $writes=count(array_filter($requests,static fn($r)=>$r['method']==='POST' && str_ends_with($r['url'],'/sale/product-offers')));
+ pilot_reject(fn()=>allegro_pilot_write($config,$preview,false,$transport,$product));
+ pilot_check(count(array_filter($requests,static fn($r)=>$r['method']==='POST' && str_ends_with($r['url'],'/sale/product-offers')))===$writes);
+ $changedPreview=$preview;$changedPreview['payload']['sellingMode']['price']['amount']='999.00';pilot_reject(fn()=>allegro_pilot_write($config,$changedPreview,true,$transport,$product));
+ allegro_pilot_write($config,$preview,true,$transport,$product);pilot_check($read()['pilot']['status']==='ACTIVE');
+ pilot_reject(fn()=>allegro_pilot_write($config,$preview,true,$transport,$product));
  pilot_check(count(array_filter($requests,static fn($r)=>$r['method']==='PATCH'))===1);
  // 202 remains PROCESSING until operation 303 and an authoritative GET confirms INACTIVE.
  $seed(allegro_scope_request());$requests=[];$createMode='202';$operationPending=true;
- allegro_pilot_write($config,$preview,false,$transport);pilot_check($read()['pilot']['status']==='PROCESSING');
- pilot_reject(fn()=>allegro_pilot_write($config,$preview,true,$transport));
+ allegro_pilot_write($config,$preview,false,$transport,$product);pilot_check($read()['pilot']['status']==='PROCESSING');
+ pilot_reject(fn()=>allegro_pilot_write($config,$preview,true,$transport,$product));
  allegro_locked($config,static function($v,$k)use($config){$v['pilot']['nextCheck']=0;allegro_write_vault($config,$k,$v);});
  allegro_pilot_check($config,$transport);pilot_check($read()['pilot']['status']==='PROCESSING');
  $operationPending=false;allegro_locked($config,static function($v,$k)use($config){$v['pilot']['nextCheck']=0;allegro_write_vault($config,$k,$v);});
  allegro_pilot_check($config,$transport);pilot_check($read()['pilot']['status']==='INACTIVE');
  // Network uncertainty after POST locks creation; no automatic retry or duplicate.
  $seed(allegro_scope_request());$requests=[];$postThrows=true;
- pilot_reject(fn()=>allegro_pilot_write($config,$preview,false,$transport));
- pilot_check($read()['pilot']['status']==='UNKNOWN');pilot_reject(fn()=>allegro_pilot_write($config,$preview,false,$transport));
- pilot_check(count(array_filter($requests,static fn($r)=>$r['method']==='POST'))===1);
+ pilot_reject(fn()=>allegro_pilot_write($config,$preview,false,$transport,$product));
+ pilot_check($read()['pilot']['status']==='UNKNOWN');pilot_reject(fn()=>allegro_pilot_write($config,$preview,false,$transport,$product));
+ pilot_check(count(array_filter($requests,static fn($r)=>$r['method']==='POST' && str_ends_with($r['url'],'/sale/product-offers')))===1);
  echo 'PASS: Allegro one-figure pilot — '.$checks." assertions; synthetic transport only\n";
 } finally {
  $remove=static function($path)use(&$remove){if(is_dir($path)){foreach(scandir($path) as $x)if($x!=='.'&&$x!=='..')$remove($path.'/'.$x);rmdir($path);}else unlink($path);};$remove($root);

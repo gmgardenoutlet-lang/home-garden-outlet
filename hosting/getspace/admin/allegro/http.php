@@ -40,6 +40,7 @@ function allegro_http_policy(string $method, string $url): void
         $allowed[] = ['POST', $hosts['auth'] . '/auth/oauth/device'];
         $allowed[] = ['POST', $hosts['auth'] . '/auth/oauth/token'];
         $allowed[] = ['GET', $hosts['api'] . '/me'];
+        $allowed[] = ['POST', ($environment==='PROD'?'https://upload.allegro.pl':'https://upload.allegro.pl.allegrosandbox.pl').'/sale/images'];
     }
     foreach (['PROD','SANDBOX'] as $environment) {
         $prefix = allegro_hosts($environment)['api'];
