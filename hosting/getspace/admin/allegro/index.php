@@ -4,6 +4,13 @@ require __DIR__ . '/../lib.php';
 require __DIR__ . '/lib.php';
 boot_admin();
 require_login();
+if (($_SERVER['REQUEST_METHOD'] ?? '') === 'GET' && ($_GET['pilot_form_script'] ?? '') === '1') {
+    header('Content-Type: application/javascript; charset=utf-8');
+    header('Cache-Control: no-store');
+    header('X-Content-Type-Options: nosniff');
+    echo allegro_pilot_form_script();
+    exit;
+}
 header('Referrer-Policy: no-referrer');
 if (empty($_SESSION['allegro_binding'])) $_SESSION['allegro_binding'] = bin2hex(random_bytes(32));
 $binding = hash('sha256', (string)$_SESSION['allegro_binding']);
@@ -67,7 +74,7 @@ $labels = ['connected' => 'Połączono', 'reconnect' => 'Wymaga ponownego połą
 $expires = is_int($status['expires_at']) ? (new DateTimeImmutable('@' . $status['expires_at']))->setTimezone(new DateTimeZone('Europe/Warsaw'))->format('d.m.Y H:i:s T') : '—';
 ?>
 <!doctype html><html lang="pl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Allegro — Home &amp; Garden Outlet</title><link rel="stylesheet" href="/admin/style.css"></head>
+<title>Allegro — Home &amp; Garden Outlet</title><link rel="stylesheet" href="/admin/style.css"><script src="/admin/allegro/?pilot_form_script=1" defer></script></head>
 <body><main class="narrow"><section class="card"><p><a href="/admin/">Wróć do panelu</a></p><h1>ALLEGRO</h1>
 <p>Połączenie konta i pilot jednej figury z katalogu MG Outlet. Tworzenie szkicu i publikacja wymagają osobnych potwierdzeń.</p>
 <dl>

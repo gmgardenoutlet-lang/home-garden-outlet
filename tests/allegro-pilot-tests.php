@@ -158,6 +158,78 @@ try {
   }
  }
  foreach (['POST','PATCH'] as $method) pilot_reject(fn()=>allegro_pilot_api($config,$method,$method==='POST'?'/sale/product-offers':'/sale/product-offers/789','SYNTHETIC_TOKEN',[],static fn($r)=>['status'=>200,'body'=>$large]));
+ // Back/restart replays only the chosen ancestors via synthetic GETs, even from a leaf.
+ $metadataReads=[];
+ $back=allegro_pilot_category_return($config,$currentMeta,false,$metaTransport);
+ pilot_check(array_column($back['path'],'id')===array_slice(array_column($currentMeta['categoryPath'],'id'),0,-1));
+ pilot_check(!isset($back['parameters']) && array_column($back['options'],'id')===[$currentMeta['category']['id']]);
+ pilot_check(!in_array('/sale/categories/'.$currentMeta['category']['id'].'/parameters',$metadataReads,true));
+ $backAgain=allegro_pilot_category_return($config,$back,false,$metaTransport);
+ pilot_check(count($backAgain['path'])===2);
+ $restart=allegro_pilot_category_return($config,$currentMeta,true,$metaTransport);
+ pilot_check($restart['path']===[] && count($restart['options'])===1 && !$restart['leaf']);
+ pilot_check(allegro_pilot_category_return($config,$restart,false,$metaTransport)['path']===[]);
+ // Text is local, editable and converted to safe Allegro paragraphs/headings.
+ $described=array_replace($product,['description'=>'Figura z katalogu.','longDescription'=>'Szczegóły: ręczne wykończenie, żółć i źdźbło.']);
+ $unchanged=$described;$description=allegro_pilot_description($described);
+ pilot_check($described===$unchanged && str_contains($description,'Figura z katalogu.') && str_contains($description,'Szczegóły: ręczne wykończenie, żółć i źdźbło.'));
+ pilot_check(substr_count($description,'Ważna informacja o ręcznym malowaniu')===1);
+ pilot_check(substr_count(allegro_pilot_description(['description'=>$description]),'Ważna informacja o ręcznym malowaniu')===1);
+ pilot_check(!str_contains($description,'showroom') && !str_contains($description,'mgoutlet.pl'));
+ $html=allegro_pilot_description_html($description);
+ pilot_check(str_contains($html,'<h2>Ważna informacja o ręcznym malowaniu</h2>') && substr_count($html,'<p>')>=4);
+ pilot_check(str_contains(allegro_pilot_description_html('<script>alert(1)</script>'), '&lt;script&gt;') && !str_contains(allegro_pilot_description_html('<script>alert(1)</script>'),'<script>'));
+ $cn=['id'=>'cn','name'=>'Kod taryfy celnej','type'=>'string','required'=>false,'requiredForProduct'=>false,'restrictions'=>['minLength'=>8,'maxLength'=>8]];
+ pilot_check(allegro_pilot_cn(['material'=>'Beton'],$cn)==='68109900');
+ pilot_check(allegro_pilot_cn(['name'=>'Betonowa figura','color'=>'betonowy'],$cn)==='');
+ pilot_check(allegro_pilot_cn(['material'=>'Nieznany'],$cn)==='');
+ pilot_check(allegro_pilot_cn(['material'=>'Beton'],array_replace($cn,['name'=>'Kod producenta']))==='');
+ pilot_check(allegro_pilot_cn(['material'=>'Beton'],array_replace($cn,['restrictions'=>['maxLength'=>4]]))==='');
+ pilot_check(allegro_pilot_parameter_row($cn,'68109100',['cn'=>'68109100'])['values']===['68109100']);
+ $cnDictionary=array_replace($cn,['type'=>'dictionary','dictionary'=>[['id'=>'concrete','value'=>'6810 99 00']],'restrictions'=>[]]);
+ pilot_check(allegro_pilot_cn(['material'=>'Beton'],$cnDictionary)==='concrete');
+ pilot_check(allegro_pilot_cn(['material'=>'Beton'],array_replace($cnDictionary,['dictionary'=>[]]))==='');
+ $manufacturer=['id'=>'maker-code','name'=>'Kod producenta','type'=>'string','required'=>false,'requiredForProduct'=>false];
+ pilot_check(allegro_pilot_parameter_row($manufacturer,'',[])===null);
+ foreach (['required','requiredForProduct'] as $reason) {
+  try {allegro_pilot_parameter_row(array_replace($manufacturer,[$reason=>true]),'',[]);throw new LogicException('Required value accepted');}
+  catch(RuntimeException $e){pilot_check(str_contains($e->getMessage(),'Kod producenta'));}
+ }
+ $condition=array_replace($manufacturer,['requiredIf'=>['parametersWithValue'=>[['id'=>'state','oneOfValueIds'=>['new']]],'parametersWithoutValue'=>[['id'=>'ean']]]]);
+ pilot_check(allegro_pilot_parameter_required($condition,['state'=>'new','ean'=>'']));
+ pilot_check(!allegro_pilot_parameter_required($condition,['state'=>'used','ean'=>'']));
+ pilot_check(!allegro_pilot_parameter_required($condition,['state'=>'new','ean'=>'123']));
+ pilot_check(allegro_pilot_parameter_row($condition,'',['state'=>'used'])===null);
+ pilot_reject(fn()=>allegro_pilot_parameter_row($condition,'',['state'=>'new']));
+ $range=['id'=>'weight','name'=>'Waga','type'=>'float','unit'=>'kg','required'=>true,'restrictions'=>['min'=>1,'max'=>10,'precision'=>1,'range'=>true]];
+ pilot_check(allegro_pilot_parameter_row($range,['1.2','2.4'],[])['rangeValue']===['from'=>'1.2','to'=>'2.4']);
+ foreach ([['2','1'],['1','11'],['1','2.22'],['1','']] as $bad) pilot_reject(fn()=>allegro_pilot_parameter_row($range,$bad,[]));
+ $multi=['id'=>'brand','name'=>'Producent / marka','type'=>'dictionary','restrictions'=>['multipleChoices'=>true],
+  'options'=>['dependsOnParameterId'=>'state'],'dictionary'=>[['id'=>'unknown','value'=>'Producent nieznany'],['id'=>'known','value'=>'Znany','dependsOnValueIds'=>['new']]]];
+ pilot_check(allegro_pilot_parameter_row($multi,['unknown','known'],['state'=>'new'])['valuesIds']===['unknown','known']);
+ pilot_reject(fn()=>allegro_pilot_parameter_row($multi,'known',['state'=>'used']));
+ pilot_reject(fn()=>allegro_pilot_parameter_row($multi,'invented',[]));
+ $optionalMeta=$meta;$optionalMeta['parameters'][]=$manufacturer;
+ pilot_check(!str_contains(json_encode(allegro_pilot_payload($product,$optionalMeta,$input)),'maker-code'));
+ $edited=array_replace($input,['description'=>"Ręcznie edytowany opis.\n\nDrugi akapit."]);
+ pilot_check(allegro_pilot_payload($product,$meta,$edited)['description']['sections'][0]['items'][0]['content']==='<p>Ręcznie edytowany opis.</p><p>Drugi akapit.</p>');
+ $productMeta=$meta;$productMeta['parameters'][2]['options']=['describesProduct'=>true];
+ $withEan=array_replace($input,['parameters'=>$input['parameters']+['ean'=>'5901234123457']]);
+ pilot_check(count(allegro_pilot_payload($product,$productMeta,$withEan)['productSet'][0]['product']['parameters'])===2);
+ // Rendered required attributes, API reasons, CN hint and restrictions match PHP checks.
+ if (!function_exists('e')) {function e($v): string {return htmlspecialchars((string)$v,ENT_QUOTES|ENT_SUBSTITUTE,'UTF-8');}}
+ $control=static function($p,$product=[])use($manufacturer,$condition){ob_start();allegro_pilot_parameter_control($p,$product,[$manufacturer,$condition]);return ob_get_clean();};
+ $optionalHtml=$control($manufacturer);
+ pilot_check(str_contains($optionalHtml,'Opcjonalne') && !str_contains($optionalHtml,' required'));
+ $requiredHtml=$control(array_replace($manufacturer,['requiredForProduct'=>true]));
+ pilot_check(str_contains($requiredHtml,' required') && str_contains($requiredHtml,'requiredForProduct=true'));
+ $conditionalHtml=$control($condition);
+ pilot_check(str_contains($conditionalHtml,'Wymagane warunkowo') && str_contains($conditionalHtml,'brak wartości: ean') && !str_contains($conditionalHtml,' required'));
+ pilot_check(str_contains($control($cn,['material'=>'Beton']),'value="68109900"') && str_contains($control($cn,['material'=>'Beton']),'maxlength="8"'));
+ pilot_check(!str_contains($control($cn),'68109900'));
+ if (!function_exists('csrf_token')) {function csrf_token(): string {return 'synthetic-csrf';}}
+ ob_start();allegro_pilot_category_buttons($currentMeta+['productId'=>$pid,'nonce'=>'fixture']);$buttons=ob_get_clean();
+ pilot_check(str_contains($buttons,'Wróć o poziom') && str_contains($buttons,'Wybierz kategorię od początku') && str_contains($buttons,'navigation_nonce'));
  $called=false;
  pilot_reject(function()use($config,&$called){allegro_pilot_api($config,'GET','/sale/shipping-rates?token=SECRET','SYNTHETIC_TOKEN',[],function($r)use(&$called){$called=true;return [];});});
  pilot_check(!$called);

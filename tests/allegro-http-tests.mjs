@@ -1,3 +1,4 @@
+import vm from 'node:vm';
 import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';
 import { mkdtemp, mkdir, writeFile, readFile, rm, cp, readdir } from 'node:fs/promises';
@@ -26,7 +27,7 @@ try {
   await mkdir(path.join(site, 'data'), { recursive: true });
   await writeFile(path.join(site, 'data/products.json'), JSON.stringify({ products: [{
     productId: `prd_${'a'.repeat(32)}`, name: 'Fixture figura', slug: 'fixture-figura', saleType: 'garden_figure',
-    shopVisible: true, shopStatus: 'Dostępny', category: 'Figury i dekoracje ogrodowe', image: '/uploads/fixture.webp', gallery: [], grossPrice: '100 zł',
+    material: 'Beton', description: 'Opis figury z katalogu.', longDescription: 'Szczegóły wykończenia figury.', shopVisible: true, shopStatus: 'Dostępny', category: 'Figury i dekoracje ogrodowe', image: '/uploads/fixture.webp', gallery: [], grossPrice: '100 zł',
   }] }));
   const configText = `<?php return [
     'ALLEGRO_ENVIRONMENT' => 'SANDBOX', 'ALLEGRO_CLIENT_ID' => '${randomBytes(16).toString('hex')}',
@@ -38,7 +39,30 @@ try {
   await writeFile(path.join(temp, 'config.php'), configText);
   const httpCopy = path.join(site, 'admin/allegro/http.php');
   await writeFile(httpCopy, (await readFile(httpCopy, 'utf8')).replace("$transport ?? 'allegro_curl'", "$transport ?? 'fixture_device_transport'"));
+  const pilotCopy = path.join(site, 'admin/allegro/lib.php');
+  await writeFile(pilotCopy, (await readFile(pilotCopy, 'utf8')).replace("$transport ?? 'allegro_curl'", "$transport ?? 'fixture_pilot_transport'"));
   await writeFile(path.join(temp, 'router.php'), `<?php
+    function fixture_pilot_transport($request) {
+      if ($request['method'] !== 'GET') throw new RuntimeException('Fixture forbids writes');
+      $path=substr($request['url'],strlen('https://api.allegro.pl.allegrosandbox.pl'));
+      $root='123e4567-e89b-12d3-a456-426614174000';$leaf='123e4567-e89b-12d3-a456-426614174001';
+      if ($path==='/sale/categories') $data=['categories'=>[['id'=>$root,'name'=>'Główna','leaf'=>false]]];
+      elseif ($path==='/sale/categories?parent.id='.$root) $data=['categories'=>[['id'=>'22','name'=>'Pośrednia','leaf'=>false]]];
+      elseif ($path==='/sale/categories?parent.id=22') $data=['categories'=>[['id'=>$leaf,'name'=>'Końcowa','leaf'=>true]]];
+      elseif ($path==='/sale/categories/'.$leaf.'/parameters') $data=['parameters'=>[
+        ['id'=>'code','name'=>'Kod producenta','type'=>'string','required'=>false,'requiredForProduct'=>false],
+        ['id'=>'cn','name'=>'Kod taryfy celnej','type'=>'string','restrictions'=>['minLength'=>8,'maxLength'=>8]],
+        ['id'=>'state','name'=>'Stan produktu','type'=>'dictionary','required'=>true,'dictionary'=>[['id'=>'new','value'=>'Nowy'],['id'=>'used','value'=>'Używany']]],
+        ['id'=>'ean','name'=>'EAN','type'=>'string','requiredIf'=>['parametersWithValue'=>[['id'=>'state','oneOfValueIds'=>['new']]]]],
+      ]];
+      else {
+        $keys=['/sale/shipping-rates'=>'shippingRates','/after-sales-service-conditions/return-policies'=>'returnPolicies',
+          '/after-sales-service-conditions/implied-warranties'=>'impliedWarranties','/sale/responsible-producers'=>'responsibleProducers','/sale/responsible-persons'=>'responsiblePersons'];
+        if (!isset($keys[$path])) throw new RuntimeException('Unexpected fixture GET');
+        $data=[$keys[$path]=>[['id'=>'fixture-setting','name'=>'Ustawienie konta']]];
+      }
+      return ['status'=>200,'body'=>json_encode($data)];
+    }
     function fixture_device_transport($request) {
       file_put_contents(${phpString(path.join(temp, 'device-requests'))}, '+', FILE_APPEND | LOCK_EX);
       return ['status'=>200, 'body'=>json_encode(['user_code'=>'abc123xyz','device_code'=>'DEVICE_PRIVATE_NO_HTML',
@@ -121,11 +145,53 @@ try {
   const setCookie = response.headers.get('set-cookie');
   assert.match(setCookie, /HttpOnly/i); assert.match(setCookie, /SameSite=Strict/i);
   const cookie = setCookie.split(';')[0]; const { csrf } = await response.json();
-  for (const action of ['connect', 'check-device', 'finish', 'check', 'disconnect', 'pilot-load', 'pilot-preview', 'pilot-create', 'pilot-publish', 'pilot-check']) {
+  for (const action of ['connect', 'check-device', 'finish', 'check', 'disconnect', 'pilot-load', 'pilot-category-back', 'pilot-category-restart', 'pilot-preview', 'pilot-create', 'pilot-publish', 'pilot-check']) {
     response = await post({ action, csrf: 'wrong', confirm_disconnect: 'yes' }, cookie);
     assert.equal(response.status, 400, `${action}: CSRF rejected`);
     assert.equal(response.headers.get('location'), null);
   }
+  response = await request('/admin/allegro/?pilot_form_script=1');
+  assert.equal(response.status, 302, 'form script requires admin login');
+  response = await request('/admin/allegro/?pilot_form_script=1', { headers: { cookie } });
+  assert.equal(response.status, 200);
+  assert.match(response.headers.get('content-type'), /application\/javascript/);
+  const formScript = await response.text();
+  const sandbox = {document: {querySelectorAll: () => [], createElement: tag => ({tag})}};
+  vm.createContext(sandbox); vm.runInContext(formScript, sandbox);
+  const conditional = {requiredIf: {parametersWithValue: [{id: 'state', oneOfValueIds: ['new']}], parametersWithoutValue: [{id: 'ean'}]}};
+  assert.equal(sandbox.allegroPilotRequired({}, {}), false);
+  assert.equal(sandbox.allegroPilotRequired({required: true}, {}), true);
+  assert.equal(sandbox.allegroPilotRequired({requiredForProduct: true}, {}), true);
+  assert.equal(sandbox.allegroPilotRequired(conditional, {state: ['new'], ean: ['']}), true);
+  assert.equal(sandbox.allegroPilotRequired(conditional, {state: ['used']}), false);
+  assert.equal(sandbox.allegroPilotRequired(conditional, {state: ['new'], ean: ['123']}), false);
+  const descriptionNodes = sandbox.allegroPilotDescription('Opis żółtej figury.\n\nWażna informacja o ręcznym malowaniu\n\n<script>test</script>');
+  assert.equal(descriptionNodes[1].tag, 'h2');
+  assert.equal(descriptionNodes[2].textContent, '<script>test</script>');
+  // Exercise actual live required attributes and description updates without a browser/network.
+  const dynamicParameters = [{id: 'state', required: true}, {id: 'code'}, {id: 'ean', ...conditional}];
+  const liveRows = new Map(dynamicParameters.map(p => {
+    const control = {value: '', required: false}; const label = {}; const status = {};
+    return [p.id, {dataset: {allegroParam: p.id}, control, label, status,
+      querySelectorAll: () => [control], querySelector: selector => selector === '[data-requirement]' ? label : status}];
+  }));
+  const listeners = {}; const descriptionInput = {addEventListener: (event, fn) => {listeners.description = fn;}, value: ''};
+  const livePreview = {replaceChildren: (...nodes) => {livePreview.nodes = nodes;}};
+  const group = {dataset: {allegroParameters: JSON.stringify(dynamicParameters)}, querySelectorAll: () => [...liveRows.values()],
+    addEventListener: (event, fn) => {listeners[event] = fn;}, closest: () => ({querySelector: selector => selector === '[name="description"]' ? descriptionInput : livePreview})};
+  const liveSandbox = {document: {querySelectorAll: () => [group], createElement: tag => ({tag})}};
+  vm.createContext(liveSandbox); vm.runInContext(formScript, liveSandbox);
+  assert.equal(liveRows.get('state').control.required, true);
+  assert.equal(liveRows.get('code').control.required, false);
+  assert.equal(liveRows.get('ean').control.required, false);
+  liveRows.get('state').control.value = 'new'; listeners.change();
+  assert.equal(liveRows.get('ean').control.required, true);
+  // The sample condition depends on ean itself being absent; filling it makes it optional.
+  liveRows.get('ean').control.value = '123'; listeners.input();
+  assert.equal(liveRows.get('ean').control.required, false);
+  descriptionInput.value = 'Żółta figura.\n\nNowy akapit.'; listeners.description();
+  assert.equal(livePreview.nodes[0].textContent, 'Żółta figura.');
+  for (const value of [secret, key, 'fixture-access', 'fixture-refresh', 'Authorization:']) assert(!formScript.includes(value));
   response = await post({ action: 'connect', 'csrf[]': 'invalid-array' }, cookie);
   assert.equal(response.status, 400, 'array CSRF fails without PHP coercion');
   response = await request('/admin/allegro/?environment=PROD', { headers: { cookie } });
@@ -170,6 +236,45 @@ try {
   assert.match(accountHtml, /Fixture figura/);
   response = await post({ action: 'connect', csrf }, cookie);
   assert.equal(response.status, 400, 'working connection requires explicit scope-upgrade confirmation');
+  // Actual HTTP form navigation; the isolated server uses only synthetic API responses.
+  const figureId = `prd_${'a'.repeat(32)}`;
+  const rootCategory = '123e4567-e89b-12d3-a456-426614174000';
+  const leafCategory = '123e4567-e89b-12d3-a456-426614174001';
+  const navigationNonce = html => html.match(/name="navigation_nonce" value="([a-f0-9]+)"/)[1];
+  const pilotPage = async fields => {
+    const result = await post({csrf, product_id: figureId, ...fields}, cookie);
+    assert.equal(result.status, 303);
+    return (await request('/admin/allegro/', {headers: {cookie}})).text();
+  };
+  let categoryHtml = await pilotPage({action: 'pilot-load'});
+  assert.match(categoryHtml, /Kategorie główne/);
+  for (const category of [rootCategory, '22', leafCategory]) {
+    categoryHtml = await pilotPage({action: 'pilot-load', category_id: category, navigation_nonce: navigationNonce(categoryHtml)});
+  }
+  assert.match(categoryHtml, /Główna → Pośrednia → Końcowa/);
+  assert.match(categoryHtml, /value="68109900"/);
+  assert.match(categoryHtml, /Opis figury z katalogu/);
+  assert.match(categoryHtml, /Ważna informacja o ręcznym malowaniu/);
+  assert.match(categoryHtml, /data-allegro-description-preview/);
+  assert.match(categoryHtml, /Kod producenta — <span data-requirement>Opcjonalne/);
+  assert.doesNotMatch(categoryHtml, /name="parameters\[code\]"[^>]* required/);
+  assert.match(categoryHtml, /O sprzedającym/);
+  response = await post({action: 'pilot-preview', csrf, product_id: figureId, description: 'Mój ręcznie zmieniony opis.', 'parameters[cn]': '68109100'}, cookie);
+  assert.equal(response.status, 400, 'missing draft fields are rejected by PHP');
+  categoryHtml = await (await request('/admin/allegro/', {headers: {cookie}})).text();
+  assert.match(categoryHtml, /Mój ręcznie zmieniony opis/);
+  assert.match(categoryHtml, /name="parameters\[cn\]"[^>]*value="68109100"/);
+  response = await post({action: 'pilot-category-back', csrf, product_id: figureId, navigation_nonce: 'wrong'}, cookie);
+  assert.equal(response.status, 400, 'wrong navigation nonce cannot go back');
+  categoryHtml = await pilotPage({action: 'pilot-category-back', navigation_nonce: navigationNonce(categoryHtml)});
+  assert.match(categoryHtml, /Wybrana ścieżka: Główna → Pośrednia/);
+  assert.doesNotMatch(categoryHtml, /name="parameters\[code\]"/);
+  assert.match(categoryHtml, new RegExp(`value="${leafCategory}"`));
+  categoryHtml = await pilotPage({action: 'pilot-category-back', navigation_nonce: navigationNonce(categoryHtml)});
+  assert.match(categoryHtml, /Wybrana ścieżka: Główna<\/p>/);
+  categoryHtml = await pilotPage({action: 'pilot-category-restart', navigation_nonce: navigationNonce(categoryHtml)});
+  assert.match(categoryHtml, /Kategorie główne/);
+  assert.match(categoryHtml, new RegExp(`value="${rootCategory}"`));
   for (const action of ['pilot-create', 'pilot-publish']) {
     response = await post({ action, csrf, product_id: `prd_${'a'.repeat(32)}`, confirm: 'PUBLISH' }, cookie);
     assert.equal(response.status, 400, 'no remote write without server preview and nonce');
