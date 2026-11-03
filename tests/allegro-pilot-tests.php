@@ -48,6 +48,19 @@ try {
  pilot_check(allegro_tokens(array_replace($token,['scope'=>ALLEGRO_B_SCOPE]),$now,true)['scope']===ALLEGRO_B_SCOPE);
  foreach (['/order/checkout-forms','/payments','/sale/offers','/sale/product-offers/789?x=1','https://evil.test/','/sale/product-offers/789/../1'] as $path)pilot_check(!allegro_pilot_path('POST',$path));
  pilot_check(allegro_pilot_path('PATCH','/sale/product-offers/789'));pilot_check(!allegro_pilot_path('PATCH','/sale/product-offers'));
+ foreach ([404,403,500] as $httpStatus) {
+  try {
+   allegro_pilot_api($config,'GET','/sale/shipping-rates','SYNTHETIC_TOKEN',[],static fn($r)=>['status'=>$httpStatus,'body'=>'SYNTHETIC_RESPONSE_SECRET','headers'=>['x-secret'=>'SYNTHETIC_HEADER_SECRET']]);
+   throw new LogicException('GET failure must throw');
+  } catch (RuntimeException $e) {
+   pilot_check(str_contains($e->getMessage(),'GET /sale/shipping-rates') && str_contains($e->getMessage(),'HTTP '.$httpStatus));
+   foreach (['SYNTHETIC_TOKEN','SYNTHETIC_RESPONSE_SECRET','SYNTHETIC_HEADER_SECRET','Authorization'] as $secret) pilot_check(!str_contains($e->getMessage(),$secret));
+  }
+ }
+ $called=false;
+ pilot_reject(function()use($config,&$called){allegro_pilot_api($config,'GET','/sale/shipping-rates?token=SECRET','SYNTHETIC_TOKEN',[],function($r)use(&$called){$called=true;return [];});});
+ pilot_check(!$called);
+
  pilot_check(count(allegro_pilot_products(['products'=>[$product]]))===1);
  pilot_check(allegro_pilot_products(['products'=>[array_replace($product,['shopStatus'=>'Sprzedany'])]])===[]);
  pilot_reject(fn()=>allegro_pilot_products(['products'=>[$product,$product]]));

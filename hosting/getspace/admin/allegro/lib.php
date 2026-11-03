@@ -57,6 +57,9 @@ function allegro_pilot_api(array $config, string $method, string $path, string $
     $response=($transport ?? 'allegro_curl')($request);
     $status=$response['status'] ?? 0;
     if (!in_array($status,[200,201,202,303],true) || !is_string($response['body'] ?? null) || strlen($response['body'])>131072) {
+        if ($method==='GET') {
+            throw new RuntimeException('Allegro GET '.$path.' — HTTP '.(int)$status.'. Nie udało się pobrać danych.');
+        }
         $codes=[];
         if (in_array($status,[400,422],true) && is_string($response['body'] ?? null)) {
             $errors=json_decode($response['body'],true);
