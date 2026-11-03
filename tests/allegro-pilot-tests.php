@@ -50,18 +50,25 @@ try {
  ];
  $categoryReads=[];
  $getCategory=static function($p)use($tree,&$categoryReads){$categoryReads[]=$p;return $tree[$p];};
- $resolved=allegro_pilot_category($getCategory);
- pilot_check($resolved===['id'=>'404','name'=>'Rzeźby i figury','leaf'=>true]);
- pilot_check($categoryReads===array_keys($tree));
- foreach (['missing','duplicate','not-leaf','missing-leaf','invalid-id','premature-leaf'] as $case) {
-  $badTree=$tree;$last='/sale/categories?parent.id=303';
-  if($case==='missing')$badTree[$last]['categories']=[];
-  if($case==='duplicate')$badTree[$last]['categories'][]=$badTree[$last]['categories'][0];
-  if($case==='not-leaf')$badTree[$last]['categories'][0]['leaf']=false;
-  if($case==='missing-leaf')unset($badTree[$last]['categories'][0]['leaf']);
-  if($case==='invalid-id')$badTree[$last]['categories'][0]['id']='404?token=bad';
-  if($case==='premature-leaf')$badTree['/sale/categories']['categories'][0]['leaf']=true;
-  pilot_reject(fn()=>allegro_pilot_category(static fn($p)=>$badTree[$p]));
+ $state=allegro_pilot_category($getCategory);
+ pilot_check($state['path']===[] && !$state['leaf'] && $categoryReads===['/sale/categories']);
+ pilot_reject(fn()=>allegro_pilot_category($getCategory,[],'101'));
+ pilot_reject(fn()=>allegro_pilot_category($getCategory,$state,'999'));
+ foreach (['101','202','303','404'] as $selection) $state=allegro_pilot_category($getCategory,$state,$selection);
+ pilot_check($state['leaf'] && $state['options']===[] && array_column($state['path'],'id')===['101','202','303','404']);
+ pilot_reject(fn()=>allegro_pilot_category($getCategory,$state,'404'));
+ // Arbitrary API names and a root leaf work without any predefined path/depth.
+ $rootLeaf=['categories'=>[['id'=>'777','name'=>'Dowolna kategoria','leaf'=>true]]];
+ $roots=allegro_pilot_category(static fn($p)=>$rootLeaf);
+ pilot_check(allegro_pilot_category(static fn($p)=>$rootLeaf,$roots,'777')['leaf']);
+ pilot_reject(fn()=>allegro_pilot_category(static fn($p)=>['categories'=>[]],$roots,'777'));
+ foreach (['missing-leaf','invalid-id','duplicate','missing-name'] as $case) {
+  $bad=$rootLeaf;
+  if($case==='missing-leaf')unset($bad['categories'][0]['leaf']);
+  if($case==='invalid-id')$bad['categories'][0]['id']='777?token=bad';
+  if($case==='duplicate')$bad['categories'][]=$bad['categories'][0];
+  if($case==='missing-name')unset($bad['categories'][0]['name']);
+  pilot_reject(fn()=>allegro_pilot_category(static fn($p)=>$bad));
  }
  $seed(allegro_scope_request());$metadataReads=[];
  $metaTransport=static function($r)use($config,$tree,$meta,&$metadataReads){
@@ -77,9 +84,11 @@ try {
   }
   return ['status'=>200,'body'=>json_encode($body)];
  };
- $currentMeta=allegro_pilot_metadata($config,$metaTransport);
+ $currentMeta=allegro_pilot_metadata($config,[],'',$metaTransport);
+ pilot_check(!isset($currentMeta['parameters']) && $metadataReads===['/sale/categories']);
+ foreach (['101','202','303','404'] as $selection) $currentMeta=allegro_pilot_metadata($config,$currentMeta,$selection,$metaTransport);
  pilot_check($currentMeta['category']['id']==='404' && $currentMeta['parameters']===$meta['parameters']);
- pilot_check($metadataReads===[...array_keys($tree),'/sale/categories/404/parameters','/sale/shipping-rates',
+ pilot_check($metadataReads===['/sale/categories','/sale/categories','/sale/categories?parent.id=101','/sale/categories?parent.id=101','/sale/categories?parent.id=202','/sale/categories?parent.id=202','/sale/categories?parent.id=303','/sale/categories?parent.id=303','/sale/categories/404/parameters','/sale/shipping-rates',
   '/after-sales-service-conditions/return-policies','/after-sales-service-conditions/implied-warranties',
   '/sale/responsible-producers','/sale/responsible-persons']);
 

@@ -97,34 +97,50 @@ function allegro_pilot_fingerprint(array $product): string
 {
     return hash('sha256',json_encode($product,JSON_THROW_ON_ERROR | JSON_UNESCAPED_UNICODE));
 }
-/** Resolve only the requested path from current API children, never a storefront ID. */
-function allegro_pilot_category(callable $get): array
+/** Browse only children returned by the API; posted IDs never define a path. */
+function allegro_pilot_category(callable $get, array $state = [], string $selected = ''): array
 {
-    $path=['Dom i Ogród','Ogród','Przedmioty dekoracyjne','Rzeźby i figury'];
-    $parent=null; $cat=[];
-    foreach ($path as $level=>$name) {
+    $path=$state['path'] ?? [];
+    $parent=$path===[] ? null : $path[count($path)-1]['id'];
+    $read=static function(?string $parent)use($get): array {
         $data=$get($parent===null ? '/sale/categories' : '/sale/categories?parent.id='.$parent);
-        allegro_pilot_need(isset($data['categories']) && is_array($data['categories']),'Nie można potwierdzić drzewa kategorii Allegro. Oferta nie zostanie utworzona.');
-        $matches=array_values(array_filter($data['categories'],static fn($row)=>is_array($row) && ($row['name'] ?? null)===$name));
-        allegro_pilot_need(count($matches)===1,'Brak jednoznacznej kategorii w aktualnym drzewie Allegro: '.implode(' → ',array_slice($path,0,$level+1)).'. Oferta nie zostanie utworzona.');
-        $cat=$matches[0];
-        allegro_pilot_need(is_string($cat['id'] ?? null) && preg_match('/^[0-9]{1,32}$/D',$cat['id'])===1
-            && is_bool($cat['leaf'] ?? null),'API nie potwierdziło id, name i leaf kategorii. Oferta nie zostanie utworzona.');
-        allegro_pilot_need($cat['leaf']===($level===count($path)-1),'Ścieżka kategorii Allegro zmieniła się lub nie kończy się na najniższym poziomie. Oferta nie zostanie utworzona.');
-        $parent=$cat['id'];
+        allegro_pilot_need(isset($data['categories']) && is_array($data['categories']),'Nie można potwierdzić drzewa kategorii Allegro.');
+        $rows=[];$ids=[];
+        foreach ($data['categories'] as $row) {
+            allegro_pilot_need(is_array($row) && is_string($row['id'] ?? null)
+                && preg_match('/^[0-9]{1,32}$/D',$row['id'])===1 && is_string($row['name'] ?? null)
+                && trim($row['name'])!=='' && is_bool($row['leaf'] ?? null) && !isset($ids[$row['id']]),'API nie potwierdziło id, name i leaf kategorii.');
+            $ids[$row['id']]=true;$rows[]=['id'=>$row['id'],'name'=>$row['name'],'leaf'=>$row['leaf']];
+        }
+        return $rows;
+    };
+    if ($state===[]) {
+        allegro_pilot_need($selected==='','Rozpocznij wybór kategorii od listy głównej.');
+        return ['path'=>[],'options'=>$read(null),'leaf'=>false];
     }
-    return $cat;
+    allegro_pilot_need(empty($state['leaf']) && count($path)<32,'Rozpocznij wybór kategorii ponownie.');
+    allegro_pilot_need(in_array($selected,array_column($state['options'] ?? [],'id'),true),'Wybierz kategorię z wyświetlonej listy.');
+    $rows=$read($parent);
+    $matches=array_values(array_filter($rows,static fn($row)=>$row['id']===$selected));
+    allegro_pilot_need(count($matches)===1,'Wybranej kategorii nie ma już w drzewie Allegro. Rozpocznij wybór ponownie.');
+    $cat=$matches[0];$path[]=$cat;
+    allegro_pilot_need(count(array_unique(array_column($path,'id')))===count($path),'Nieprawidłowy cykl w drzewie kategorii Allegro.');
+    return ['path'=>$path,'options'=>$cat['leaf'] ? [] : $read($cat['id']),'leaf'=>$cat['leaf']];
 }
-function allegro_pilot_metadata(array $config, ?callable $transport = null): array
+function allegro_pilot_metadata(array $config, array $state = [], string $selected = '', ?callable $transport = null): array
 {
-    return allegro_locked($config,static function($v,$k)use($config,$transport){
+    return allegro_locked($config,static function($v,$k)use($config,$state,$selected,$transport){
         $token=allegro_pilot_access($config,$v,$k,$transport);
+        allegro_pilot_need($state===[] || ($state['seller'] ?? '')===($v['account']['id'] ?? null),'Połączone konto zmieniło się. Rozpocznij wybór ponownie.');
         $get=static fn($p)=>allegro_pilot_api($config,'GET',$p,$token,[],$transport)['data'];
-        $cat=allegro_pilot_category($get);
+        $navigation=allegro_pilot_category($get,$state,$selected);
+        $navigation+=['seller'=>$v['account']['id'],'at'=>time(),'environment'=>$config['environment']];
+        if (!$navigation['leaf']) return $navigation;
+        $cat=$navigation['path'][count($navigation['path'])-1];
         $category=$cat['id'];
         $params=$get('/sale/categories/'.$category.'/parameters');
         allegro_pilot_need(isset($params['parameters']) && is_array($params['parameters']),'Brak parametrów kategorii.');
-        $meta=['category'=>$cat,'parameters'=>$params['parameters'],'seller'=>$v['account']['id'],'at'=>time(),
+        $meta=['category'=>$cat,'categoryPath'=>$navigation['path'],'parameters'=>$params['parameters'],'seller'=>$v['account']['id'],'at'=>time(),
             'environment'=>$config['environment']];
         foreach (['shippingRates'=>'/sale/shipping-rates','returnPolicies'=>'/after-sales-service-conditions/return-policies',
             'impliedWarranties'=>'/after-sales-service-conditions/implied-warranties','responsibleProducers'=>'/sale/responsible-producers',
@@ -317,8 +333,19 @@ function allegro_pilot_action(array $config, string $action): void
     allegro_pilot_need(is_string($id) && isset($products[$id]),'Wybierz dostępną figurę z trwałym productId.');
     $product=$products[$id];
     if ($action==='pilot-load') {
-        unset($_SESSION['allegro_pilot_preview'],$_SESSION['allegro_pilot_meta']);
-        $_SESSION['allegro_pilot_meta']=allegro_pilot_metadata($config)+['productId'=>$id];return;
+        $state=[];$selected=$_POST['category_id'] ?? '';
+        allegro_pilot_need(is_string($selected),'Nieprawidłowy wybór kategorii.');
+        if ($selected!=='') {
+            $state=$_SESSION['allegro_pilot_categories'] ?? [];$nonce=$_POST['navigation_nonce'] ?? '';
+            allegro_pilot_need(($state['productId'] ?? '')===$id && ($state['environment'] ?? '')===$config['environment']
+                && time()-($state['at'] ?? 0)<=900 && is_string($nonce) && isset($state['nonce'])
+                && hash_equals($state['nonce'],$nonce),'Wybór kategorii wygasł. Rozpocznij ponownie dla wybranej figury.');
+        }
+        unset($_SESSION['allegro_pilot_preview'],$_SESSION['allegro_pilot_meta'],$_SESSION['allegro_pilot_categories']);
+        $result=allegro_pilot_metadata($config,$state,$selected)+['productId'=>$id];
+        if (isset($result['category'])) $_SESSION['allegro_pilot_meta']=$result;
+        else $_SESSION['allegro_pilot_categories']=$result+['nonce'=>bin2hex(random_bytes(24))];
+        return;
     }
     if ($action==='pilot-preview') {
         $meta=$_SESSION['allegro_pilot_meta'] ?? [];
@@ -373,11 +400,23 @@ function allegro_pilot_render(array $config, array $status): void
     allegro_pilot_form_start('pilot-load');
     echo '<p><label>Figura <select name="product_id" required><option value="">Wybierz figurę</option>';
     foreach ($products as $id=>$p) echo '<option value="'.e($id).'">'.e((string)$p['name']).' — '.e(catalog_sale_price_text($p)).'</option>';
-    echo '</select></label></p><p>Kategoria zostanie odnaleziona w aktualnym drzewie API: Dom i Ogród → Ogród → Przedmioty dekoracyjne → Rzeźby i figury.</p><button class="btn" type="submit">Pobierz kategorię, parametry i warunki konta</button></form>';
+    echo '</select></label></p><button class="btn" type="submit">Wybierz kategorię Allegro</button></form>';
+    $navigation=$_SESSION['allegro_pilot_categories'] ?? [];$navigationId=$navigation['productId'] ?? '';
+    if (isset($products[$navigationId]) && ($navigation['environment'] ?? '')===$config['environment']) {
+        echo '<h3>'.e((string)$products[$navigationId]['name']).'</h3>';
+        echo '<p>Wybrana ścieżka: '.e(implode(' → ',array_column($navigation['path'],'name')) ?: 'Kategorie główne').'</p>';
+        if ($navigation['options']===[]) echo '<p>API nie zwróciło podkategorii. Rozpocznij wybór ponownie; oferta pozostaje zablokowana.</p>';
+        else {
+            allegro_pilot_form_start('pilot-load',$navigationId);
+            echo '<input type="hidden" name="navigation_nonce" value="'.e($navigation['nonce']).'">';
+            allegro_pilot_select('category_id','Kategoria Allegro',$navigation['options']);
+            echo '<button class="btn" type="submit">Wybierz kategorię / pobierz podkategorie lub parametry</button></form>';
+        }
+    }
     $meta=$_SESSION['allegro_pilot_meta'] ?? []; $id=$meta['productId'] ?? '';
     if (!isset($products[$id])) {echo '</section>';return;}
     $p=$products[$id];
-    echo '<h3>'.e((string)$p['name']).'</h3><p>Kategoria Allegro: '.e((string)$meta['category']['name']).' ('.e((string)$meta['category']['id']).'), potwierdzony najniższy poziom.</p>';
+    echo '<h3>'.e((string)$p['name']).'</h3><p>Ścieżka: '.e(implode(' → ',array_column($meta['categoryPath'] ?? [$meta['category']],'name'))).'</p><p>Kategoria Allegro: '.e((string)$meta['category']['name']).' ('.e((string)$meta['category']['id']).'), potwierdzony najniższy poziom.</p>';
     foreach (catalog_images($p) as $image) {
         if (str_starts_with($image,'/uploads/') && !str_contains($image,'..')) echo '<img src="'.e($image).'" alt="" style="max-width:160px;height:auto">';
     }
