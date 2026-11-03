@@ -129,6 +129,35 @@ try {
    foreach (['SYNTHETIC_TOKEN','SYNTHETIC_RESPONSE_SECRET','SYNTHETIC_HEADER_SECRET','Authorization'] as $secret) pilot_check(!str_contains($e->getMessage(),$secret));
   }
  }
+ // Larger GET payloads only; OAuth, /me and writes retain 128 KiB.
+ foreach ([['GET','/sale/categories',1048576],['GET','/sale/shipping-rates',1048576],
+  ['GET','/me',131072],['POST','/auth/oauth/token',131072],['POST','/auth/oauth/device',131072],
+  ['POST','/sale/product-offers',131072],['PATCH','/sale/product-offers/789',131072]] as [$method,$path,$limit]) {
+  pilot_check(allegro_pilot_response_limit($method,$path)===$limit);
+ }
+ $large=json_encode(['categories'=>[],'padding'=>str_repeat('x',200000)]);
+ $largeResult=allegro_pilot_api($config,'GET','/sale/categories','SYNTHETIC_TOKEN',[],static fn($r)=>['status'=>200,'body'=>$large]);
+ pilot_check(strlen($large)>131072 && strlen($largeResult['data']['padding'])===200000);
+ $boundary=json_encode(['padding'=>str_repeat('x',1048576-14)]);
+ pilot_check(strlen($boundary)===1048576);
+ pilot_check(isset(allegro_pilot_api($config,'GET','/sale/categories','SYNTHETIC_TOKEN',[],static fn($r)=>['status'=>200,'body'=>$boundary])['data']['padding']));
+ foreach ([
+  [static fn($r)=>['status'=>200,'body'=>$boundary.' '],'przekroczony limit'],
+  [static fn($r)=>throw new AllegroPilotResponseLimitException(),'przekroczony limit'],
+  [static fn($r)=>throw new RuntimeException('SYNTHETIC_TRANSPORT_SECRET'),'cURL/transportu'],
+  [static fn($r)=>['status'=>200,'body'=>'SYNTHETIC_BODY_SECRET'],'niepoprawny JSON'],
+  [static fn($r)=>['status'=>200,'body'=>'null'],'niepoprawny JSON'],
+  [static fn($r)=>['status'=>200],'cURL/transportu'],
+ ] as [$fake,$problem]) {
+  try {
+   allegro_pilot_api($config,'GET','/sale/categories','SYNTHETIC_TOKEN',[],$fake);
+   throw new LogicException('GET failure must throw');
+  } catch (RuntimeException $e) {
+   pilot_check(str_contains($e->getMessage(),'GET /sale/categories') && str_contains($e->getMessage(),$problem));
+   foreach (['SYNTHETIC_TOKEN','SYNTHETIC_TRANSPORT_SECRET','SYNTHETIC_BODY_SECRET','Authorization'] as $secret) pilot_check(!str_contains($e->getMessage(),$secret));
+  }
+ }
+ foreach (['POST','PATCH'] as $method) pilot_reject(fn()=>allegro_pilot_api($config,$method,$method==='POST'?'/sale/product-offers':'/sale/product-offers/789','SYNTHETIC_TOKEN',[],static fn($r)=>['status'=>200,'body'=>$large]));
  $called=false;
  pilot_reject(function()use($config,&$called){allegro_pilot_api($config,'GET','/sale/shipping-rates?token=SECRET','SYNTHETIC_TOKEN',[],function($r)use(&$called){$called=true;return [];});});
  pilot_check(!$called);

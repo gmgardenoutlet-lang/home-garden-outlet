@@ -54,12 +54,26 @@ function allegro_pilot_api(array $config, string $method, string $path, string $
         $request['headers'][]='Content-Type: application/vnd.allegro.public.v1+json';
         $request['body']=json_encode($body, JSON_THROW_ON_ERROR | JSON_UNESCAPED_UNICODE);
     }
-    $response=($transport ?? 'allegro_curl')($request);
-    $status=$response['status'] ?? 0;
-    if (!in_array($status,[200,201,202,303],true) || !is_string($response['body'] ?? null) || strlen($response['body'])>131072) {
+    try {$response=($transport ?? 'allegro_curl')($request);}
+    catch (Throwable $e) {
         if ($method==='GET') {
-            throw new RuntimeException('Allegro GET '.$path.' — HTTP '.(int)$status.'. Nie udało się pobrać danych.');
+            $problem=$e instanceof AllegroPilotResponseLimitException ? 'przekroczony limit odpowiedzi (1048576 bajtów)' : 'błąd cURL/transportu';
+            throw new RuntimeException('Allegro GET '.$path.' — '.$problem.'.');
         }
+        throw $e;
+    }
+    $status=$response['status'] ?? 0;
+    if ($method==='GET') {
+        $error=static fn($problem)=>new RuntimeException('Allegro GET '.$path.' — '.$problem.'.');
+        if (!is_string($response['body'] ?? null)) throw $error('błąd cURL/transportu: brak odpowiedzi');
+        if (strlen($response['body'])>allegro_pilot_response_limit($method,$path)) throw $error('przekroczony limit odpowiedzi (1048576 bajtów)');
+        if (!in_array($status,[200,201,202,303],true)) throw $error('HTTP '.(int)$status);
+        try {$data=json_decode($response['body'],true,32,JSON_THROW_ON_ERROR);}
+        catch (Throwable $e) {throw $error('niepoprawny JSON');}
+        if (!is_array($data)) throw $error('niepoprawny JSON');
+        return ['status'=>$status,'data'=>$data,'headers'=>$response['headers'] ?? []];
+    }
+    if (!in_array($status,[200,201,202,303],true) || !is_string($response['body'] ?? null) || strlen($response['body'])>131072) {
         $codes=[];
         if (in_array($status,[400,422],true) && is_string($response['body'] ?? null)) {
             $errors=json_decode($response['body'],true);

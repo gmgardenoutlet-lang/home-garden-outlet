@@ -24,6 +24,13 @@ function allegro_pilot_path(string $method, string $path): bool
         || preg_match('~^/sale/offers\?external\.id=prd_[a-f0-9]{32}$~D', $path) === 1;
 }
 
+/** Only allowlisted pilot GETs may receive a larger public API response. */
+function allegro_pilot_response_limit(string $method, string $path): int
+{
+    return $method==='GET' && allegro_pilot_path($method,$path) ? 1048576 : 131072;
+}
+final class AllegroPilotResponseLimitException extends RuntimeException {}
+
 /** Defence in depth: enforced both before an injected transport and in real cURL. */
 function allegro_http_policy(string $method, string $url): void
 {
@@ -75,7 +82,14 @@ function allegro_curl(array $request): array
     if (!function_exists('curl_init')) throw new AllegroSafeException('config');
     $ch = curl_init($request['url']);
     if ($ch === false) throw new AllegroSafeException('network');
-    $body = ''; $headers = [];
+    $limit=131072;
+    foreach (['PROD','SANDBOX'] as $environment) {
+        $prefix=allegro_hosts($environment)['api'];
+        if (str_starts_with($request['url'],$prefix.'/')) {
+            $limit=allegro_pilot_response_limit($request['method'],substr($request['url'],strlen($prefix)));
+        }
+    }
+    $body = ''; $headers = []; $overLimit=false;
     try {
         curl_setopt_array($ch, [CURLOPT_CUSTOMREQUEST => $request['method'], CURLOPT_FOLLOWLOCATION => false,
             CURLOPT_MAXREDIRS => 0, CURLOPT_CONNECTTIMEOUT => 8, CURLOPT_TIMEOUT => 25,
@@ -85,13 +99,16 @@ function allegro_curl(array $request): array
                 if (preg_match('/^(Location|Retry-After):\s*(.*?)\s*$/i', trim($line), $m)) $headers[strtolower($m[1])] = $m[2];
                 return strlen($line);
             },
-            CURLOPT_WRITEFUNCTION => static function ($unused, string $chunk) use (&$body): int {
-                if (strlen($body) + strlen($chunk) > 131072) return 0;
+            CURLOPT_WRITEFUNCTION => static function ($unused, string $chunk) use (&$body,$limit,&$overLimit): int {
+                if (strlen($body) + strlen($chunk) > $limit) {$overLimit=true;return 0;}
                 $body .= $chunk;
                 return strlen($chunk);
             }]);
         if (in_array($request['method'], ['POST','PATCH'], true)) curl_setopt($ch, CURLOPT_POSTFIELDS, $request['body']);
-        if (curl_exec($ch) === false) throw new AllegroSafeException('network');
+        if (curl_exec($ch) === false) {
+            if ($overLimit && $limit===1048576) throw new AllegroPilotResponseLimitException();
+            throw new AllegroSafeException('network');
+        }
         return ['status' => (int)curl_getinfo($ch, CURLINFO_HTTP_CODE), 'body' => $body, 'headers' => $headers];
     } finally { curl_close($ch); }
 }
