@@ -21,7 +21,8 @@ function allegro_pilot_path(string $method, string $path): bool
         '/after-sales-service-conditions/implied-warranties','/sale/responsible-producers','/sale/responsible-persons'], true)) return true;
     return preg_match('~^/sale/categories(?:\?parent\.id='.ALLEGRO_PILOT_CATEGORY_ID_PATTERN.'|/'.ALLEGRO_PILOT_CATEGORY_ID_PATTERN.'(?:/parameters)?)$~D', $path) === 1
         || preg_match('~^/sale/product-offers/[0-9]{1,32}(?:/operations/[A-Za-z0-9-]{1,80})?$~D', $path) === 1
-        || preg_match('~^/sale/offers\?external\.id=prd_[a-f0-9]{32}$~D', $path) === 1;
+        || preg_match('~^/sale/offers\?external\.id=prd_[a-f0-9]{32}$~D', $path) === 1
+        || preg_match('~^/sale/offers\?external\.id=prd_[a-f0-9]{32}(?:&external\.id=prd_[a-f0-9]{32}){0,19}&limit=100&offset=(?:0|[1-9][0-9]{0,6})$~D', $path) === 1;
 }
 
 /** Only allowlisted pilot GETs may receive a larger public API response. */

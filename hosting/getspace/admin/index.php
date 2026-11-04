@@ -117,6 +117,14 @@ try {
     if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         require_csrf();
         $action = post_text('action');
+        if ($action === 'sync_marketplaces') {
+            require_login();
+            require_once __DIR__.'/marketplace-sync.php';
+            admin_marketplace_sync(load_catalog()['products'] ?? []);
+            flash('success','Partia odświeżania zakończona. Wynik i postęp są nad listą produktów.');
+            header('Location: /admin/'.(post_text('return')==='figures'?'?figures=1':''));
+            exit;
+        }
         if ($action === 'prepare_merchant_figures') {
             require_login();
             $merchantTiming = [];
@@ -733,6 +741,9 @@ $isProductList=!$editing && !$newProduct && !$showPassword && !$showImport && !$
 if ($isProductList) {
     require_once __DIR__.'/marketplace-status.php';
     $marketplaceRows=admin_product_marketplaces($listedProducts);
+    require_once __DIR__.'/marketplace-sync.php';
+    try {$marketplaceCache=admin_marketplace_cache_read();$marketplaceRows=admin_marketplace_apply_cache($listedProducts,$marketplaceRows,$marketplaceCache);}
+    catch(Throwable $e) {$marketplaceCache=[];}
 }
 $filteredProducts = [];
 foreach ($listedProducts as $listedIndex => $listedProduct) {
@@ -1720,7 +1731,17 @@ if ($showStats) {
         <details><summary>Problemy wymagające uzupełnienia</summary><ul><?php foreach ($merchantReport as $row): ?><?php if ($row['errors']): ?><li><a href="/admin/?figures=1&amp;q=<?= rawurlencode($row['name']) ?>"><?= e($row['name']) ?></a>: <?= e(implode(' ', $row['errors'])) ?></li><?php endif; ?><?php endforeach; ?></ul></details>
       </details>
       <?php endif; ?>
-      <p class="muted marketplace-list-note">Statusy pochodzą z zapisanych danych, bez zapytań do Allegro i OLX. Brak wpisu lokalnego nie potwierdza braku oferty. Kliknięcie przycisku marketplace otwiera moduł lub ofertę — niczego nie publikuje.</p>
+      <form method="post" class="card">
+        <input type="hidden" name="csrf" value="<?= e(csrf_token()) ?>"><input type="hidden" name="action" value="sync_marketplaces"><input type="hidden" name="return" value="<?= $showFigures?'figures':'outlet' ?>">
+        <button class="btn" type="submit">Odśwież statusy Allegro i OLX<?= !empty($marketplaceCache['work']) && empty($marketplaceCache['work']['done'])?' — Kontynuuj':'' ?></button>
+        <p>Ostatnia udana synchronizacja: <?= e(admin_marketplace_timestamp($marketplaceCache['last_success'] ?? null)) ?></p>
+        <?php $syncWork=$marketplaceCache['work'] ?? [];if ($syncWork): ?>
+          <p>Sprawdzono <?= (int)$syncWork['olx'] ?> ofert OLX i <?= (int)$syncWork['allegro'] ?> powiązań Allegro. Zaktualizowano <?= (int)$syncWork['updated'] ?> statusów. Błędy: <?= (int)$syncWork['errors'] ?>.</p>
+          <p>Postęp OLX: <?= (int)$syncWork['olx_index'] ?>/<?= count($syncWork['ids']) ?> produktów; Allegro: <?= (int)$syncWork['allegro_index'] ?>/<?= count($syncWork['ids']) ?> produktów. <?= !empty($syncWork['done'])?'Zakończono.':'Przerwane odświeżanie można kontynuować tym samym przyciskiem.' ?></p>
+        <?php endif; ?>
+        <small>Ręczne partie: najwyżej jeden odczyt API na platformę. Odstęp minimum 5 s; po zakończeniu lub HTTP 429 minimum 60 s. Lista sama nie odpytuje API. Błąd zachowuje ostatni potwierdzony status.</small>
+      </form>
+      <p class="muted marketplace-list-note">Brak powiązania nie potwierdza braku oferty. Przejście do modułu lub oferty niczego nie publikuje.</p>
       <section class="product-list marketplace-product-list">
         <?php $shown = 0; foreach ($filteredProducts as $index => $item): $shown++; ?>
           <?php $channels=$marketplaceRows[$index];$externalWarning=in_array('active',array_column($channels,'key'),true) || array_filter(array_column($channels,'id'));
@@ -1738,7 +1759,7 @@ if ($showStats) {
                 <?php foreach ($channels as $platform=>$channel): ?>
                   <div class="marketplace-state marketplace-<?= e($channel['key']) ?>" data-marketplace="<?= e($platform) ?>"><div class="marketplace-state-heading"><strong><?= $platform==='allegro'?'Allegro':'OLX' ?></strong><span class="marketplace-badge"><?= e($channel['label']) ?></span></div>
                   <?php if ($channel['id']!==''): ?><span class="marketplace-offer-id">ID: <?= e($channel['id']) ?></span><?php endif; ?>
-                  <small><?= e($channel['detail']) ?></small><small>Zapis: <?= e(admin_marketplace_timestamp($channel['updated'])) ?></small></div>
+                  <small><?= e($channel['detail']) ?></small><small>Ostatnie potwierdzenie / zapis lokalny: <?= e(admin_marketplace_timestamp($channel['updated'])) ?></small></div>
                 <?php endforeach; ?>
               </div>
               <div class="row-actions">

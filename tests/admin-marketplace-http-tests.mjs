@@ -39,16 +39,17 @@ try {
   if(parse_url($_SERVER['REQUEST_URI'],PHP_URL_PATH)==='/fixture-login') {require ${quote(path.join(site,'admin/lib.php'))};boot_admin();$_SESSION['logged_in']=true;$_SESSION['username']='fixture';header('Content-Type: application/json');echo json_encode(['csrf'=>csrf_token()]);return;}return false;`);
  const probe=net.createServer();await new Promise(resolve=>probe.listen(0,'127.0.0.1',resolve));const port=probe.address().port;await new Promise(resolve=>probe.close(resolve));
  const origin=`http://127.0.0.1:${port}`;
- server=spawn(php,[...args,'-d',`session.save_path=${path.join(temp,'sessions')}`,'-d','disable_functions=curl_exec','-d','allow_url_fopen=0','-S',`127.0.0.1:${port}`,'-t',site,path.join(temp,'router.php')],{env,stdio:'ignore'});
+ server=spawn(php,[...args,'-d','error_reporting=24575','-d',`session.save_path=${path.join(temp,'sessions')}`,'-d','disable_functions=curl_exec','-d','allow_url_fopen=0','-S',`127.0.0.1:${port}`,'-t',site,path.join(temp,'router.php')],{env,stdio:'ignore'});
  const get=async(url,options={})=>{const r=await fetch(origin+url,{redirect:'manual',...options});const body=await r.arrayBuffer();return new Response(body,{status:r.status,headers:r.headers});};
  for(let i=0;i<60;i++){try{await get('/admin/');break;}catch{await new Promise(resolve=>setTimeout(resolve,50));}}
  const login=await get('/fixture-login');const cookie=login.headers.get('set-cookie').split(';')[0];const {csrf}=await login.json();
  const headers={cookie};const fingerprint=async()=>{
   const files=[];for(const folder of ['allegro/prod','olx/publications','olx/drafts'])for(const name of await readdir(path.join(temp,folder)))files.push([folder+'/'+name,createHash('sha256').update(await readFile(path.join(temp,folder,name))).digest('hex')]);return JSON.stringify(files);
  };
- const before=await fingerprint();const catalogue=await readFile(path.join(site,'data/products.json'),'utf8');
+ const before=await fingerprint();const originalVault=await readFile(path.join(temp,'allegro/prod/account.enc'));const catalogue=await readFile(path.join(site,'data/products.json'),'utf8');
  const list=await get('/admin/?figures=1',{headers});assert.equal(list.status,200);const html=await list.text();
  assert.equal((html.match(/class="product-row"/g)||[]).length,4);
+ assert.match(html,/Odśwież statusy Allegro i OLX/);assert.match(html,/Ostatnia udana synchronizacja/);
  assert.match(html,/Otwórz Allegro/);assert.match(html,/Otwórz OLX/);assert.match(html,/Szkic \(lokalny\)/);assert.match(html,/Status nieustalony/);
  assert.match(html,/Usunięcie z katalogu MG Outlet nie kończy/);assert.match(html,/product-delete/);
  for(const secret of [key,'SYNTHETIC_ACCESS','SYNTHETIC_REFRESH','SYNTHETIC_SECRET']) assert(!html.includes(secret));
@@ -58,7 +59,18 @@ try {
  for(const [filter,count] of [['q=Anio%C5%82',1],['visibility=visible',3],['status=Ukryty',1]]) {
   const body=await (await get('/admin/?figures=1&'+filter,{headers})).text();assert.equal((body.match(/class="product-row"/g)||[]).length,count);
  }
+ assert.equal((await get('/admin/marketplace-sync.php',{headers})).status,404);
  assert.equal(await fingerprint(),before,'list/filter must not write integrations');
+ const badSync=await get('/admin/',{method:'POST',headers:{...headers,'content-type':'application/x-www-form-urlencoded'},body:new URLSearchParams({action:'sync_marketplaces',csrf:'wrong'})});
+ assert.equal(badSync.status,302);assert.equal(await fingerprint(),before);
+ const anonSync=await get('/admin/',{method:'POST',headers:{'content-type':'application/x-www-form-urlencoded'},body:new URLSearchParams({action:'sync_marketplaces',csrf})});
+ assert.equal(anonSync.status,302);assert.equal(await fingerprint(),before);
+ const sync=await get('/admin/',{method:'POST',headers:{...headers,'content-type':'application/x-www-form-urlencoded'},body:new URLSearchParams({action:'sync_marketplaces',csrf,return:'figures'})});
+ assert.equal(sync.status,302);assert.deepEqual(await readFile(path.join(temp,'allegro/prod/account.enc')),originalVault);
+ const afterSync=JSON.parse(await fingerprint());for(const [name,hash] of JSON.parse(before))assert.equal(new Map(afterSync).get(name),hash,'all existing integration records remain byte-identical');
+ const syncedHtml=await (await get('/admin/?figures=1',{headers})).text();assert.match(syncedHtml,/Postęp OLX/);assert.match(syncedHtml,/Aktualizacja nie powiodła się/);
+ const cached=await readFile(path.join(temp,'private_marketplace/statuses.json'),'utf8');
+ for(const secret of [key,'SYNTHETIC_ACCESS','SYNTHETIC_REFRESH','SYNTHETIC_SECRET'])assert(!cached.includes(secret));
  const cipherBefore=await readFile(path.join(temp,'allegro/prod/account.enc'));
  const hint=await (await get('/admin/allegro/?productId='+ids[2],{headers})).text();assert(hint.includes(`value="${ids[2]}" selected`));
  assert.deepEqual(await readFile(path.join(temp,'allegro/prod/account.enc')),cipherBefore,'existing Allegro page preserves offer/tokens');

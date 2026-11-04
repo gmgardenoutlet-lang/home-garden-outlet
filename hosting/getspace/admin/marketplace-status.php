@@ -27,6 +27,7 @@ function admin_allegro_list_snapshot(?array $config=null): array
     if (!is_array($pilot)) throw new RuntimeException('Invalid status source');
     // Project only public identifiers/status; credentials, payload and diagnostics never leave this function.
     return ['environment'=>$config['environment'],'pilot'=>array_intersect_key($pilot,array_flip(['productId','offerId','status'])),
+        'account_hash'=>hash('sha256',(string)($vault['account']['id']??'')),
         'updated'=>@filemtime($file) ?: null];
 }
 function admin_allegro_product_status(string $id, array $snapshot): array
@@ -69,6 +70,7 @@ function admin_olx_product_status(string $id, array $state, bool $draft=false, ?
     // Reuse the integration's label for known states, without exposing arbitrary error bodies.
     $known=['active','new','unconfirmed','unpaid','moderated','blocked','disabled','removed_by_moderator','outdated','inactive','removed_by_user','removed','limited','finished'];
     $out['detail']=in_array($status,$known,true) || in_array($phase,['publishing','uncertain','error'],true) ? olx_publication_label($state) : 'Niepotwierdzony status OLX.';
+    if ($status==='limited' && $out['id']!=='') {$out['key']='limited';$out['label']='Limit ogłoszeń';return $out;}
     if (in_array($phase,['uncertain','error'],true) || !empty($state['error_code'])) {$out['key']='error';$out['label']='Błąd / wynik niepewny';return $out;}
     if ($phase==='publishing') {$out['key']='publishing';$out['label']='Publikowanie';return $out;}
     if ($out['id']==='') return $out;
