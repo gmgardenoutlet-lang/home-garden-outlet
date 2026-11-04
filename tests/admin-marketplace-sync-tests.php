@@ -32,15 +32,23 @@ try {
  $cache=admin_marketplace_sync($products,$ac,$oc,$ag,$og,$root.'/cache',1000);
  sync_check(count($calls)===2&&$calls[0][1]==='GET'&&$cache['work']['allegro_index']===20&&$cache['work']['olx']===1&&!$cache['work']['done']);
  sync_check($cache['rows'][$a]['olx']['key']==='active'&&$cache['rows'][$a]['allegro']['key']==='active');
+ sync_check($cache['work']['olx_active']===1&&$cache['work']['allegro_offers']===2&&$cache['work']['allegro_active']===1);
+ sync_check($cache['work']['allegro']===20&&$cache['work']['updated']===3); // 18 unknown -> unknown results are not changes.
+ sync_check(admin_marketplace_sync_summary($cache['work'])===[
+  'OLX: sprawdzone ogłoszenia: 1. Aktywne według API: 1.',
+  'Allegro: sprawdzone produkty: 20. Znalezione oferty: 2, w tym aktywne: 1.',
+  'Łącznie zmienione statusy: 3. Błędy: 0.']);
  sync_check(hash_file('sha256',$root.'/olx/publications/'.$a.'.json')===$before&&!is_dir($root.'/allegro/prod'));
  sync_reject(fn()=>admin_marketplace_sync($products,$ac,$oc,$ag,$og,$root.'/cache',1001));sync_check(count($calls)===2);
  $empty=static fn($path)=>['offers'=>[],'totalCount'=>0];
  $cache=admin_marketplace_sync($products,$ac,$oc,$empty,$og,$root.'/cache',1005);
  sync_check($cache['work']['done']&&$cache['last_success']===1005&&$cache['work']['allegro']===23);
+ sync_check($cache['work']['allegro_offers']===2&&$cache['work']['allegro_active']===1&&$cache['work']['olx_active']===1&&$cache['work']['updated']===3);
  $cache=admin_marketplace_sync($products,$ac,$oc,static function(){throw new RuntimeException('HTTP 429 PRIVATE_TOKEN');},static function(){throw new RuntimeException('timeout PRIVATE_TOKEN');},$root.'/cache',1065);
  sync_check($cache['rows'][$a]['olx']['key']==='active'&&$cache['rows'][$a]['olx']['updated']===1000&&isset($cache['rows'][$a]['olx']['refresh_error']));
  sync_check($cache['rows'][$a]['allegro']['key']==='active'&&$cache['rows'][$a]['allegro']['updated']===1000&&$cache['last_success']===1005);
  sync_check(!str_contains(file_get_contents($root.'/cache/statuses.json'),'PRIVATE_TOKEN')&&$cache['next_at']===1125);
+ sync_check($cache['work']['olx']===0&&$cache['work']['olx_active']===0&&$cache['work']['allegro']===0&&$cache['work']['allegro_offers']===0&&$cache['work']['allegro_active']===0&&$cache['work']['updated']===0&&$cache['work']['errors']===2);
  $rows=[0=>['olx'=>admin_marketplace_unknown('olx'),'allegro'=>admin_marketplace_unknown('allegro')]];
  $applied=admin_marketplace_apply_cache([['productId'=>$a]],$rows,$cache,$cache['context']);sync_check($applied[0]['olx']['key']==='active'&&str_contains($applied[0]['olx']['detail'],'nie powiodła'));
  sync_check(admin_marketplace_apply_cache([['productId'=>$a]],$rows,$cache,'different')===$rows);
@@ -49,9 +57,11 @@ try {
  $paged=static function($path)use(&$page,$a,$offer){$page++;return ['offers'=>[$offer($a,$page,'ACTIVE')],'totalCount'=>2];};
  $cache=admin_marketplace_sync(array_slice($products,0,2),$ac,$oc,$paged,$og,$root.'/cache',2000);
  sync_check($cache['work']['offset']===1&&!isset($cache['rows'][$a]['allegro']));
+ sync_check($cache['work']['allegro']===0&&$cache['work']['allegro_offers']===0&&$cache['work']['allegro_active']===0);
  $cache=admin_marketplace_sync(array_slice($products,0,2),$ac,$oc,$paged,$og,$root.'/cache',2005);
  sync_check($cache['work']['done']&&$page===2&&$cache['rows'][$a]['allegro']['key']==='unknown'&&str_contains($cache['rows'][$a]['allegro']['detail'],'Wiele'));
  sync_check(hash_file('sha256',$root.'/olx/publications/'.$a.'.json')===$before);
+ sync_check($cache['work']['allegro']===2&&$cache['work']['allegro_offers']===2&&$cache['work']['allegro_active']===2&&$cache['work']['updated']===1); // Ambiguous offers counted, never randomly assigned.
  $files=glob($root.'/cache/.statuses-*');sync_check($files===[]);
  // Independent platform failure, nonblocking concurrency and safe cache failure.
  $remove($root.'/cache');mkdir($root.'/cache',0700);
@@ -67,5 +77,25 @@ try {
  $cache=admin_marketplace_sync(array_slice($products,0,1),$sandbox,$oc,static function()use(&$used){$used=true;return [];},$og,$root.'/cache',5000);
  sync_check(!$used&&$cache['rows'][$a]['olx']['key']==='active'&&$cache['work']['errors']===1);
  sync_check(!str_contains(file_get_contents($root.'/cache/statuses.json'),$ac['key']));
+ // A fresh pass with identical confirmed states counts zero changes; limited is not active.
+ $remove($root.'/cache');mkdir($root.'/cache',0700);
+ $small=array_slice($products,0,2);
+ $cache=admin_marketplace_sync($small,$ac,$oc,$ag,$og,$root.'/cache',6000);
+ $cache=admin_marketplace_sync($small,$ac,$oc,$ag,$og,$root.'/cache',6005);
+ $cache=admin_marketplace_sync($small,$ac,$oc,$ag,$og,$root.'/cache',6065);
+ sync_check($cache['work']['updated']===0&&$cache['work']['olx']===1&&$cache['work']['allegro']===2&&$cache['work']['allegro_offers']===2);
+ $cache=admin_marketplace_sync($small,$ac,$oc,$ag,$og,$root.'/cache',6070);
+ $cache=admin_marketplace_sync($small,$ac,$oc,$empty,static fn()=>$reply('limited'),$root.'/cache',6130);
+ sync_check($cache['work']['olx_active']===0&&$cache['work']['allegro_offers']===0&&$cache['work']['allegro_active']===0&&$cache['work']['updated']===3);
+ // Preserve old in-progress work. New counters cannot be reconstructed from its product count.
+ $remove($root.'/cache');mkdir($root.'/cache',0700);$page=0;
+ $cache=admin_marketplace_sync($small,$ac,$oc,$paged,$og,$root.'/cache',7000);
+ unset($cache['work']['counters_version'],$cache['work']['olx_active'],$cache['work']['allegro_offers'],$cache['work']['allegro_active']);
+ admin_marketplace_cache_write($root.'/cache',$cache);
+ $cache=admin_marketplace_sync($small,$ac,$oc,$paged,$og,$root.'/cache',7005);
+ sync_check($page===2&&$cache['work']['done']&&!isset($cache['work']['counters_version']));
+ sync_check(str_contains(implode(' ',admin_marketplace_sync_summary($cache['work'])),'Starszy zapis: pełne liczniki'));
+ $cache=admin_marketplace_sync($small,$ac,$oc,$empty,$og,$root.'/cache',7065);
+ sync_check($cache['work']['counters_version']===2&&$cache['work']['allegro_offers']===0);
  echo 'PASS: marketplace sync — '.$n." assertions; simulated GET only; publication records unchanged\n";
 }finally{$remove($root);}

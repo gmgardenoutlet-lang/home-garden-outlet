@@ -1736,7 +1736,7 @@ if ($showStats) {
         <button class="btn" type="submit">Odśwież statusy Allegro i OLX<?= !empty($marketplaceCache['work']) && empty($marketplaceCache['work']['done'])?' — Kontynuuj':'' ?></button>
         <p>Ostatnia udana synchronizacja: <?= e(admin_marketplace_timestamp($marketplaceCache['last_success'] ?? null)) ?></p>
         <?php $syncWork=$marketplaceCache['work'] ?? [];if ($syncWork): ?>
-          <p>Sprawdzono <?= (int)$syncWork['olx'] ?> ofert OLX i <?= (int)$syncWork['allegro'] ?> powiązań Allegro. Zaktualizowano <?= (int)$syncWork['updated'] ?> statusów. Błędy: <?= (int)$syncWork['errors'] ?>.</p>
+          <?php foreach (admin_marketplace_sync_summary($syncWork) as $syncLine): ?><p><?= e($syncLine) ?></p><?php endforeach; ?>
           <p>Postęp OLX: <?= (int)$syncWork['olx_index'] ?>/<?= count($syncWork['ids']) ?> produktów; Allegro: <?= (int)$syncWork['allegro_index'] ?>/<?= count($syncWork['ids']) ?> produktów. <?= !empty($syncWork['done'])?'Zakończono.':'Przerwane odświeżanie można kontynuować tym samym przyciskiem.' ?></p>
         <?php endif; ?>
         <small>Ręczne partie: najwyżej jeden odczyt API na platformę. Odstęp minimum 5 s; po zakończeniu lub HTTP 429 minimum 60 s. Lista sama nie odpytuje API. Błąd zachowuje ostatni potwierdzony status.</small>

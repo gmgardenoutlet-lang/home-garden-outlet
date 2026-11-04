@@ -123,12 +123,17 @@ function admin_marketplace_sync(array $products,?array $allegro=null,?array $olx
         $ids=array_keys($ids);sort($ids);$catalogHash=hash('sha256',implode('\n',$ids));
         if (empty($cache['work']) || ($cache['work']['catalog']??'')!==$catalogHash || !empty($cache['work']['done'])) {
             $cache['work']=['catalog'=>$catalogHash,'ids'=>$ids,'olx_index'=>0,'allegro_index'=>0,'offset'=>0,'found'=>[],
-                'olx'=>0,'allegro'=>0,'updated'=>0,'errors'=>0,'done'=>false];
+                'olx'=>0,'allegro'=>0,'updated'=>0,'errors'=>0,'done'=>false,
+                'counters_version'=>2,'olx_active'=>0,'allegro_offers'=>0,'allegro_active'=>0];
         }
         $cache['version']=1;$cache['next_at']=$now+5;admin_marketplace_cache_write($root,$cache);
         $work=&$cache['work'];
-        $save=static function(string $platform,string $id,array $row)use(&$cache,&$work) {
+        // Compare the actual previous display, not a missing cache entry. Unknown -> unknown is not a changed status.
+        $baseline=[];
+        foreach (admin_product_marketplaces($products,$allegro,$olx) as $index=>$row) $baseline[$products[$index]['productId']??'']=$row;
+        $save=static function(string $platform,string $id,array $row)use(&$cache,&$work,$baseline) {
             $previous=$cache['rows'][$id][$platform]??[];
+            if (!isset($previous['updated'])) $previous=$baseline[$id][$platform]??admin_marketplace_unknown($platform);
             if (($previous['key']??null)!==$row['key'] || ($previous['id']??null)!==$row['id'] || ($previous['label']??null)!==$row['label']) $work['updated']++;
             $cache['rows'][$id][$platform]=$row;
         };
@@ -149,6 +154,7 @@ function admin_marketplace_sync(array $products,?array $allegro=null,?array $olx
                         || ($binding['productId']??'')!==$id || ($binding['external_id']??'')!==$id) throw new RuntimeException('binding');
                     $response=$olxGet ? $olxGet('GET','/adverts/'.$advert,[]) : olx_advert_http($olx,'GET','/adverts/'.$advert);
                     $save('olx',$id,admin_marketplace_olx_observation($id,$binding,$response,$now));$work['olx']++;
+                    if (($work['counters_version']??0)===2 && $response['data']['data']['status']==='active') $work['olx_active']++;
                 } catch(Throwable $e) {$fail('olx',[$id],$e);if(str_contains($e->getMessage(),'HTTP 429'))$cache['next_at']=$now+60;}
                 $work['olx_index']++;break;
             }
@@ -173,6 +179,11 @@ function admin_marketplace_sync(array $products,?array $allegro=null,?array $olx
                 if ($work['offset']>0 && ($work['total']??null)!==$total) throw new RuntimeException('pagination changed');
                 $work['found']=$found;$work['offset']=$offset;$work['total']=$total;
                 if ($offset===$total) {
+                    // Count offers, including ambiguous matches, only after validating the whole paginated group.
+                    if (($work['counters_version']??0)===2) foreach ($found as $matches) foreach ($matches as $offer) {
+                        $work['allegro_offers']++;
+                        if ($offer['status']==='ACTIVE') $work['allegro_active']++;
+                    }
                     foreach($group as $id){$save('allegro',$id,admin_marketplace_allegro_observation($id,$found[$id]??[],$now));$work['allegro']++;}
                     $work['allegro_index']+=count($group);$work['found']=[];$work['offset']=0;unset($work['total']);
                 }
@@ -194,4 +205,17 @@ function admin_marketplace_apply_cache(array $products,array $rows,array $cache,
         if (!empty($entry['refresh_error'])) $rows[$index][$platform]['detail'].=' Aktualizacja nie powiodła się: '.$entry['refresh_error'];
     }
     return $rows;
+}
+
+/** Older in-progress caches cannot reconstruct these counters reliably; keep their progress, never guess. */
+function admin_marketplace_sync_summary(array $work): array
+{
+    if (($work['counters_version']??0)!==2) return [
+        'OLX: sprawdzone ogłoszenia: '.(int)($work['olx']??0).'.',
+        'Allegro: sprawdzone produkty: '.(int)($work['allegro']??0).'.',
+        'Starszy zapis: pełne liczniki ofert, aktywnych ofert i zmian będą dostępne od następnego pełnego odświeżenia. Błędy: '.(int)($work['errors']??0).'.'];
+    return [
+        'OLX: sprawdzone ogłoszenia: '.(int)$work['olx'].'. Aktywne według API: '.(int)$work['olx_active'].'.',
+        'Allegro: sprawdzone produkty: '.(int)$work['allegro'].'. Znalezione oferty: '.(int)$work['allegro_offers'].', w tym aktywne: '.(int)$work['allegro_active'].'.',
+        'Łącznie zmienione statusy: '.(int)$work['updated'].'. Błędy: '.(int)$work['errors'].'.'];
 }

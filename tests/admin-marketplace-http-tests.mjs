@@ -68,7 +68,7 @@ try {
  const sync=await get('/admin/',{method:'POST',headers:{...headers,'content-type':'application/x-www-form-urlencoded'},body:new URLSearchParams({action:'sync_marketplaces',csrf,return:'figures'})});
  assert.equal(sync.status,302);assert.deepEqual(await readFile(path.join(temp,'allegro/prod/account.enc')),originalVault);
  const afterSync=JSON.parse(await fingerprint());for(const [name,hash] of JSON.parse(before))assert.equal(new Map(afterSync).get(name),hash,'all existing integration records remain byte-identical');
- const syncedHtml=await (await get('/admin/?figures=1',{headers})).text();assert.match(syncedHtml,/Postęp OLX/);assert.match(syncedHtml,/Aktualizacja nie powiodła się/);
+ const syncedHtml=await (await get('/admin/?figures=1',{headers})).text();assert.match(syncedHtml,/Postęp OLX/);assert.match(syncedHtml,/OLX: sprawdzone ogłoszenia: 0\. Aktywne według API: 0\./);assert.match(syncedHtml,/Allegro: sprawdzone produkty: 0\. Znalezione oferty: 0, w tym aktywne: 0\./);assert.match(syncedHtml,/Łącznie zmienione statusy: 0\. Błędy: 2\./);assert.match(syncedHtml,/Aktualizacja nie powiodła się/);
  const cached=await readFile(path.join(temp,'private_marketplace/statuses.json'),'utf8');
  for(const secret of [key,'SYNTHETIC_ACCESS','SYNTHETIC_REFRESH','SYNTHETIC_SECRET'])assert(!cached.includes(secret));
  const cipherBefore=await readFile(path.join(temp,'allegro/prod/account.enc'));
