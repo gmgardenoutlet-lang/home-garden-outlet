@@ -73,6 +73,23 @@ function allegro_pilot_api(array $config, string $method, string $path, string $
         if (!is_string($response['body'] ?? null)) throw $error('błąd cURL/transportu: brak odpowiedzi');
         if (strlen($response['body'])>allegro_pilot_response_limit($method,$path)) throw $error('przekroczony limit odpowiedzi (1048576 bajtów)');
         if (!in_array($status,[200,201,202,303],true)) throw $error('HTTP '.(int)$status);
+        if (preg_match('~^/sale/product-offers/([0-9]{1,32})/operations/[A-Za-z0-9-]{1,80}$~D',$path,$operation)) {
+            if (!in_array($status,[202,303],true)) throw $error('nieoczekiwany status operacji HTTP '.(int)$status);
+            $headers=$response['headers'] ?? [];
+            if (!is_array($headers)) throw $error('nieprawidłowe nagłówki operacji');
+            if ($status===303) {
+                $location=$headers['location'] ?? null;
+                if (!is_string($location)) throw $error('brak prawidłowego nagłówka Location');
+                allegro_pilot_location($config,$location,$operation[1],false);
+            } elseif (isset($headers['location'])) {
+                if (!is_string($headers['location'])) throw $error('nieprawidłowy nagłówek Location');
+                $pending=allegro_pilot_location($config,$headers['location'],$operation[1],true);
+                if ($pending!==$path) throw $error('Location wskazuje inną operację');
+            }
+            // Operation completion is conveyed by status and Location, not a JSON document.
+            return ['status'=>$status,'data'=>[],'headers'=>$headers];
+        }
+        if ($status!==200) throw $error('nieoczekiwany status zasobu HTTP '.(int)$status);
         try {$data=json_decode($response['body'],true,32,JSON_THROW_ON_ERROR);}
         catch (Throwable $e) {throw $error('niepoprawny JSON');}
         if (!is_array($data)) throw $error('niepoprawny JSON');
@@ -420,22 +437,24 @@ function allegro_pilot_bind_response(array $config, array &$record, array $respo
 }
 function allegro_pilot_observe(array $config, array &$record, string $access, ?callable $transport): void
 {
-    if (!empty($record['operation'])) {
-        allegro_pilot_need(time()>=($record['nextCheck'] ?? 0),'Zaczekaj przed sprawdzeniem operacji.');
-        $response=allegro_pilot_api($config,'GET',$record['operation'],$access,[],$transport);
-        if ($response['status']===202) {$record['nextCheck']=time()+max(1,min(300,(int)($response['headers']['retry-after'] ?? 5)));return;}
+    $candidate=$record;
+    if (!empty($candidate['operation'])) {
+        allegro_pilot_need(time()>=($candidate['nextCheck'] ?? 0),'Zaczekaj przed sprawdzeniem operacji.');
+        $response=allegro_pilot_api($config,'GET',$candidate['operation'],$access,[],$transport);
+        if ($response['status']===202) {$candidate['nextCheck']=time()+max(1,min(300,(int)($response['headers']['retry-after'] ?? 5)));$record=$candidate;return;}
         allegro_pilot_need($response['status']===303,'Operacja nie została zakończona.');
-        allegro_pilot_location($config,(string)($response['headers']['location'] ?? ''),$record['offerId'],false);
-        unset($record['operation']);
+        allegro_pilot_location($config,(string)($response['headers']['location'] ?? ''),$candidate['offerId'],false);
+        unset($candidate['operation']);
     }
-    $remote=allegro_pilot_api($config,'GET','/sale/product-offers/'.$record['offerId'],$access,[],$transport)['data'];
-    allegro_pilot_need(($remote['id'] ?? '')===$record['offerId'] && ($remote['external']['id'] ?? '')===$record['productId'],'Nie można potwierdzić powiązania oferty z productId.');
-    if (isset($record['sourcePayload'],$record['payload']['delivery']['handlingTime'])) {
-        allegro_pilot_need(in_array($remote['delivery']['handlingTime'] ?? '',['P7D','PT168H'],true) && $record['payload']['delivery']['handlingTime']==='P7D','Nie potwierdzono deklarowanego czasu wysyłki w Allegro. Sprawdź szkic przed publikacją.');
+    $remote=allegro_pilot_api($config,'GET','/sale/product-offers/'.$candidate['offerId'],$access,[],$transport)['data'];
+    allegro_pilot_need(($remote['id'] ?? '')===$candidate['offerId'] && ($remote['external']['id'] ?? '')===$candidate['productId'],'Nie można potwierdzić powiązania oferty z productId.');
+    if (isset($candidate['sourcePayload'],$candidate['payload']['delivery']['handlingTime'])) {
+        allegro_pilot_need(in_array($remote['delivery']['handlingTime'] ?? '',['P7D','PT168H'],true) && $candidate['payload']['delivery']['handlingTime']==='P7D','Nie potwierdzono deklarowanego czasu wysyłki w Allegro. Sprawdź szkic przed publikacją.');
     }
     $status=$remote['publication']['status'] ?? '';
     allegro_pilot_need(in_array($status,['INACTIVE','ACTIVE','ACTIVATING','ENDED'],true),'Nieznany status oferty.');
-    $record['status']=$status;$record['observed']=$remote;
+    $candidate['status']=$status;$candidate['observed']=$remote;
+    $record=$candidate;
 }
 function allegro_pilot_write(array $config, array $preview, bool $publish, ?callable $transport = null, ?array $product = null): void
 {
