@@ -144,6 +144,20 @@ try {
         $v['offers']['prd_'.str_repeat('b',32)]=['productId'=>'prd_'.str_repeat('b',32),'offerId'=>'790','status'=>'UNKNOWN','activationAttempted'=>true];
         allegro_write_vault($config,$k,$v);
       });
+    } elseif ($mode === 'list-restore') {
+      copy(${phpString(path.join(temp,'list-vault-backup'))},allegro_storage_dir($config).'/account.enc');
+    } elseif (str_starts_with($mode,'list-')) {
+      $file=allegro_storage_dir($config).'/account.enc';
+      if(!is_file(${phpString(path.join(temp,'list-vault-backup'))}))copy($file,${phpString(path.join(temp,'list-vault-backup'))});
+      $count=(int)substr($mode,5);
+      allegro_locked($config,function($v,$k)use($config,$count){
+        $v['offers']=[];
+        for($i=0;$i<$count;$i++) {
+          $pid=$i===0?'prd_'.str_repeat('a',32):'prd_'.str_pad(dechex($i),32,'0',STR_PAD_LEFT);
+          $v['offers'][$pid]=['productId'=>$pid,'offerId'=>(string)(19000000000+$i),'status'=>$i%2===0?'ACTIVE':'INACTIVE','payload'=>['name'=>'Figura testowa '.str_pad((string)$i,3,'0',STR_PAD_LEFT)]];
+        }
+        allegro_write_vault($config,$k,$v);
+      });
     } elseif ($mode === 'refresh') {
       $token = allegro_access_token($config, time(), function ($request) {
         file_put_contents(${phpString(path.join(temp, 'refresh-count'))}, '+', FILE_APPEND | LOCK_EX);
@@ -427,6 +441,16 @@ try {
   assert(secondHtml.includes(`name="product_id" value="${secondId}"`));
   assert(!secondHtml.includes('>Opublikuj ofertę<') && !secondHtml.includes('>Utwórz szkic<'));
   assert.equal(createHash('sha256').update(await readFile(viewVault)).digest('hex'), multiBefore);
+  const listSessionBefore=await (await request('/fixture-category-state',{headers:{cookie}})).json();
+  for(const size of [2,20,100]) {
+    await worker('list-'+size);const beforeList=await readFile(viewVault);
+    const listHtml=await (await request(`/admin/allegro/?productId=${figureId}`,{headers:{cookie}})).text();
+    assert(listHtml.includes(`Moje oferty Allegro (${size})`));assert.equal((listHtml.match(/data-saved-offer/g)||[]).length,size);
+    assert.match(listHtml,/<details class="allegro-offers"><summary>/);assert.match(listHtml,/data-offer-search/);
+    assert(listHtml.includes(`value="${figureId}" selected`));assert.deepEqual(await readFile(viewVault),beforeList);
+  }
+  await worker('list-restore');
+  assert.deepEqual(await (await request('/fixture-category-state',{headers:{cookie}})).json(),listSessionBefore,'offer list GET preserves metadata/navigation/preview');
   await worker('view-CLEAR');
   await request('/fixture-preview-clear',{headers:{cookie}});
   if (process.env.HGO_ALLEGRO_PLAYWRIGHT_MODULE) {
@@ -445,6 +469,24 @@ try {
       });
       const page = await context.newPage(); const jsErrors = [];
       page.on('pageerror', error => jsErrors.push(error.message));
+      for(const size of [2,20,100]) {
+        await worker('list-'+size);const cipher=await readFile(viewVault);
+        for(const width of [1366,390]) {
+          await page.setViewportSize({width,height:width===390?844:768});
+          await page.goto(origin+`/admin/allegro/?productId=${figureId}`);await page.waitForSelector('body.allegro-compact');
+          const list=page.locator('.allegro-offers');assert.equal(await list.getAttribute('open'),null);
+          await list.locator('summary').click();
+          const scroll=await list.locator('.allegro-offer-list').evaluate(el=>({height:el.clientHeight,content:el.scrollHeight,overflow:getComputedStyle(el).overflowY}));
+          assert(scroll.height<=221&&scroll.overflow==='auto');if(size>=20)assert(scroll.content>scroll.height);
+          await list.locator('[data-offer-search]').fill('19000000001');assert.equal(await list.locator('[data-saved-offer]:visible').count(),1);
+          await list.locator('[data-offer-search]').fill('brak takiej figury');assert(await list.locator('[data-offer-search-empty]').isVisible());
+          await list.locator('[data-offer-search]').fill('Figura testowa 001');assert.equal(await list.locator('[data-saved-offer]:visible').count(),1);
+          assert.equal(await page.locator('select[name=product_id]').inputValue(),figureId);
+          assert(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+2));
+        }
+        assert.deepEqual(await readFile(viewVault),cipher);
+      }
+      await worker('list-restore');await worker('view-CLEAR');await page.setViewportSize({width:1366,height:768});
       // A previously saved over-limit manual note must not be silently replaced on page load.
       const oldNote = 'Ręczny tekst '.repeat(60);
       const oldNoteResponse = await post({action:'pilot-preview',csrf,product_id:figureId,receipt_info:oldNote},cookie);

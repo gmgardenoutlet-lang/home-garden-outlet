@@ -786,6 +786,13 @@ for (const group of document.querySelectorAll('[data-allegro-parameters]')) {
 {
     const workspace = document.querySelector?.('.allegro-workspace');
     if (workspace) {
+        const search = workspace.querySelector('[data-offer-search]');
+        if (search) search.addEventListener('input', () => {
+            const query = search.value.trim().toLocaleLowerCase('pl');
+            const rows = [...workspace.querySelectorAll('[data-saved-offer]')];
+            for (const row of rows) row.hidden = !row.textContent.toLocaleLowerCase('pl').includes(query);
+            workspace.querySelector('[data-offer-search-empty]').hidden = rows.some(row => !row.hidden);
+        });
         const tabs = [...workspace.querySelectorAll('[data-allegro-tab]')];
         const panels = [...workspace.querySelectorAll('[data-allegro-panel]')];
         function activate(key, focus = false) {
@@ -899,6 +906,7 @@ function allegro_pilot_styles(): string
 .allegro-workspace .allegro-pilot{min-width:0}.allegro-workspace .allegro-toolbar{display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;align-items:center;padding:9px 0}
 .allegro-workspace .allegro-grid{display:grid;grid-template-columns:minmax(225px,270px) minmax(0,1fr) minmax(225px,265px);gap:12px;min-height:0}
 .allegro-workspace .allegro-product,.allegro-workspace .allegro-editor,.allegro-workspace .allegro-actions{min-width:0}.allegro-workspace .allegro-product{font-size:13px;line-height:1.35}
+.allegro-workspace .allegro-offers{margin-bottom:10px}.allegro-workspace .allegro-offer-list{max-height:220px;overflow:auto;overflow-wrap:anywhere}.allegro-workspace .allegro-offer-list p{padding:6px 0;border-bottom:1px solid #dce5da}
 .allegro-workspace .allegro-images{display:flex;gap:6px;flex-wrap:wrap;margin:8px 0}.allegro-workspace .allegro-images img{object-fit:contain;width:30px;height:30px;border:1px solid #dce5da;border-radius:5px;background:#f6f3ec}
 .allegro-workspace .allegro-images img:first-child{width:100%;height:80px}.allegro-workspace .allegro-path{font-size:12px;overflow-wrap:anywhere}
 .allegro-workspace .allegro-actions .btn{width:100%;margin:4px 0}.allegro-workspace .allegro-actions form{margin:8px 0}
@@ -945,9 +953,12 @@ function allegro_pilot_render(array $config, array $status): void
         echo '<a target="_blank" rel="noopener noreferrer" href="'.e($host.'/oferta/'.$record['offerId']).'">Otwórz ofertę w Allegro · '.e($record['offerId']).'</a>';
     }
     echo '</div></header><div class="allegro-grid"><aside class="card allegro-product">';
+    echo '<details class="allegro-offers"><summary>Moje oferty Allegro ('.count($offers).')</summary><label>Szukaj po nazwie lub ID <input type="search" data-offer-search autocomplete="off"></label><div class="allegro-offer-list">';
     foreach ($offers as $savedId=>$savedRecord) {
-        echo '<p><a href="/admin/allegro/?productId='.e($savedId).'">'.e((string)($products[$savedId]['name'] ?? $savedRecord['payload']['name'] ?? $savedId)).' - '.e($savedRecord['status'] ?? 'UNKNOWN').' - '.e($savedRecord['offerId'] ?? 'bez ID').'</a></p>';
+        $savedName=(string)($products[$savedId]['name'] ?? $savedRecord['payload']['name'] ?? $savedId);
+        echo '<p data-saved-offer><a href="/admin/allegro/?productId='.e($savedId).'">'.e($savedName).' — '.e($savedRecord['offerId'] ?? 'bez ID').' — '.e($savedRecord['status'] ?? 'UNKNOWN').'</a></p>';
     }
+    echo '</div><small data-offer-search-empty hidden>Brak pasujących ofert.</small></details>';
     $p=$products[$selectedId] ?? null;
     allegro_pilot_form_start('pilot-load');
     echo '<p><label>Figura <select name="product_id" required><option value="">Wybierz figurę</option>';

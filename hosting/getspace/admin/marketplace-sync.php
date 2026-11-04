@@ -102,6 +102,53 @@ function admin_marketplace_allegro_observation(string $id,array $matches,int $no
     [$row['key'],$row['label']]=match($offer['status']) {'ACTIVE'=>['active','Wystawione'],'INACTIVE'=>['draft','Szkic'],'ACTIVATING'=>['publishing','Publikowanie'],default=>['inactive','Zakończone']};
     $row['url']='https://allegro.pl/oferta/'.$offer['id'];$row['action']='Otwórz Allegro';$row['detail']='Status potwierdzony przez API Allegro (PROD).';return $row;
 }
+/** Exact identifiers only. No title, price, URL or fuzzy product matching. */
+function admin_marketplace_olx_bindings(array $ids,array $config): array
+{
+    if (is_link($config['dir']) || is_link($config['dir'].'/publications') || !olx_outside_webroot($config['dir'])) throw new RuntimeException('storage');
+    $bindings=[];
+    foreach ($ids as $id) {
+        $state=olx_publication_status($config,$id);$advert=$state['advert_id']??'';
+        if ($advert==='')continue;
+        if (!is_scalar($advert) || !preg_match('/^[1-9][0-9]{0,31}$/D',(string)$advert) || ($state['productId']??'')!==$id || ($state['external_id']??'')!==$id) throw new RuntimeException('binding');
+        if (isset($bindings[(string)$advert])) throw new RuntimeException('duplicate binding');
+        $bindings[(string)$advert]=$id;
+    }
+    return $bindings;
+}
+/** Only public identifiers and status buckets enter the cache; no full adverts or contact data. */
+function admin_marketplace_olx_account_page(array $response,array $ids,array $bindings,array $found): array
+{
+    if (($response['http']??0)!==200) throw new RuntimeException('HTTP '.(int)($response['http']??0));
+    $ads=$response['data']['data']??null;
+    if (!is_array($ads) || !array_is_list($ads) || count($ads)>50) throw new RuntimeException('pagination');
+    foreach ($ads as $ad) {
+        $advert=$ad['id']??null;$status=$ad['status']??null;$external=$ad['external_id']??null;
+        if ((!is_string($advert)&&!is_int($advert)) || !preg_match('/^[1-9][0-9]{0,31}$/D',(string)$advert)
+            || isset($found[(string)$advert]) || !is_string($status) || strlen($status)>80) throw new RuntimeException('invalid advert');
+        $pid=$bindings[(string)$advert]??null;
+        if ($external!==null && $external!=='') {
+            if ($pid!==null && $pid!==$external) $pid=null;
+            elseif (is_string($external) && in_array($external,$ids,true)) $pid=$external;
+            else $pid=null;
+        }
+        $bucket=match($status) {
+            'active'=>'active','new','unconfirmed','unpaid','limited','disabled'=>'pending',
+            'inactive','finished','outdated','removed','removed_by_user','removed_by_moderator','moderated','blocked'=>'inactive',default=>'unknown'};
+        $found[(string)$advert]=['status'=>$bucket,'productId'=>$pid];
+    }
+    if(count($found)>20000)throw new RuntimeException('account limit');
+    return [$found,count($ads)];
+}
+function admin_marketplace_counts(array $offers): array
+{
+    $counts=['total'=>count($offers),'active'=>0,'draft'=>0,'ended'=>0,'pending'=>0,'unknown'=>0,'linked'=>0];
+    foreach ($offers as $offer) {
+        $bucket=match($offer['status']??'unknown') {'ACTIVE','active'=>'active','INACTIVE','draft'=>'draft','ENDED','ended','inactive'=>'ended','ACTIVATING','pending'=>'pending',default=>'unknown'};
+        $counts[$bucket]++;if(!empty($offer['productId']))$counts['linked']++;
+    }
+    return $counts;
+}
 /** One bounded GET per platform per click. Continuations are explicit authenticated POSTs. */
 function admin_marketplace_sync(array $products,?array $allegro=null,?array $olx=null,?callable $allegroGet=null,?callable $olxGet=null,?string $root=null,?int $now=null): array
 {
@@ -124,23 +171,33 @@ function admin_marketplace_sync(array $products,?array $allegro=null,?array $olx
         if (empty($cache['work']) || ($cache['work']['catalog']??'')!==$catalogHash || !empty($cache['work']['done'])) {
             $cache['work']=['catalog'=>$catalogHash,'ids'=>$ids,'olx_index'=>0,'allegro_index'=>0,'offset'=>0,'found'=>[],
                 'olx'=>0,'allegro'=>0,'updated'=>0,'errors'=>0,'done'=>false,
-                'counters_version'=>2,'olx_active'=>0,'allegro_offers'=>0,'allegro_active'=>0];
+                'counters_version'=>2,'olx_active'=>0,'allegro_offers'=>0,'allegro_active'=>0,
+                'summary_version'=>1,'uncertain'=>0,'olx_attempted'=>0,'olx_targets'=>null,'allegro_inventory'=>[],
+                'olx_account'=>['offset'=>0,'offers'=>[],'done'=>false,'error'=>null]];
+            try {$workConfig=$olx??olx_config();$cache['work']['olx_targets']=count(admin_marketplace_olx_bindings($ids,$workConfig));}catch(Throwable $e) {/* Unknown scope stays explicitly unknown. */}
         }
         $cache['version']=1;$cache['next_at']=$now+5;admin_marketplace_cache_write($root,$cache);
         $work=&$cache['work'];
         // Compare the actual previous display, not a missing cache entry. Unknown -> unknown is not a changed status.
         $baseline=[];
         foreach (admin_product_marketplaces($products,$allegro,$olx) as $index=>$row) $baseline[$products[$index]['productId']??'']=$row;
-        $save=static function(string $platform,string $id,array $row)use(&$cache,&$work,$baseline) {
+        $save=static function(string $platform,string $id,array $row)use(&$cache,&$work,$baseline,$now) {
             $previous=$cache['rows'][$id][$platform]??[];
             if (!isset($previous['updated'])) $previous=$baseline[$id][$platform]??admin_marketplace_unknown($platform);
-            if (($previous['key']??null)!==$row['key'] || ($previous['id']??null)!==$row['id'] || ($previous['label']??null)!==$row['label']) $work['updated']++;
+            if ($row['key']==='unknown' && ($previous['key']??'unknown')!=='unknown') {
+                if(isset($work['summary_version']))$work['uncertain']++;
+                $cache['rows'][$id][$platform]=$previous;
+                $cache['rows'][$id][$platform]['refresh_error']='Niepełny lub niejednoznaczny wynik API. Zachowano poprzedni status.';
+                $cache['rows'][$id][$platform]['attempted_at']=$now;return;
+            }
+            if (($previous['key']??null)!==$row['key'] || ($previous['label']??null)!==$row['label']) $work['updated']++;
             $cache['rows'][$id][$platform]=$row;
         };
         $fail=static function(string $platform,array $affected,Throwable $e)use(&$cache,&$work,$now){
             $work['errors']++;foreach($affected as $id){$cache['rows'][$id][$platform]??=admin_marketplace_unknown($platform);
                 $cache['rows'][$id][$platform]['refresh_error']=admin_marketplace_failure($e);$cache['rows'][$id][$platform]['attempted_at']=$now;}
         };
+        $olxRequested=false;
         // Skip unlinked products without contacting OLX; publication records are never written.
         try {
             $olx ??= olx_config();
@@ -150,8 +207,10 @@ function admin_marketplace_sync(array $products,?array $allegro=null,?array $olx
                 try {
                     $binding=olx_publication_status($olx,$id);$advert=$binding['advert_id']??'';
                     if ($advert==='') {$work['olx_index']++;continue;}
+                    if(isset($work['summary_version']))$work['olx_attempted']++;
                     if (!is_scalar($advert) || !preg_match('/^[1-9][0-9]{0,31}$/D',(string)$advert)
                         || ($binding['productId']??'')!==$id || ($binding['external_id']??'')!==$id) throw new RuntimeException('binding');
+                    $olxRequested=true;
                     $response=$olxGet ? $olxGet('GET','/adverts/'.$advert,[]) : olx_advert_http($olx,'GET','/adverts/'.$advert);
                     $save('olx',$id,admin_marketplace_olx_observation($id,$binding,$response,$now));$work['olx']++;
                     if (($work['counters_version']??0)===2 && $response['data']['data']['status']==='active') $work['olx_active']++;
@@ -159,6 +218,24 @@ function admin_marketplace_sync(array $products,?array $allegro=null,?array $olx
                 $work['olx_index']++;break;
             }
         } catch(Throwable $e) {$fail('olx',array_slice($ids,$work['olx_index']),$e);$work['olx_index']=count($ids);}
+        // After the linked reads, use one paginated account GET per click, never a new unbounded loop.
+        if (isset($work['olx_account']) && !$work['olx_account']['done'] && !$olxRequested && $work['olx_index']>=count($ids)) {
+            try {
+                $olx ??= olx_config();$bindings=admin_marketplace_olx_bindings($ids,$olx);
+                $query=['limit'=>50,'offset'=>$work['olx_account']['offset']];
+                $response=$olxGet ? $olxGet('GET','/adverts',$query) : olx_advert_http($olx,'GET','/adverts',$query);
+                [$entries,$received]=admin_marketplace_olx_account_page($response,$ids,$bindings,$work['olx_account']['offers']);
+                $work['olx_account']['offers']=$entries;$work['olx_account']['offset']+=$received;
+                // An empty terminator avoids pretending a short/partial page proves completeness.
+                if ($received===0) {
+                    $work['olx_account']['done']=true;
+                    $cache['olx_inventory']=['offers'=>$entries,'checked_at'=>$now];
+                }
+            } catch(Throwable $e) {
+                $work['errors']++;$work['olx_account']['error']=admin_marketplace_failure($e);$work['olx_account']['done']=true;
+                if(str_contains($e->getMessage(),'HTTP 429'))$cache['next_at']=$now+60;
+            }
+        }
         admin_marketplace_cache_write($root,$cache);
         if ($work['allegro_index']<count($ids)) {
             $group=array_slice($ids,$work['allegro_index'],20);
@@ -182,6 +259,7 @@ function admin_marketplace_sync(array $products,?array $allegro=null,?array $olx
                     // Count offers, including ambiguous matches, only after validating the whole paginated group.
                     if (($work['counters_version']??0)===2) foreach ($found as $matches) foreach ($matches as $offer) {
                         $work['allegro_offers']++;
+                        if(isset($work['summary_version']))$work['allegro_inventory'][$offer['id']]=['status'=>$offer['status']];
                         if ($offer['status']==='ACTIVE') $work['allegro_active']++;
                     }
                     foreach($group as $id){$save('allegro',$id,admin_marketplace_allegro_observation($id,$found[$id]??[],$now));$work['allegro']++;}
@@ -190,7 +268,7 @@ function admin_marketplace_sync(array $products,?array $allegro=null,?array $olx
             } catch(Throwable $e) {$fail('allegro',$group,$e);$work['allegro_index']+=count($group);$work['offset']=0;$work['found']=[];unset($work['total']);
                 if(str_contains($e->getMessage(),'HTTP 429'))$cache['next_at']=$now+60;}
         }
-        $work['done']=$work['olx_index']>=count($ids) && $work['allegro_index']>=count($ids);
+        $work['done']=$work['olx_index']>=count($ids) && $work['allegro_index']>=count($ids) && (!isset($work['olx_account']) || $work['olx_account']['done']);
         if ($work['done']) { $cache['finished_at']=$now;if($work['errors']===0)$cache['last_success']=$now;$cache['next_at']=max($cache['next_at'],$now+60); }
         admin_marketplace_cache_write($root,$cache);return $cache;
     } finally {flock($lock,LOCK_UN);fclose($lock);}
@@ -218,4 +296,35 @@ function admin_marketplace_sync_summary(array $work): array
         'OLX: sprawdzone ogłoszenia: '.(int)$work['olx'].'. Aktywne według API: '.(int)$work['olx_active'].'.',
         'Allegro: sprawdzone produkty: '.(int)$work['allegro'].'. Znalezione oferty: '.(int)$work['allegro_offers'].', w tym aktywne: '.(int)$work['allegro_active'].'.',
         'Łącznie zmienione statusy: '.(int)$work['updated'].'. Błędy: '.(int)$work['errors'].'.'];
+}
+
+/** Compact presentation only; rendering never performs API reads or writes. */
+function admin_marketplace_dashboard(array $cache,array $rows): array
+{
+    $work=$cache['work']??[];$local=['allegro'=>[],'olx'=>[]];
+    foreach($rows as $row)foreach(['allegro','olx'] as $platform) {
+        $entry=$row[$platform]??[];if(empty($entry['id']))continue;
+        $bucket=match($entry['key']??'unknown'){'active'=>'active','draft'=>'draft','inactive'=>'ended','limited','publishing'=>'pending',default=>'unknown'};
+        $local[$platform][$entry['id']]=['status'=>$bucket,'productId'=>'local'];
+    }
+    $new=isset($work['summary_version']);
+    $allegro=admin_marketplace_counts($new?$work['allegro_inventory']:$local['allegro']);
+    $account=$work['olx_account']??null;$complete=is_array($account)&&$account['done']&&$account['error']===null;
+    $olxOffers=$local['olx'];$olxScope='powiązane lokalnie w tej liście; pełna liczba na koncie nieustalona';
+    if ($account!==null && $account['offset']>0) {
+        $olxOffers=$account['offers'];$olxScope=$complete?'konto OLX (API)':'konto OLX: znalezione dotąd; pełna liczba nieustalona';
+    } elseif ($complete) {$olxOffers=[];$olxScope='konto OLX (API)';}
+    elseif(isset($cache['olx_inventory'])) {$olxOffers=$cache['olx_inventory']['offers'];$olxScope='ostatni zakończony odczyt konta — '.admin_marketplace_timestamp($cache['olx_inventory']['checked_at']);}
+    $olx=admin_marketplace_counts($olxOffers);
+    $allegroScope=$new?($work['allegro_index']<count($work['ids'])?'API: znalezione dotąd; trwa wyszukiwanie ofert':'API: zakończono przeszukiwanie produktów katalogu'):'lokalne zapisy tej listy; brak pełnego odświeżenia API';
+    if (!empty($work['uncertain'])) $allegroScope.='; niepotwierdzone powiązania: '.(int)$work['uncertain'].' — zachowano poprzednie statusy';
+    if (!empty($work['errors'])) $allegroScope.='; wystąpiły błędy — sprawdź szczegóły';
+    $linked=$new?$work['olx_targets']:null;
+    $progress='OLX: '.(int)($work['olx']??0).' sprawdzonych powiązanych ogłoszeń zapisanych lokalnie'.($linked!==null?' / '.$linked:' (liczba wymagająca odświeżenia nieustalona)').'.';
+    if ($account!==null && $account['done'] && $account['error']===null) $progress.=' Konto OLX: '.count($account['offers']).' ogłoszeń odczytanych przez API; paginacja zakończona.';
+    if ($account!==null && !$account['done']) $progress.=' Trwa wyszukiwanie ogłoszeń konta OLX.';
+    if (!empty($account['error'])) $progress.=' Pełna liczba na koncie OLX nieustalona: '.$account['error'].'.';
+    $progress.=' Allegro: '.($new?$allegro['total']:'nieustalona liczba').' znalezionych i sprawdzonych ofert.';
+    if ($new && $work['allegro_index']<count($work['ids']))$progress.=' Trwa wyszukiwanie ofert.';
+    return ['allegro'=>$allegro,'olx'=>$olx,'allegro_scope'=>$allegroScope,'olx_scope'=>$olxScope,'progress'=>$progress];
 }

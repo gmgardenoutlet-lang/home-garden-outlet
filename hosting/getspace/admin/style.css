@@ -532,3 +532,6 @@ input:focus, textarea:focus, select:focus { outline: 3px solid rgba(63, 111, 69,
 @media(max-width:560px){.marketplace-product-list .product-row{padding:14px;gap:16px}.marketplace-product-list .product-summary{align-items:flex-start;gap:12px}.marketplace-product-list .product-summary img{width:78px;height:78px;flex-basis:78px}.marketplace-product-list h2{font-size:16px}.marketplace-product-list .product-marketplaces{grid-template-columns:1fr}.marketplace-product-list .row-actions{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}.marketplace-product-list .row-actions .btn{width:100%;min-width:0}.marketplace-product-list .btn-small{min-height:40px}}
 
 .marketplace-product-list .marketplace-limited .marketplace-badge{background:#fff0d6;color:#80520c}
+
+.marketplace-overview h2{margin:0 0 10px;font-size:19px}.marketplace-overview-counts{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:10px}.marketplace-overview small{display:block;color:var(--muted);overflow-wrap:anywhere}.marketplace-overview p{font-size:13px;margin:6px 0}.marketplace-overview details{font-size:13px;margin-top:8px}.marketplace-overview summary{cursor:pointer}.marketplace-overview form{margin:8px 0}
+@media(max-width:650px){.marketplace-overview-counts{grid-template-columns:1fr}}

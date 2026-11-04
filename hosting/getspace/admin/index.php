@@ -742,7 +742,7 @@ if ($isProductList) {
     require_once __DIR__.'/marketplace-status.php';
     $marketplaceRows=admin_product_marketplaces($listedProducts);
     require_once __DIR__.'/marketplace-sync.php';
-    try {$marketplaceCache=admin_marketplace_cache_read();$marketplaceRows=admin_marketplace_apply_cache($listedProducts,$marketplaceRows,$marketplaceCache);}
+    try {$marketplaceCache=admin_marketplace_cache_read();$marketplaceContext=admin_marketplace_cache_context();if (($marketplaceCache['context']??null)!==$marketplaceContext) $marketplaceCache=[];$marketplaceRows=admin_marketplace_apply_cache($listedProducts,$marketplaceRows,$marketplaceCache,$marketplaceContext);}
     catch(Throwable $e) {$marketplaceCache=[];}
 }
 $filteredProducts = [];
@@ -1731,16 +1731,33 @@ if ($showStats) {
         <details><summary>Problemy wymagające uzupełnienia</summary><ul><?php foreach ($merchantReport as $row): ?><?php if ($row['errors']): ?><li><a href="/admin/?figures=1&amp;q=<?= rawurlencode($row['name']) ?>"><?= e($row['name']) ?></a>: <?= e(implode(' ', $row['errors'])) ?></li><?php endif; ?><?php endforeach; ?></ul></details>
       </details>
       <?php endif; ?>
-      <form method="post" class="card">
-        <input type="hidden" name="csrf" value="<?= e(csrf_token()) ?>"><input type="hidden" name="action" value="sync_marketplaces"><input type="hidden" name="return" value="<?= $showFigures?'figures':'outlet' ?>">
-        <button class="btn" type="submit">Odśwież statusy Allegro i OLX<?= !empty($marketplaceCache['work']) && empty($marketplaceCache['work']['done'])?' — Kontynuuj':'' ?></button>
-        <p>Ostatnia udana synchronizacja: <?= e(admin_marketplace_timestamp($marketplaceCache['last_success'] ?? null)) ?></p>
-        <?php $syncWork=$marketplaceCache['work'] ?? [];if ($syncWork): ?>
-          <?php foreach (admin_marketplace_sync_summary($syncWork) as $syncLine): ?><p><?= e($syncLine) ?></p><?php endforeach; ?>
-          <p>Postęp OLX: <?= (int)$syncWork['olx_index'] ?>/<?= count($syncWork['ids']) ?> produktów; Allegro: <?= (int)$syncWork['allegro_index'] ?>/<?= count($syncWork['ids']) ?> produktów. <?= !empty($syncWork['done'])?'Zakończono.':'Przerwane odświeżanie można kontynuować tym samym przyciskiem.' ?></p>
-        <?php endif; ?>
-        <small>Ręczne partie: najwyżej jeden odczyt API na platformę. Odstęp minimum 5 s; po zakończeniu lub HTTP 429 minimum 60 s. Lista sama nie odpytuje API. Błąd zachowuje ostatni potwierdzony status.</small>
-      </form>
+      <?php $syncWork=$marketplaceCache['work']??[];$dashboard=admin_marketplace_dashboard($marketplaceCache,$marketplaceRows); ?>
+      <section class="card marketplace-overview">
+        <h2>Marketplace — Allegro i OLX</h2>
+        <div class="marketplace-overview-counts">
+          <?php foreach(['allegro'=>'Allegro','olx'=>'OLX'] as $platform=>$platformName): $counts=$dashboard[$platform]; ?>
+            <div><strong><?= e($platformName) ?>: <?= $counts['total'] ?> <?= $platform==='allegro'?'ofert':'ogłoszeń' ?></strong><small><?= e($dashboard[$platform.'_scope']) ?></small>
+              <p>Aktywne: <?= $counts['active'] ?> · <?= $platform==='allegro'?'Szkice':'Oczekujące / ograniczone' ?>: <?= $platform==='allegro'?$counts['draft']:$counts['pending'] ?> · <?= $platform==='allegro'?'Zakończone':'Nieaktywne' ?>: <?= $platform==='allegro'?$counts['ended']:($counts['ended']+$counts['draft']) ?> · Nieustalone: <?= $counts['unknown'] ?><?= $platform==='allegro'?' · W trakcie publikowania: '.$counts['pending']:'' ?></p>
+              <?php if($platform==='olx'): ?><small>Powiązane z produktami (ID / external_id): <?= $counts['linked'] ?> · Pozostałe / bez potwierdzonego powiązania: <?= $counts['total']-$counts['linked'] ?></small><?php endif; ?>
+            </div>
+          <?php endforeach; ?>
+        </div>
+        <form method="post">
+          <input type="hidden" name="csrf" value="<?= e(csrf_token()) ?>"><input type="hidden" name="action" value="sync_marketplaces"><input type="hidden" name="return" value="<?= $showFigures?'figures':'outlet' ?>">
+          <button class="btn" type="submit">Odśwież statusy<?= !empty($syncWork) && empty($syncWork['done'])?' — Kontynuuj':'' ?></button>
+        </form>
+        <small>Aktywne w pokazanym zakresie: <?= $dashboard['allegro']['active']+$dashboard['olx']['active'] ?> · Ostatnia udana synchronizacja: <?= e(admin_marketplace_timestamp($marketplaceCache['last_success']??null)) ?></small>
+        <p><?= e($dashboard['progress']) ?></p>
+        <details><summary>Szczegóły synchronizacji</summary>
+          <?php if($syncWork): ?>
+            <p>Przeszukano produkty katalogu — OLX: <?= (int)$syncWork['olx_index'] ?>/<?= count($syncWork['ids']) ?>; Allegro: <?= (int)$syncWork['allegro_index'] ?>/<?= count($syncWork['ids']) ?>. Błędy: <?= (int)$syncWork['errors'] ?>.</p>
+            <?php if(isset($syncWork['olx_attempted'])): ?><small>Próby odczytu lokalnie powiązanych ogłoszeń OLX: <?= (int)$syncWork['olx_attempted'] ?>. Potwierdzone odpowiedzi: <?= (int)$syncWork['olx'] ?>.</small><?php endif; ?>
+            <?php foreach(admin_marketplace_sync_summary($syncWork) as $syncLine): ?><small><?= e($syncLine) ?></small><?php endforeach; ?>
+            <?php if(!empty($syncWork['olx_account']['error'])): ?><small>Odczyt konta OLX: <?= e($syncWork['olx_account']['error']) ?>. Poprzednie potwierdzone statusy pozostają zachowane.</small><?php endif; ?>
+          <?php else: ?><small>Nie uruchomiono jeszcze synchronizacji. Wyświetlane są wyłącznie zapisy lokalne.</small><?php endif; ?>
+          <small>Ręczne partie; najwyżej jeden GET na platformę. Minimum 5 s pomiędzy partiami i 60 s po zakończeniu lub HTTP 429. Lista sama nie odpytuje API.</small>
+        </details>
+      </section>
       <p class="muted marketplace-list-note">Brak powiązania nie potwierdza braku oferty. Przejście do modułu lub oferty niczego nie publikuje.</p>
       <section class="product-list marketplace-product-list">
         <?php $shown = 0; foreach ($filteredProducts as $index => $item): $shown++; ?>
