@@ -601,9 +601,10 @@ function allegro_pilot_action(array $config, string $action): void
             && time()-($state['at'] ?? 0)<=900 && is_string($nonce) && isset($state['nonce'])
             && hash_equals($state['nonce'],$nonce),'Wybór kategorii wygasł. Rozpocznij ponownie dla wybranej figury.');
         allegro_locked($config,static function($v,$k)use($state){allegro_pilot_need(($state['seller'] ?? '')===($v['account']['id'] ?? null),'Połączone konto zmieniło się.');});
+        $result=allegro_pilot_category_return($config,$state,$action==='pilot-category-restart');
+        allegro_pilot_need(!empty($result['options']),'Allegro nie zwróciło dostępnych kategorii. Spróbuj ponownie.');
         unset($_SESSION['allegro_pilot_preview'],$_SESSION['allegro_pilot_meta'],$_SESSION['allegro_pilot_categories']);
-        $_SESSION['allegro_pilot_categories']=allegro_pilot_category_return($config,$state,$action==='pilot-category-restart')
-            +['productId'=>$id,'nonce'=>bin2hex(random_bytes(24))];return;
+        $_SESSION['allegro_pilot_categories']=$result+['productId'=>$id,'nonce'=>bin2hex(random_bytes(24))];return;
     }
     if ($action==='pilot-load') {
         $state=[];$selected=$_POST['category_id'] ?? '';
@@ -614,8 +615,9 @@ function allegro_pilot_action(array $config, string $action): void
                 && time()-($state['at'] ?? 0)<=900 && is_string($nonce) && isset($state['nonce'])
                 && hash_equals($state['nonce'],$nonce),'Wybór kategorii wygasł. Rozpocznij ponownie dla wybranej figury.');
         }
-        unset($_SESSION['allegro_pilot_preview'],$_SESSION['allegro_pilot_meta'],$_SESSION['allegro_pilot_categories']);
         $result=allegro_pilot_metadata($config,$state,$selected)+['productId'=>$id];
+        allegro_pilot_need(isset($result['category']) || !empty($result['options']),'Allegro nie zwróciło dostępnych kategorii. Spróbuj ponownie.');
+        unset($_SESSION['allegro_pilot_preview'],$_SESSION['allegro_pilot_meta'],$_SESSION['allegro_pilot_categories']);
         if (isset($result['category'])) $_SESSION['allegro_pilot_meta']=$result+['nonce'=>bin2hex(random_bytes(24))];
         else $_SESSION['allegro_pilot_categories']=$result+['nonce'=>bin2hex(random_bytes(24))];
         return;
@@ -929,9 +931,12 @@ function allegro_pilot_render(array $config, array $status): void
     $navigation=$_SESSION['allegro_pilot_categories'] ?? [];
     $meta=$_SESSION['allegro_pilot_meta'] ?? [];$id=$meta['productId'] ?? '';
     $ready=isset($products[$id]) && ($meta['environment'] ?? '')===$config['environment'];
-    $hint=$_GET['productId'] ?? '';
+    $hint=$_GET['productId'] ?? $_POST['product_id'] ?? '';
     $hint=is_string($hint) && (isset($products[$hint]) || isset($offers[$hint])) ? $hint : '';
-    if ($hint!=='' && (!$ready || $id!==$hint)) {$ready=false;$navigation=[];}
+    if ($hint!=='') {
+        $ready=$ready && $id===$hint;
+        if (($navigation['productId'] ?? '')!==$hint) $navigation=[];
+    }
     $selectedId=$hint!==''?$hint:($ready?$id:($navigation['productId'] ?? array_key_first($offers) ?? ''));
     $record=$offers[$selectedId] ?? [];
     echo '<div class="allegro-status"><span>Oferta: <strong data-offer-status>'.e((string)($record['status'] ?? 'BRAK SZKICU')).'</strong></span>';
@@ -959,7 +964,7 @@ function allegro_pilot_render(array $config, array $status): void
         $price=catalog_sale_price_text($p);preg_match('/^\s*([0-9]+(?:[.,][0-9]{1,2})?)\s*(?:zł|PLN)?\s*$/u',$price,$priceMatch);
         echo '<p>Cena katalogowa: '.e($price).'</p><p><label>Cena PLN <input form="pilot-preview-form" name="price" value="'.e($priceMatch[1] ?? '').'" required data-summary-price></label></p>';
         echo '<p><label>Dostępne sztuki <input form="pilot-preview-form" name="quantity" type="number" min="1" max="9999" required data-summary-quantity></label></p><p><label><input form="pilot-preview-form" type="checkbox" name="stock_confirmed" value="yes" required> Potwierdzam rzeczywistą ilość oraz cenę.</label></p>';
-    } elseif (isset($products[$navigation['productId'] ?? '']) && ($navigation['environment'] ?? '')===$config['environment']) {
+    } elseif (($navigation['productId'] ?? '')===$selectedId && isset($products[$selectedId]) && ($navigation['environment'] ?? '')===$config['environment']) {
         echo '<p class="allegro-path">Wybrana ścieżka: '.e(implode(' → ',array_column($navigation['path'],'name')) ?: 'Kategorie główne').'</p>';
         allegro_pilot_category_buttons($navigation);
         if ($navigation['options']===[]) echo '<p>API nie zwróciło podkategorii. Rozpocznij wybór ponownie; oferta pozostaje zablokowana.</p>';

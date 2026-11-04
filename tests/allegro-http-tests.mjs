@@ -28,9 +28,14 @@ try {
   await writeFile(path.join(site, 'data/products.json'), JSON.stringify({ products: [{
     productId: `prd_${'a'.repeat(32)}`, name: 'Fixture figura', slug: 'fixture-figura', saleType: 'garden_figure',
     material: 'Beton', description: 'Opis figury z katalogu.', longDescription: 'Szczegóły wykończenia figury.', shopVisible: true, shopStatus: 'Dostępny', category: 'Figury i dekoracje ogrodowe', image: '/uploads/fixture.webp', gallery: [], grossPrice: '100 zł',
+  }, {
+    productId: `prd_${'c'.repeat(32)}`, name: 'Rzeźba ogrodowa Rozdarta twarz kobiety z miejscem na doniczkę – szaro-brązowa',
+    slug: 'fixture-druga-figura', saleType: 'garden_figure', material: 'Beton', description: 'Opis drugiej figury.',
+    shopVisible: true, shopStatus: 'Dostępny', category: 'Figury i dekoracje ogrodowe', image: '/uploads/category-figure.png', grossPrice: '200 zł',
   }] }));
   await mkdir(path.join(site,'uploads'),{recursive:true});
   await writeFile(path.join(site,'uploads/fixture.webp'),Buffer.from('UklGRiIAAABXRUJQVlA4IBYAAAAwAQCdASoBAAEAAQAcJaQAA3AA/v89WAAAAA==','base64'));
+  await writeFile(path.join(site,'uploads/category-figure.png'),Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAfQAAAH0CAIAAABEtEjdAAAG8klEQVR4nO3UQQkAMAzAwPo33ZoYDMKdgrwyC0DO/A4A4D1zBwgyd4AgcwcIMneAIHMHCDJ3gCBzBwgyd4AgcwcIMneAIHMHCDJ3gCBzBwgyd4AgcwcIMneAIHMHCDJ3gCBzBwgyd4AgcwcIMneAIHMHCDJ3gCBzBwgyd4AgcwcIMneAIHMHCDJ3gCBzBwgyd4AgcwcIMneAIHMHCDJ3gCBzBwgyd4AgcwcIMneAIHMHCDJ3gCBzBwgyd4AgcwcIMneAIHMHCDJ3gCBzBwgyd4AgcwcIMneAIHMHCDJ3gCBzBwgyd4AgcwcIMneAIHMHCDJ3gCBzBwgyd4AgcwcIMneAIHMHCDJ3gCBzBwgyd4AgcwcIMneAIHMHCDJ3gCBzBwgyd4AgcwcIMneAIHMHCDJ3gCBzBwgyd4AgcwcIMneAIHMHCDJ3gCBzBwgyd4AgcwcIMneAIHMHCDJ3gCBzBwgyd4AgcwcIMneAIHMHCDJ3gCBzBwgyd4AgcwcIMneAIHMHCDJ3gCBzBwgyd4AgcwcIMneAIHMHCDJ3gCBzBwgyd4AgcwcIMneAIHMHCDJ3gCBzBwgyd4AgcwcIMneAIHMHCDJ3gCBzBwgyd4AgcwcIMneAIHMHCDJ3gCBzBwgyd4AgcwcIMneAIHMHCDJ3gCBzBwgyd4AgcwcIMneAIHMHCDJ3gCBzBwgyd4AgcwcIMneAIHMHCDJ3gCBzBwgyd4AgcwcIMneAIHMHCDJ3gCBzBwgyd4AgcwcIMneAIHMHCDJ3gCBzBwgyd4AgcwcIMneAIHMHCDJ3gCBzBwgyd4AgcwcIMneAIHMHCDJ3gCBzBwgyd4AgcwcIMneAIHMHCDJ3gCBzBwgyd4AgcwcIMneAIHMHCDJ3gCBzBwgyd4AgcwcIMneAIHMHCDJ3gCBzBwgyd4AgcwcIMneAIHMHCDJ3gCBzBwgyd4AgcwcIMneAIHMHCDJ3gCBzBwgyd4AgcwcIMneAIHMHCDJ3gCBzBwgyd4AgcwcIMneAIHMHCDJ3gCBzBwgyd4AgcwcIMneAIHMHCDJ3gCBzBwgyd4AgcwcIMneAIHMHCDJ3gCBzBwgyd4AgcwcIMneAIHMHCDJ3gCBzBwgyd4AgcwcIMneAIHMHCDJ3gCBzBwgyd4AgcwcIMneAIHMHCDJ3gCBzBwgyd4AgcwcIMneAIHMHCDJ3gCBzBwgyd4AgcwcIMneAIHMHCDJ3gCBzBwgyd4AgcwcIMneAIHMHCDJ3gCBzBwgyd4AgcwcIMneAIHMHCDJ3gCBzBwgyd4AgcwcIMneAIHMHCDJ3gCBzBwgyd4AgcwcIMneAIHMHCDJ3gCBzBwgyd4AgcwcIMneAIHMHCDJ3gCBzBwgyd4AgcwcIMneAIHMHCDJ3gCBzBwgyd4AgcwcIMneAIHMHCDJ3gCBzBwgyd4AgcwcIMneAIHMHCDJ3gCBzBwgyd4AgcwcIMneAIHMHCDJ3gCBzBwgyd4AgcwcIMneAIHMHCDJ3gCBzBwgyd4AgcwcIMneAIHMHCDJ3gCBzBwgyd4AgcwcIMneAIHMHCDJ3gCBzBwgyd4AgcwcIMneAIHMHCDJ3gCBzBwgyd4AgcwcIMneAIHMHCDJ3gCBzBwgyd4AgcwcIMneAIHMHCDJ3gCBzBwgyd4AgcwcIMneAIHMHCDJ3gCBzBwgyd4AgcwcIMneAIHMHCDJ3gCBzBwgyd4AgcwcIMneAIHMHCDJ3gCBzBwgyd4AgcwcIMneAIHMHCDJ3gCBzBwgyd4AgcwcIMneAIHMHCDJ3gCBzBwgyd4AgcwcIMneAIHMHCDJ3gCBzBwgyd4AgcwcIMneAIHMHCDJ3gCBzBwgyd4AgcwcIMneAIHMHCDJ3gCBzBwgyd4AgcwcIMneAIHMHCDJ3gCBzBwgyd4AgcwcIMneAIHMHCDJ3gCBzBwgyd4AgcwcIMneAIHMHCDJ3gCBzBwgyd4AgcwcIMneAIHMHCDJ3gCBzBwgyd4AgcwcIMneAIHMHCDJ3gCBzBwgyd4AgcwcIMneAIHMHCDJ3gCBzBwgyd4AgcwcIMneAIHMHCDJ3gCBzBwgyd4AgcwcIMneAIHMHCDJ3gCBzBwgyd4AgcwcIMneAIHMHCDJ3gCBzBwgyd4AgcwcIMneAIHMHCDJ3gCBzBwgyd4AgcwcIMneAIHMHCDJ3gCBzBwgyd4AgcwcIMneAIHMHCDJ3gCBzBwgyd4AgcwcIMneAIHMHCDJ3gCBzBwgyd4AgcwcIMneAIHMHCDJ3gCBzBwgyd4AgcwcIMneAIHMHCDJ3gCBzBwgyd4AgcwcIMneAIHMHCDJ3gCBzBwgyd4AgcwcIMneAIHMHCDJ3gCBzBwgyd4AgcwcIMneAIHMHCDJ3gKADlkfpS/HtDQIAAAAASUVORK5CYII=','base64'));
   const configText = `<?php return [
     'ALLEGRO_ENVIRONMENT' => 'SANDBOX', 'ALLEGRO_CLIENT_ID' => '${randomBytes(16).toString('hex')}',
     'ALLEGRO_CLIENT_SECRET' => '${secret}', 'ALLEGRO_TOKEN_KEY' => '${key}',
@@ -46,6 +51,11 @@ try {
   await writeFile(path.join(temp, 'router.php'), `<?php
     function fixture_pilot_transport($request) {
       if ($request['method'] !== 'GET') throw new RuntimeException('Fixture forbids writes');
+      file_put_contents(${phpString(path.join(temp, 'category-requests'))}, $request['method']."\\n", FILE_APPEND);
+      $mode=@file_get_contents(${phpString(path.join(temp, 'category-mode'))});
+      if ($mode==='error') return ['status'=>500,'body'=>''];
+      if ($mode==='invalid') return ['status'=>200,'body'=>'bad JSON'];
+      if ($mode==='empty') return ['status'=>200,'body'=>json_encode(['categories'=>[]])];
       $path=substr($request['url'],strlen('https://api.allegro.pl.allegrosandbox.pl'));
       $root='123e4567-e89b-12d3-a456-426614174000';$leaf='123e4567-e89b-12d3-a456-426614174001';
       if ($path==='/sale/categories') $data=['categories'=>[['id'=>$root,'name'=>'Główna','leaf'=>false]]];
@@ -72,6 +82,12 @@ try {
         'verification_uri_complete'=>'https://allegro.pl.allegrosandbox.pl/skojarz-aplikacje?code=abc123xyz'])];
     }
     $path = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH);
+    if ($path === '/fixture-category-state') {
+      require ${phpString(path.join(site, 'admin/lib.php'))}; boot_admin(); require_login();
+      header('Content-Type: application/json');
+      echo json_encode(['categories'=>$_SESSION['allegro_pilot_categories'] ?? null,'meta'=>$_SESSION['allegro_pilot_meta'] ?? null,
+        'previewProductId'=>$_SESSION['allegro_pilot_preview']['payload']['external']['id'] ?? null]); return;
+    }
     if ($path === '/fixture-config-flags') {
       require ${phpString(path.join(site, 'admin/allegro/lib.php'))};
       echo json_encode(['logs_safe'=>allegro_config()['logs_safe'], 'file_flag_off'=>str_contains(file_get_contents(getenv('HGO_ALLEGRO_CONFIG')), "'ALLEGRO_CALLBACK_LOGS_REDACTED' => '0'"),
@@ -116,6 +132,11 @@ try {
           if ($status !== 'UNKNOWN') $v['offers']['prd_'.str_repeat('a',32)]['offerId']='789';
           if ($status === 'PROCESSING') $v['offers']['prd_'.str_repeat('a',32)]['operation']='/sale/product-offers/789/operations/op';
         }
+        allegro_write_vault($config,$k,$v);
+      });
+    } elseif ($mode === 'category-seed') {
+      allegro_locked($config, function ($v, $k) use ($config) {
+        $v['offers']['prd_'.str_repeat('a',32)]=['productId'=>'prd_'.str_repeat('a',32),'offerId'=>'19082641588','status'=>'ACTIVE','history'=>['preserve angel']];
         allegro_write_vault($config,$k,$v);
       });
     } elseif ($mode === 'multi') {
@@ -288,8 +309,83 @@ try {
   const pilotPage = async fields => {
     const result = await post({csrf, product_id: figureId, ...fields}, cookie);
     assert.equal(result.status, 303);
-    return (await request('/admin/allegro/', {headers: {cookie}})).text();
+    const selectedId = fields.product_id || figureId;
+    assert.equal(result.headers.get('location'), `/admin/allegro/?productId=${selectedId}`);
+    return (await request(result.headers.get('location'), {headers: {cookie}})).text();
   };
+  // Follow the real PRG target for a second figure while the first offer remains ACTIVE.
+  await worker('category-seed');
+  const newFigureId = `prd_${'c'.repeat(32)}`;
+  const categoryVault = path.join(temp, 'vault/sandbox/account.enc');
+  const categoryCipher = await readFile(categoryVault);
+  const pageFor = async id => (await request(`/admin/allegro/?productId=${id}`, {headers:{cookie}})).text();
+  const categoryState = async () => (await request('/fixture-category-state', {headers:{cookie}})).json();
+  await request('/admin/allegro/', {headers:{cookie}});
+  assert.doesNotMatch(await pageFor(newFigureId), /name="category_id"/);
+  let secondPage = await pilotPage({action:'pilot-load',product_id:newFigureId});
+  assert.match(secondPage, /Kategorie główne/);
+  assert.match(secondPage, /Pobrano kategorie Allegro dla wybranej figury/);
+  assert.equal((await categoryState()).categories.productId, newFigureId);
+  assert.equal((await categoryState()).categories.environment, 'SANDBOX');
+  assert.equal((await categoryState()).categories.seller, '123456');
+  assert.equal((await categoryState()).meta, null);
+  assert.match(await pageFor(newFigureId), /Kategorie główne/);
+  assert.match(await (await request('/admin/allegro/', {headers:{cookie}})).text(), /Kategorie główne/);
+  secondPage = await pilotPage({action:'pilot-load',product_id:newFigureId,category_id:rootCategory,navigation_nonce:navigationNonce(secondPage)});
+  assert.match(secondPage, /value="22"/);
+  const previousNonce = navigationNonce(secondPage);
+  const angelPage = await pageFor(figureId);
+  assert.match(angelPage, /data-offer-status>ACTIVE</);
+  assert.match(angelPage, /oferta\/19082641588/);
+  assert.doesNotMatch(angelPage, /name="category_id"|id="pilot-preview-form"/);
+  assert.match(await pageFor(newFigureId), /value="22"/);
+  let firstPage = await pilotPage({action:'pilot-load'});
+  assert.match(firstPage, /Kategorie główne/);
+  assert.equal((await categoryState()).categories.productId, figureId);
+  const wrongProduct = await post({action:'pilot-load',csrf,product_id:newFigureId,category_id:'22',navigation_nonce:previousNonce},cookie);
+  assert.equal(wrongProduct.status,400);
+  const wrongHtml = await wrongProduct.text();
+  assert.match(wrongHtml, /Wybór kategorii wygasł/);
+  assert.doesNotMatch(wrongHtml, /flash-success|name="category_id"/);
+  assert.equal((await categoryState()).categories.productId, figureId);
+  secondPage = await pilotPage({action:'pilot-load',product_id:newFigureId});
+  for (const category of [rootCategory,'22',leafCategory]) {
+    secondPage = await pilotPage({action:'pilot-load',product_id:newFigureId,category_id:category,navigation_nonce:navigationNonce(secondPage)});
+  }
+  assert.match(secondPage, /Wybrano kategorię końcową/);
+  assert.match(secondPage, /Główna → Pośrednia → Końcowa/);
+  assert.match(secondPage, /Opis drugiej figury/);
+  const completeState = await categoryState();
+  assert.equal(completeState.meta.productId, newFigureId);
+  assert.equal(completeState.categories, null);
+  assert.doesNotMatch(await pageFor(figureId), /id="pilot-preview-form"|Opis drugiej figury/);
+  assert.match(await pageFor(newFigureId), /id="pilot-preview-form"/);
+  assert.match(await (await request('/admin/allegro/', {headers:{cookie}})).text(), /Opis drugiej figury/);
+  for (const mode of ['error','invalid','empty']) {
+    await writeFile(path.join(temp,'category-mode'),mode);
+    const failure = await post({action:'pilot-load',csrf,product_id:newFigureId},cookie);
+    assert.equal(failure.status,400);
+    const failureHtml = await failure.text();
+    assert.doesNotMatch(failureHtml, /flash-success|Pobrano kategorie Allegro/);
+    assert.match(failureHtml, mode==='error' ? /HTTP 500/ : mode==='invalid' ? /niepoprawny JSON/ : /nie zwróciło dostępnych kategorii/);
+    assert.deepEqual(await categoryState(), completeState, 'failed load preserves the last confirmed session state');
+  }
+  await writeFile(path.join(temp,'category-mode'),'');
+  const secondPreview = await post({action:'pilot-preview',csrf,product_id:newFigureId,
+    name:'Druga figura testowa',description:'Opis drugiej figury.',price:'200',quantity:'1',stock_confirmed:'yes',
+    'parameters[state]':'used','parameters[cn]':'68109900',shipping:'fixture-setting',return:'fixture-setting',warranty:'fixture-setting',
+    producer:'fixture-setting',person:'',safety:'Informacje bezpieczeństwa testowej figury.',gpsr_confirmed:'yes',handling_confirmed:'yes'},cookie);
+  assert.equal(secondPreview.status,303,(await secondPreview.text()).match(/role="alert">([^<]+)/)?.[1]);
+  assert.equal(secondPreview.headers.get('location'),`/admin/allegro/?productId=${newFigureId}`);
+  assert.equal((await categoryState()).previewProductId,newFigureId);
+  assert.match(await pageFor(newFigureId), />Utwórz szkic</);
+  const preservedAngel = await pageFor(figureId);
+  assert.match(preservedAngel, /data-offer-status>ACTIVE</);
+  assert.match(preservedAngel, /oferta\/19082641588/);
+  assert.doesNotMatch(preservedAngel, />Utwórz szkic</);
+  assert.deepEqual(await readFile(categoryVault),categoryCipher,'category selection never changes offers, history or tokens');
+  assert((await readFile(path.join(temp,'category-requests'),'utf8')).trim().split(/\s+/).every(method=>method==='GET'));
+  await worker('view-CLEAR');
   let categoryHtml = await pilotPage({action: 'pilot-load'});
   assert.match(categoryHtml, /Kategorie główne/);
   for (const category of [rootCategory, '22', leafCategory]) {

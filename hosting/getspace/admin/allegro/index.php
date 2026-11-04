@@ -35,7 +35,11 @@ try {
         $action = post_text('action');
         if (str_starts_with($action, 'pilot-')) {
             allegro_pilot_action($config, $action);
-            flash('success', 'Operacja pilota zakończona. Sprawdź podgląd lub końcowy status.');
+            if (in_array($action, ['pilot-load', 'pilot-category-back', 'pilot-category-restart'], true)) {
+                flash('success', isset($_SESSION['allegro_pilot_meta']['category'])
+                    ? 'Wybrano kategorię końcową. Możesz przygotować podgląd oferty.'
+                    : 'Pobrano kategorie Allegro dla wybranej figury. Wybierz kategorię z listy.');
+            } else flash('success', 'Operacja pilota zakończona. Sprawdź podgląd lub końcowy status.');
         } elseif ($action === 'connect') {
             $current = allegro_public_status($config, $binding);
             if ($current['status'] === 'connected' && post_text('confirm_reauthorize') !== 'yes') throw new AllegroSafeException('session');
