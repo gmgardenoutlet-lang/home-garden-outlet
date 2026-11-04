@@ -907,7 +907,10 @@ function allegro_pilot_render(array $config, array $status): void
     $navigation=$_SESSION['allegro_pilot_categories'] ?? [];
     $meta=$_SESSION['allegro_pilot_meta'] ?? [];$id=$meta['productId'] ?? '';
     $ready=isset($products[$id]) && ($meta['environment'] ?? '')===$config['environment'];
-    $selectedId=$ready?$id:($navigation['productId'] ?? $record['productId'] ?? '');
+    $hint=$_GET['productId'] ?? '';
+    $hint=is_string($hint) && isset($products[$hint]) ? $hint : '';
+    if ($hint!=='' && (!$ready || $id!==$hint)) {$ready=false;$navigation=[];}
+    $selectedId=$hint!==''?$hint:($ready?$id:($navigation['productId'] ?? $record['productId'] ?? ''));
     $p=$products[$selectedId] ?? null;
     allegro_pilot_form_start('pilot-load');
     echo '<p><label>Figura <select name="product_id" required><option value="">Wybierz figurę</option>';

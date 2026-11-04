@@ -725,6 +725,15 @@ $shippingProfile = $shippingEditing ? $shippingProfilesById[$shippingEditId] : s
 if ($shippingNew && $shippingProfile['sortOrder'] === 100) {
     $shippingProfile['sortOrder'] = count($shippingProfiles) * 10 + 10;
 }
+$marketplaceRows=[];
+$platformFilter=is_string($_GET['platform'] ?? '') ? $_GET['platform'] ?? '' : '';
+$platformOptions=[''=>'Wszystkie platformy','allegro-active'=>'Allegro — wystawione','allegro-draft'=>'Allegro — szkice','olx-active'=>'OLX — wystawione','olx-draft'=>'OLX — szkice','unknown'=>'Status nieustalony / wymaga sprawdzenia'];
+if (!isset($platformOptions[$platformFilter])) $platformFilter='';
+$isProductList=!$editing && !$newProduct && !$showPassword && !$showImport && !$showStats && !$showOrders && !$showShipping && !$showGoogleConfig;
+if ($isProductList) {
+    require_once __DIR__.'/marketplace-status.php';
+    $marketplaceRows=admin_product_marketplaces($listedProducts);
+}
 $filteredProducts = [];
 foreach ($listedProducts as $listedIndex => $listedProduct) {
     $nameMatch = $search === '' || (function_exists('mb_stripos')
@@ -774,6 +783,7 @@ foreach ($listedProducts as $listedIndex => $listedProduct) {
         }
     }
 
+    if ($isProductList && !admin_marketplace_matches($marketplaceRows[$listedIndex],$platformFilter)) continue;
     $filteredProducts[$listedIndex] = $listedProduct;
 }
 
@@ -1689,13 +1699,14 @@ if ($showStats) {
               <option value="delivery"<?= $missingFilter === 'delivery' ? ' selected' : '' ?>>Brak dostawy</option>
             </select>
           <?php endif; ?>
+          <label>Platforma <select name="platform"><?php foreach ($platformOptions as $value=>$label): ?><option value="<?= e($value) ?>"<?= $platformFilter===$value?' selected':'' ?>><?= e($label) ?></option><?php endforeach; ?></select></label>
           <button class="btn" type="submit">Filtruj</button>
         </div>
       </form>
       <?php if ($showFigures): ?>
       <?php $merchantReport = merchant_catalog_report($catalog['products']); $merchantReady = count(array_filter($merchantReport, static fn(array $row): bool => !$row['errors'])); ?>
-      <section class="card">
-        <h2>Google Merchant Center — kontrola figur</h2>
+      <details class="card marketplace-catalog-tools">
+        <summary>Google Merchant Center — kontrola figur</summary>
         <p>Gotowe: <?= $merchantReady ?>. Pominięte: <?= count($merchantReport) - $merchantReady ?>. <a href="/google-merchant-feed.xml" target="_blank" rel="noopener">Otwórz feed XML</a></p>
         <form method="post">
           <input type="hidden" name="csrf" value="<?= e(csrf_token()) ?>"><input type="hidden" name="action" value="prepare_merchant_figures">
@@ -1707,19 +1718,37 @@ if ($showStats) {
           <button class="btn btn-secondary btn-small" name="merchant_scope" value="all" type="submit">Przygotuj obecne figury</button>
         </form>
         <details><summary>Problemy wymagające uzupełnienia</summary><ul><?php foreach ($merchantReport as $row): ?><?php if ($row['errors']): ?><li><a href="/admin/?figures=1&amp;q=<?= rawurlencode($row['name']) ?>"><?= e($row['name']) ?></a>: <?= e(implode(' ', $row['errors'])) ?></li><?php endif; ?><?php endforeach; ?></ul></details>
-      </section>
+      </details>
       <?php endif; ?>
-      <section class="product-list">
+      <p class="muted marketplace-list-note">Statusy pochodzą z zapisanych danych, bez zapytań do Allegro i OLX. Brak wpisu lokalnego nie potwierdza braku oferty. Kliknięcie przycisku marketplace otwiera moduł lub ofertę — niczego nie publikuje.</p>
+      <section class="product-list marketplace-product-list">
         <?php $shown = 0; foreach ($filteredProducts as $index => $item): $shown++; ?>
-          <article class="product-row">
-            <img src="<?= e(image_url((string)($item['image'] ?? ''))) ?>" alt="">
-            <div><h2><?= e($item['name'] ?? 'Produkt bez nazwy') ?></h2><div class="meta"><span><?= e($item['category'] ?? 'Bez kategorii') ?></span><?= (($item['saleType'] ?? 'showroom') === 'garden_figure') ? '<span>Figura / sklep online</span>' : '<span>Outlet / showroom</span>' ?><span class="status"><?= e($item['status'] ?? 'Dostępność do potwierdzenia') ?></span><span><?= e(($item['saleType'] ?? 'showroom') === 'garden_figure' ? ($item['grossPrice'] ?? 'Cena sklepu') : ($item['outletPrice'] ?? 'Zapytaj o cenę')) ?></span><?= (($item['saleType'] ?? 'showroom') === 'garden_figure' ? (!empty($item['shopVisible']) ? '' : '<span>Ukryty w sklepie</span>') : (!empty($item['visible']) ? '' : '<span>Ukryty na stronie</span>')) ?></div></div>
-            <div class="row-actions">
-              <?php $itemSlug = clean_filename((string)(($item['slug'] ?? '') !== '' ? $item['slug'] : ($item['name'] ?? 'produkt'))); ?>
-              <a class="btn btn-secondary btn-small" href="<?= (($item['saleType'] ?? 'showroom') === 'garden_figure') ? '/sklep/figury-ogrodowe/produkt/' . e($itemSlug) : '/produkt/' . e($itemSlug) ?>" target="_blank" rel="noopener">Podgląd</a>
-              <a class="btn btn-secondary btn-small" href="/admin/?edit=<?= e((string)$index) ?>">Edytuj</a>
-              <form method="post"><input type="hidden" name="csrf" value="<?= e(csrf_token()) ?>"><input type="hidden" name="action" value="toggle_sold"><input type="hidden" name="return" value="<?= $showFigures ? 'figures' : 'outlet' ?>"><input type="hidden" name="index" value="<?= e((string)$index) ?>"><button class="btn <?= ($item['status'] ?? '') === 'Sprzedane' ? 'btn-restore' : 'btn-status' ?> btn-small" type="submit"><?= ($item['status'] ?? '') === 'Sprzedane' ? 'Przywróć' : 'Sprzedane' ?></button></form>
-              <form method="post"><input type="hidden" name="csrf" value="<?= e(csrf_token()) ?>"><input type="hidden" name="action" value="delete_product"><input type="hidden" name="return" value="<?= $showFigures ? 'figures' : 'outlet' ?>"><input type="hidden" name="index" value="<?= e((string)$index) ?>"><button class="btn btn-danger btn-small" type="submit" data-confirm="Usunąć ten produkt? Zdjęcia pozostaną na serwerze.">Usuń</button></form>
+          <?php $channels=$marketplaceRows[$index];$externalWarning=in_array('active',array_column($channels,'key'),true) || array_filter(array_column($channels,'id'));
+          $deletePrompt='Usunąć ten produkt? Zdjęcia pozostaną na serwerze.'.($externalWarning?' Uwaga: produkt ma powiązaną ofertę Allegro lub OLX. Usunięcie z katalogu MG Outlet nie kończy zewnętrznych ogłoszeń — mogą pozostać aktywne.':''); ?>
+          <article class="product-row" data-product-id="<?= e((string)($item['productId'] ?? '')) ?>">
+            <div class="product-summary">
+              <img src="<?= e(image_url((string)($item['image'] ?? ''))) ?>" alt="<?= e($item['name'] ?? '') ?>" loading="lazy">
+              <div class="product-information"><h2><?= e($item['name'] ?? 'Produkt bez nazwy') ?></h2><p class="product-category"><?= e($item['category'] ?? 'Bez kategorii') ?> · <?= (($item['saleType'] ?? 'showroom') === 'garden_figure')?'Figura / sklep online':'Outlet / showroom' ?></p>
+                <div class="product-price-line"><span class="product-availability"><?= e(($item['status'] ?? '')==='Sprzedane' ? 'Sprzedane' : ($showFigures ? ($item['shopStatus'] ?? 'Dostępność do potwierdzenia') : ($item['status'] ?? 'Dostępność do potwierdzenia'))) ?></span><strong><?= e($showFigures ? ($item['grossPrice'] ?? 'Cena sklepu') : ($item['outletPrice'] ?? 'Zapytaj o cenę')) ?></strong></div>
+                <?php if ($showFigures ? empty($item['shopVisible']) : empty($item['visible'])): ?><p class="muted">Ukryty <?= $showFigures?'w sklepie':'na stronie' ?></p><?php endif; ?>
+              </div>
+            </div>
+            <div class="product-marketplace-area">
+              <div class="product-marketplaces">
+                <?php foreach ($channels as $platform=>$channel): ?>
+                  <div class="marketplace-state marketplace-<?= e($channel['key']) ?>" data-marketplace="<?= e($platform) ?>"><div class="marketplace-state-heading"><strong><?= $platform==='allegro'?'Allegro':'OLX' ?></strong><span class="marketplace-badge"><?= e($channel['label']) ?></span></div>
+                  <?php if ($channel['id']!==''): ?><span class="marketplace-offer-id">ID: <?= e($channel['id']) ?></span><?php endif; ?>
+                  <small><?= e($channel['detail']) ?></small><small>Zapis: <?= e(admin_marketplace_timestamp($channel['updated'])) ?></small></div>
+                <?php endforeach; ?>
+              </div>
+              <div class="row-actions">
+                <?php $itemSlug=clean_filename((string)(($item['slug'] ?? '')!==''?$item['slug']:($item['name'] ?? 'produkt'))); ?>
+                <a class="btn btn-secondary btn-small" href="<?= $showFigures?'/sklep/figury-ogrodowe/produkt/'.e($itemSlug):'/produkt/'.e($itemSlug) ?>" target="_blank" rel="noopener">Podgląd</a>
+                <a class="btn btn-secondary btn-small" href="/admin/?edit=<?= e((string)$index) ?>">Edytuj</a>
+                <?php foreach ($channels as $channel): ?><a class="btn btn-secondary btn-small" href="<?= e($channel['url']) ?>"<?= str_starts_with($channel['url'],'https://')?' target="_blank" rel="noopener noreferrer"':'' ?>><?= e($channel['action']) ?></a><?php endforeach; ?>
+                <form method="post"><input type="hidden" name="csrf" value="<?= e(csrf_token()) ?>"><input type="hidden" name="action" value="toggle_sold"><input type="hidden" name="return" value="<?= $showFigures?'figures':'outlet' ?>"><input type="hidden" name="index" value="<?= e((string)$index) ?>"><button class="btn <?= ($item['status'] ?? '')==='Sprzedane'?'btn-restore':'btn-status' ?> btn-small" type="submit"><?= ($item['status'] ?? '')==='Sprzedane'?'Przywróć':'Sprzedane' ?></button></form>
+                <form method="post"><input type="hidden" name="csrf" value="<?= e(csrf_token()) ?>"><input type="hidden" name="action" value="delete_product"><input type="hidden" name="return" value="<?= $showFigures?'figures':'outlet' ?>"><input type="hidden" name="index" value="<?= e((string)$index) ?>"><button class="btn product-delete btn-small" type="submit" data-confirm="<?= e($deletePrompt) ?>"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M3 6h18M9 6V3h6v3M6 6l1 15h10l1-15M10 10v7M14 10v7"/></svg> Usuń</button></form>
+              </div>
             </div>
           </article>
         <?php endforeach; if ($shown === 0): ?><div class="card empty"><?= $showFigures ? 'Nie znaleziono figur ogrodowych w sklepie online.' : 'Nie znaleziono produktów outletowych.' ?></div><?php endif; ?>

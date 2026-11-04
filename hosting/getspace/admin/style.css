@@ -507,3 +507,26 @@ input:focus, textarea:focus, select:focus { outline: 3px solid rgba(63, 111, 69,
   .form-actions { position: sticky; bottom: 0; z-index: 5; margin: 20px -17px -17px; padding: 12px 17px calc(12px + env(safe-area-inset-bottom)); border-top: 1px solid var(--line); background: rgba(255,255,255,.96); }
   .form-actions .btn { flex: 1; }
 }
+
+/* Product list only: keep the rest of the administration unchanged. */
+.marketplace-product-list{gap:16px;margin-top:16px}
+.marketplace-product-list .product-row{grid-template-columns:minmax(0,1fr) minmax(360px,1fr);gap:24px;padding:20px;border-radius:18px;box-shadow:0 5px 20px rgba(36,69,51,.06);align-items:center}
+.marketplace-product-list .product-summary{display:flex;align-items:center;gap:18px;min-width:0}
+.marketplace-product-list .product-summary img{width:112px;height:112px;flex:0 0 112px;object-fit:contain;background:#f6f3ec;border-radius:12px;aspect-ratio:auto}
+.marketplace-product-list .product-information{min-width:0}.marketplace-product-list h2{font-size:18px;line-height:1.4;overflow-wrap:anywhere;margin:0 0 8px}
+.marketplace-product-list .product-category{font-size:13px;color:#66736b;line-height:1.5;margin:0 0 10px}
+.marketplace-product-list .product-price-line{display:flex;align-items:center;gap:12px;flex-wrap:wrap}.marketplace-product-list .product-price-line strong{color:#244533;font-size:19px}
+.marketplace-product-list .product-availability{font-size:13px;background:#f6f3ec;border-radius:6px;padding:5px 9px}
+.marketplace-product-list .product-marketplace-area{min-width:0}.marketplace-product-list .product-marketplaces{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin-bottom:12px}
+.marketplace-product-list .marketplace-state{background:#f8f9f6;border:1px solid #dce5da;border-radius:10px;padding:11px;min-width:0;overflow-wrap:anywhere}
+.marketplace-product-list .marketplace-state-heading{display:flex;align-items:center;justify-content:space-between;gap:7px;flex-wrap:wrap;font-size:13px}
+.marketplace-product-list .marketplace-badge{display:inline-block;font-size:12px;font-weight:700;padding:4px 7px;border-radius:6px;background:#e9edeb;color:#45514b}
+.marketplace-product-list .marketplace-active .marketplace-badge{background:#dceedd;color:#245332}.marketplace-product-list .marketplace-draft .marketplace-badge,.marketplace-product-list .marketplace-publishing .marketplace-badge{background:#fff0d6;color:#80520c}
+.marketplace-product-list .marketplace-error .marketplace-badge{background:#ffe5df;color:#8c302b}.marketplace-product-list .marketplace-state small{display:block;font-size:11px;line-height:1.5;color:#66736b;margin-top:5px}
+.marketplace-product-list .marketplace-offer-id{display:block;font-size:12px;margin-top:6px;font-variant-numeric:tabular-nums}
+.marketplace-product-list .row-actions{display:flex;flex-wrap:wrap;gap:7px;justify-content:flex-start}.marketplace-product-list .row-actions form{margin:0}
+.marketplace-product-list .btn-small{font-size:12px;min-height:36px;padding:7px 10px}.marketplace-product-list .product-delete{background:#b52e29;border-color:#b52e29;color:#fff;font-weight:800;gap:5px}
+.marketplace-product-list .product-delete:hover{background:#8f201c;border-color:#8f201c}.marketplace-product-list .product-delete:focus-visible{outline:3px solid #eaa19b;outline-offset:2px}
+.marketplace-list-note{font-size:13px;line-height:1.5}
+@media(max-width:1150px){.marketplace-product-list .product-row{grid-template-columns:1fr}}
+@media(max-width:560px){.marketplace-product-list .product-row{padding:14px;gap:16px}.marketplace-product-list .product-summary{align-items:flex-start;gap:12px}.marketplace-product-list .product-summary img{width:78px;height:78px;flex-basis:78px}.marketplace-product-list h2{font-size:16px}.marketplace-product-list .product-marketplaces{grid-template-columns:1fr}.marketplace-product-list .row-actions{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}.marketplace-product-list .row-actions .btn{width:100%;min-width:0}.marketplace-product-list .btn-small{min-height:40px}}
