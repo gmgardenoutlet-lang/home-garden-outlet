@@ -32,12 +32,23 @@ try {
  foreach (['PRIVATE_ACCESS','PRIVATE_REFRESH','PRIVATE_PAYLOAD',$config['key']] as $private) marketplace_check(!str_contains(json_encode($rows),$private));
  $snapshot=admin_allegro_list_snapshot($config);
  foreach (['INACTIVE'=>'draft','ACTIVE'=>'active','PROCESSING'=>'publishing','ACTIVATING'=>'publishing','ENDED'=>'inactive','UNKNOWN'=>'error','FAILED'=>'error','other'=>'unknown'] as $status=>$expected) {
-  $snap=$snapshot;$snap['pilot']['status']=$status;marketplace_check(admin_allegro_product_status($a,$snap)['key']===$expected);
+  $snap=$snapshot;$snap['offers'][$a]['status']=$status;marketplace_check(admin_allegro_product_status($a,$snap)['key']===$expected);
  }
- $bad=$snapshot;unset($bad['pilot']['offerId']);marketplace_check(admin_allegro_product_status($a,$bad)['key']==='unknown');
+ $bad=$snapshot;unset($bad['offers'][$a]['offerId']);marketplace_check(admin_allegro_product_status($a,$bad)['key']==='unknown');
  $bad=$snapshot;$bad['environment']='SANDBOX';marketplace_check(admin_allegro_product_status($a,$bad)['key']==='unknown');
- $bad=$snapshot;$bad['pilot']['offerId']='123?secret=bad';marketplace_check(admin_allegro_product_status($a,$bad)['id']==='');
+ $bad=$snapshot;$bad['offers'][$a]['offerId']='123?secret=bad';marketplace_check(admin_allegro_product_status($a,$bad)['id']==='');
  marketplace_check(admin_allegro_product_status('bad-id',$snapshot)['key']==='unknown');
+ // Multiple independent offer states, including a reopened legacy attempt.
+ $multi=allegro_offer_migrate(allegro_context($config)+['pilot'=>['productId'=>$a,'offerId'=>'123','status'=>'ACTIVE']]);
+ $multi['offers'][$b]=['productId'=>$b,'offerId'=>'124','status'=>'INACTIVE','operation'=>'private-operation','payload'=>['private'=>'PRIVATE_PAYLOAD']];
+ allegro_write_vault($config,base64_decode($config['key']),$multi);
+ $before=$tree();$multiSnapshot=admin_allegro_list_snapshot($config);
+ marketplace_check($tree()===$before);
+ marketplace_check(admin_allegro_product_status($a,$multiSnapshot)['key']==='active');
+ marketplace_check(admin_allegro_product_status($b,$multiSnapshot)['key']==='draft');
+ marketplace_check(!str_contains(json_encode($multiSnapshot),'PRIVATE_PAYLOAD') && !str_contains(json_encode($multiSnapshot),'private-operation'));
+ unset($multi['offers'][$a]);allegro_write_vault($config,base64_decode($config['key']),$multi);
+ marketplace_check(admin_allegro_product_status($a,admin_allegro_list_snapshot($config))['key']==='unknown');
  // One record on each platform can confirm both listings, while absence remains unknown.
  $seal(['productId'=>$b,'offerId'=>'123','status'=>'ACTIVE']);
  $both=admin_product_marketplaces($products,$config,$olx);marketplace_check($both[1]['allegro']['key']==='active' && $both[1]['olx']['key']==='active');

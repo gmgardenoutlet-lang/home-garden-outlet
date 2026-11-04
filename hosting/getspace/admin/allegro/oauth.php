@@ -199,7 +199,7 @@ function allegro_disconnect(array $config): void
 {
     // Local deletion works even with OAuth disabled / missing Client Secret / unsafe hosting logs.
     allegro_locked($config, static function (array $vault, string $key) use ($config): void {
-        allegro_write_vault($config, $key, allegro_context($config) + ['status' => 'disconnected'] + (isset($vault['pilot']) ? ['pilot' => $vault['pilot']] : []));
+        allegro_write_vault($config, $key, allegro_context($config) + ['status' => 'disconnected'] + array_intersect_key($vault, array_flip(['pilot','pilotFailures','offersVersion','offers'])));
         allegro_log($config, 'disconnect');
     });
 }

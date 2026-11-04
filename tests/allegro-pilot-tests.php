@@ -274,7 +274,7 @@ try {
  $uploadFailure=static function($r)use(&$uploadRequests){$uploadRequests[]=$r;return str_starts_with($r['url'],'https://upload.')?['status'=>422,'body'=>'PRIVATE']:['status'=>200,'body'=>json_encode(['totalCount'=>0,'offers'=>[]])];};
  $failedPreview=['payload'=>$payloadForUpload,'fingerprint'=>allegro_pilot_fingerprint($product),'seller'=>'123','environment'=>'SANDBOX','at'=>$now];
  pilot_reject(fn()=>allegro_pilot_write($config,$failedPreview,false,$uploadFailure,$product));
- pilot_check(empty($read()['pilot']) && count(array_filter($uploadRequests,static fn($r)=>$r['method']==='POST' && str_ends_with($r['url'],'/sale/product-offers')))===0);
+ pilot_check(empty($read()['offers'][$GLOBALS['pid']]) && count(array_filter($uploadRequests,static fn($r)=>$r['method']==='POST' && str_ends_with($r['url'],'/sale/product-offers')))===0);
  // Delivery lives outside the product description. Full receipt text fits 650 characters.
  pilot_check(allegro_pilot_length(allegro_pilot_receipt_note())<650 && !str_contains(allegro_pilot_receipt_note(),'**') && str_contains(allegro_pilot_receipt_note(),'nie ogranicza prawa do reklamacji'));
  pilot_check(allegro_pilot_payload($product,$meta,array_replace($input,['receipt_info'=>str_replace("\n","\r\n",allegro_pilot_receipt_note())]))['delivery']['additionalInfo']===allegro_pilot_receipt_note());
@@ -288,45 +288,45 @@ try {
  pilot_reject(fn()=>allegro_pilot_payload($product,$meta,array_replace($input,['safety'=>''])));
  pilot_check(allegro_pilot_payload($product,$meta,array_replace($input,['safety'=>'Ręczne informacje producenta.']))['productSet'][0]['safetyInformation']['description']==='Ręczne informacje producenta.');
  // UNKNOWN recovery never erases the whole vault, and cannot reopen an existing/ambiguous offer.
- $seedUnknown=static function()use($config,$seed,$pid,$product){$seed(allegro_scope_request());allegro_locked($config,static function($v,$k)use($config,$pid,$product){$v['unrelatedMarker']='preserve';$v['pilot']=['productId'=>$pid,'status'=>'UNKNOWN','fingerprint'=>allegro_pilot_fingerprint($product),'failure'=>['httpStatus'=>422]];allegro_write_vault($config,$k,$v);});};
+ $seedUnknown=static function()use($config,$seed,$pid,$product){$seed(allegro_scope_request());allegro_locked($config,static function($v,$k)use($config,$pid,$product){$v['unrelatedMarker']='preserve';$v['offers'][$GLOBALS['pid']]=['productId'=>$pid,'status'=>'UNKNOWN','fingerprint'=>allegro_pilot_fingerprint($product),'failure'=>['httpStatus'=>422]];allegro_write_vault($config,$k,$v);});};
  $absent=static fn($r)=>['status'=>200,'body'=>json_encode(['offers'=>[],'totalCount'=>0,'count'=>0])];
  $seedUnknown();$clock=$now+100;
  allegro_pilot_unlock_check($config,$pid,false,'',$absent,$clock);
- pilot_check(count($read()['pilot']['absenceChecks'])===1);
+ pilot_check(count($read()['offers'][$GLOBALS['pid']]['absenceChecks'])===1);
  pilot_reject(fn()=>allegro_pilot_unlock_check($config,$pid,true,'wrong',$absent,$clock+1));
  pilot_reject(fn()=>allegro_pilot_unlock_check($config,$pid,false,'',$absent,$clock+1));
  allegro_pilot_unlock_check($config,$pid,false,'',$absent,$clock+60);
- pilot_check(count($read()['pilot']['absenceChecks'])===2);
- $recoveryNonce=$read()['pilot']['recoveryNonce'];
+ pilot_check(count($read()['offers'][$GLOBALS['pid']]['absenceChecks'])===2);
+ $recoveryNonce=$read()['offers'][$GLOBALS['pid']]['recoveryNonce'];
  allegro_pilot_unlock_check($config,$pid,true,$recoveryNonce,$absent,$clock+61);
- pilot_check(empty($read()['pilot']) && $read()['unrelatedMarker']==='preserve' && $read()['tokens']['access']==='SYNTHETIC_ACCESS');
+ pilot_check(empty($read()['offers'][$GLOBALS['pid']]) && $read()['unrelatedMarker']==='preserve' && $read()['tokens']['access']==='SYNTHETIC_ACCESS');
  pilot_check($read()['pilotFailures'][0]['httpStatus']===422 && count($read()['pilotFailures'][0]['absenceChecks'])===2);
  // A reopened attempt can create exactly one new INACTIVE draft, using uploaded URLs.
  allegro_pilot_write($config,$failedPreview,false,$transport,$product);
- pilot_check($read()['pilot']['status']==='INACTIVE' && count($read()['pilotFailures'])===1);
- pilot_check($read()['pilot']['payload']['images']===['https://a.allegroimg.com/original/fixture/image']);
- $remoteOffer['delivery']['handlingTime']='PT168H';allegro_pilot_check($config,$transport);pilot_check($read()['pilot']['status']==='INACTIVE');
- $remoteOffer['delivery']['handlingTime']='P2D';pilot_reject(fn()=>allegro_pilot_check($config,$transport));
+ pilot_check($read()['offers'][$GLOBALS['pid']]['status']==='INACTIVE' && count($read()['pilotFailures'])===1);
+ pilot_check($read()['offers'][$GLOBALS['pid']]['payload']['images']===['https://a.allegroimg.com/original/fixture/image']);
+ $remoteOffer['delivery']['handlingTime']='PT168H';allegro_pilot_check($config,$transport,$pid);pilot_check($read()['offers'][$GLOBALS['pid']]['status']==='INACTIVE');
+ $remoteOffer['delivery']['handlingTime']='P2D';pilot_reject(fn()=>allegro_pilot_check($config,$transport,$pid));
  $remoteOffer['delivery']['handlingTime']='P7D';
  pilot_reject(fn()=>allegro_pilot_write($config,$failedPreview,false,$transport,$product));
  // Even a newly appearing offer on the final confirmation read prevents reopening.
  $seedUnknown();allegro_pilot_unlock_check($config,$pid,false,'',$absent,$clock);
- allegro_pilot_unlock_check($config,$pid,false,'',$absent,$clock+60);$proof=$read()['pilot']['recoveryNonce'];
+ allegro_pilot_unlock_check($config,$pid,false,'',$absent,$clock+60);$proof=$read()['offers'][$GLOBALS['pid']]['recoveryNonce'];
  pilot_reject(fn()=>allegro_pilot_unlock_check($config,$pid,true,$proof,static fn($r)=>['status'=>200,'body'=>json_encode(['offers'=>[['id'=>'987']],'totalCount'=>1])],$clock+61));
- pilot_check(isset($read()['pilot']) && empty($read()['pilot']['absenceChecks']));
+ pilot_check(isset($read()['offers'][$GLOBALS['pid']]) && empty($read()['offers'][$GLOBALS['pid']]['absenceChecks']));
  foreach ([['offers'=>[['id'=>'987']],'totalCount'=>1],['offers'=>[]],['offers'=>[],'totalCount'=>'0'],['offers'=>[],'totalCount'=>1],['offers'=>[],'totalCount'=>0,'count'=>1]] as $bad) {
   $seedUnknown();allegro_pilot_unlock_check($config,$pid,false,'',$absent,$clock);
   pilot_reject(fn()=>allegro_pilot_unlock_check($config,$pid,false,'',static fn($r)=>['status'=>200,'body'=>json_encode($bad)],$clock+60));
-  pilot_check(isset($read()['pilot']) && empty($read()['pilot']['absenceChecks']));
+  pilot_check(isset($read()['offers'][$GLOBALS['pid']]) && empty($read()['offers'][$GLOBALS['pid']]['absenceChecks']));
  }
  $seedUnknown();
  try {allegro_pilot_unlock_check($config,$pid,false,'',static fn($r)=>['status'=>200,'body'=>json_encode(['offers'=>[['id'=>'987']],'totalCount'=>1])],$clock);throw new LogicException('must block');}
  catch(RuntimeException $e){pilot_check(str_contains($e->getMessage(),'987'));}
  $seedUnknown();allegro_pilot_unlock_check($config,$pid,false,'',$absent,$clock);
  pilot_reject(fn()=>allegro_pilot_unlock_check($config,$pid,false,'',static fn($r)=>throw new AllegroSafeException('network'),$clock+60));
- pilot_check(empty($read()['pilot']['absenceChecks']));
+ pilot_check(empty($read()['offers'][$GLOBALS['pid']]['absenceChecks']));
  $seedUnknown();
- allegro_locked($config,static function($v,$k)use($config){$v['pilot']['offerId']='987';allegro_write_vault($config,$k,$v);});
+ allegro_locked($config,static function($v,$k)use($config){$v['offers'][$GLOBALS['pid']]['offerId']='987';allegro_write_vault($config,$k,$v);});
  pilot_reject(fn()=>allegro_pilot_unlock_check($config,$pid,false,'',$absent,$clock));
  $seed(allegro_scope_request());
  $called=false;
@@ -360,28 +360,73 @@ try {
  allegro_device_poll($config,$binding,$now,static fn($r)=>['status'=>400,'body'=>json_encode(['error'=>'access_denied'])]);
  pilot_check($read()['tokens']['access']==='SYNTHETIC_ACCESS' && $read()['status']==='connected');
  $seed(allegro_scope_request());allegro_pilot_write($config,$preview,false,$transport,$product);
- pilot_check($read()['pilot']['offerId']==='789' && $read()['pilot']['status']==='INACTIVE');
+ pilot_check($read()['offers'][$GLOBALS['pid']]['offerId']==='789' && $read()['offers'][$GLOBALS['pid']]['status']==='INACTIVE');
  $writes=count(array_filter($requests,static fn($r)=>$r['method']==='POST' && str_ends_with($r['url'],'/sale/product-offers')));
  pilot_reject(fn()=>allegro_pilot_write($config,$preview,false,$transport,$product));
  pilot_check(count(array_filter($requests,static fn($r)=>$r['method']==='POST' && str_ends_with($r['url'],'/sale/product-offers')))===$writes);
  $changedPreview=$preview;$changedPreview['payload']['sellingMode']['price']['amount']='999.00';pilot_reject(fn()=>allegro_pilot_write($config,$changedPreview,true,$transport,$product));
- allegro_pilot_write($config,$preview,true,$transport,$product);pilot_check($read()['pilot']['status']==='ACTIVE');
+ allegro_pilot_write($config,$preview,true,$transport,$product);pilot_check($read()['offers'][$GLOBALS['pid']]['status']==='ACTIVE');
  pilot_reject(fn()=>allegro_pilot_write($config,$preview,true,$transport,$product));
  pilot_check(count(array_filter($requests,static fn($r)=>$r['method']==='PATCH'))===1);
  // 202 remains PROCESSING until operation 303 and an authoritative GET confirms INACTIVE.
  $seed(allegro_scope_request());$requests=[];$createMode='202';$operationPending=true;
- allegro_pilot_write($config,$preview,false,$transport,$product);pilot_check($read()['pilot']['status']==='PROCESSING');
+ allegro_pilot_write($config,$preview,false,$transport,$product);pilot_check($read()['offers'][$GLOBALS['pid']]['status']==='PROCESSING');
  pilot_reject(fn()=>allegro_pilot_write($config,$preview,true,$transport,$product));
- allegro_locked($config,static function($v,$k)use($config){$v['pilot']['nextCheck']=0;allegro_write_vault($config,$k,$v);});
- allegro_pilot_check($config,$transport);pilot_check($read()['pilot']['status']==='PROCESSING');
- $operationPending=false;allegro_locked($config,static function($v,$k)use($config){$v['pilot']['nextCheck']=0;allegro_write_vault($config,$k,$v);});
- allegro_pilot_check($config,$transport);pilot_check($read()['pilot']['status']==='INACTIVE');
+ allegro_locked($config,static function($v,$k)use($config){$v['offers'][$GLOBALS['pid']]['nextCheck']=0;allegro_write_vault($config,$k,$v);});
+ allegro_pilot_check($config,$transport,$pid);pilot_check($read()['offers'][$GLOBALS['pid']]['status']==='PROCESSING');
+ $operationPending=false;allegro_locked($config,static function($v,$k)use($config){$v['offers'][$GLOBALS['pid']]['nextCheck']=0;allegro_write_vault($config,$k,$v);});
+ allegro_pilot_check($config,$transport,$pid);pilot_check($read()['offers'][$GLOBALS['pid']]['status']==='INACTIVE');
  // Network uncertainty after POST locks creation; no automatic retry or duplicate.
  $seed(allegro_scope_request());$requests=[];$postThrows=true;
  pilot_reject(fn()=>allegro_pilot_write($config,$preview,false,$transport,$product));
- pilot_check($read()['pilot']['status']==='UNKNOWN');pilot_reject(fn()=>allegro_pilot_write($config,$preview,false,$transport,$product));
+ pilot_check($read()['offers'][$GLOBALS['pid']]['status']==='UNKNOWN');pilot_reject(fn()=>allegro_pilot_write($config,$preview,false,$transport,$product));
  pilot_check(count(array_filter($requests,static fn($r)=>$r['method']==='POST' && str_ends_with($r['url'],'/sale/product-offers')))===1);
- echo 'PASS: Allegro one-figure pilot — '.$checks." assertions; synthetic transport only\n";
+
+ // Real legacy ciphertext, without v2 keys: migration preserves every field and is idempotent.
+ $legacy=['productId'=>$pid,'offerId'=>'700','status'=>'ACTIVE','operation'=>'/sale/product-offers/700/operations/legacy',
+  'nextCheck'=>123,'payload'=>['name'=>'Original angel'],'failure'=>['code'=>'historic'],'activationAttempted'=>true];
+ $old=allegro_context($config)+['status'=>'connected','account'=>['id'=>'123'],
+  'tokens'=>['access'=>'SYNTHETIC_ACCESS','refresh'=>'SYNTHETIC_REFRESH','expires_at'=>time()+3600,'scope'=>allegro_scope_request()],
+  'pilot'=>$legacy,'pilotFailures'=>[['productId'=>$pid,'failureCode'=>'historic']],'unrelated'=>['keep'=>true]];
+ $key=base64_decode($config['key']);$nonce=random_bytes(24);$file=allegro_storage_dir($config).'/account.enc';
+ file_put_contents($file,$nonce.sodium_crypto_secretbox(json_encode($old),$nonce,$key));
+ $migrated=$read();pilot_check($migrated['offers'][$pid]===$legacy && $migrated['pilot']===$legacy);
+ pilot_check(allegro_offer_migrate($migrated)===$migrated && $migrated['tokens']===$old['tokens'] && $migrated['pilotFailures']===$old['pilotFailures']);
+ $secondId='prd_'.str_repeat('c',32);$second=array_replace($product,['productId'=>$secondId,'name'=>'Second figure']);
+ $secondPreview=$preview;$secondPreview['payload']['external']['id']=$secondId;$secondPreview['payload']['name']=$second['name'];
+ $secondPreview['fingerprint']=allegro_pilot_fingerprint($second);$secondPreview['at']=time();
+ $calls=[];$secondRemote=[];$uncertain=true;
+ $secondTransport=static function($r)use(&$calls,&$secondRemote,&$uncertain){
+  $calls[]=$r;
+  if(str_starts_with($r['url'],'https://upload.'))return ['status'=>201,'body'=>json_encode(['location'=>'https://a.allegroimg.com/original/second'])];
+  if(str_contains($r['url'],'/sale/offers?'))return ['status'=>200,'body'=>json_encode(['totalCount'=>count($secondRemote)?1:0,'offers'=>$secondRemote?[$secondRemote]:[]])];
+  if($r['method']==='POST'){
+   $secondRemote=json_decode($r['body'],true);$secondRemote['id']='701';
+   if($uncertain)throw new AllegroSafeException('network');
+   return ['status'=>201,'body'=>json_encode($secondRemote)];
+  }
+  if($r['method']==='PATCH')$secondRemote['publication']['status']='ACTIVE';
+  return ['status'=>200,'body'=>json_encode($secondRemote)];
+ };
+ pilot_reject(fn()=>allegro_pilot_write($config,$secondPreview,false,$secondTransport,$second));
+ pilot_check($read()['offers'][$pid]===$legacy && $read()['offers'][$secondId]['status']==='UNKNOWN');
+ pilot_reject(fn()=>allegro_pilot_write($config,$secondPreview,false,$secondTransport,$second));
+ pilot_check(count(array_filter($calls,static fn($r)=>$r['method']==='POST' && str_ends_with($r['url'],'/sale/product-offers')))===1);
+ pilot_reject(fn()=>allegro_pilot_check($config,$secondTransport));
+ allegro_pilot_check($config,$secondTransport,$secondId);
+ pilot_check($read()['offers'][$secondId]['offerId']==='701' && $read()['offers'][$secondId]['status']==='INACTIVE');
+ pilot_check($read()['offers'][$pid]===$legacy && $read()['pilot']===$legacy && $read()['unrelated']===$old['unrelated']);
+ allegro_pilot_write($config,$secondPreview,true,$secondTransport,$second);
+ pilot_check($read()['offers'][$secondId]['status']==='ACTIVE' && $read()['offers'][$pid]===$legacy);
+ pilot_check(count(array_filter($calls,static fn($r)=>$r['method']==='PATCH' && str_ends_with($r['url'],'/701')))===1);
+ pilot_check(count(array_filter($calls,static fn($r)=>str_contains($r['url'],'/700')))===0);
+ $saved=$read();$collision=$saved;$collision['offers'][$secondId]['offerId']='700';
+ pilot_reject(fn()=>allegro_offer_migrate($collision));
+ $wrong=$saved;$wrong['offers'][$secondId]['productId']=$pid;pilot_reject(fn()=>allegro_offer_migrate($wrong));
+ allegro_disconnect($config);$disconnected=$read();
+ pilot_check($disconnected['offers']===$saved['offers'] && $disconnected['pilotFailures']===$saved['pilotFailures'] && $disconnected['pilot']===$legacy);
+ pilot_check(!isset($disconnected['tokens']));
+ echo 'PASS: Allegro per-product offers — '.$checks." assertions; synthetic transport only\n";
 } finally {
  $remove=static function($path)use(&$remove){if(is_dir($path)){foreach(scandir($path) as $x)if($x!=='.'&&$x!=='..')$remove($path.'/'.$x);rmdir($path);}else unlink($path);};$remove($root);
 }

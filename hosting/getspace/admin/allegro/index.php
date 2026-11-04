@@ -56,7 +56,9 @@ try {
             allegro_diagnose($config, time());
             flash('success', 'Potwierdzono tożsamość konta przez odczyt Allegro.');
         } else { throw new AllegroSafeException('policy'); }
-        header('Location: /admin/allegro/', true, 303);
+        $selected=$_POST['product_id'] ?? '';
+        $target=is_string($selected) && preg_match('/^prd_[a-f0-9]{32}$/D',$selected) ? '?productId='.$selected : '';
+        header('Location: /admin/allegro/'.$target, true, 303);
         exit;
     }
     $status = allegro_public_status($config, $binding);

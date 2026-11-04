@@ -154,7 +154,7 @@ try {
     a_check($safeDevice['verification_uri']===$device['verification_uri'] && $safeDevice['verification_uri_complete']===$device['verification_uri_complete'],'stored response URLs never exposed for rendering');
     allegro_locked($config,function($v,$k)use($config,$savedVault){allegro_write_vault($config,$k,$savedVault);});
     $path=allegro_storage_dir($config).'/account.enc';$cipher=file_get_contents($path);
-    a_reject(fn()=>allegro_locked($config,function($v,$k)use($config){$v['oversized']=str_repeat('x',110000);allegro_write_vault($config,$k,$v);}), 'atomic failed write');
+    a_reject(fn()=>allegro_locked($config,function($v,$k)use($config){$v['oversized']=str_repeat('x',8388609);allegro_write_vault($config,$k,$v);}), 'atomic failed write');
     a_check(file_get_contents($path)===$cipher && glob(dirname($path).'/.allegro-*')===[],'old complete file retained');
     a_reject(fn()=>allegro_public_status(array_replace($config,['key'=>base64_encode(random_bytes(32))])),'wrong key','storage');
     $prod=array_replace($config,['environment'=>'PROD']);a_check(allegro_public_status($prod)['status']==='disconnected','partition');

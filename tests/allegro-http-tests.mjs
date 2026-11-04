@@ -109,13 +109,18 @@ try {
     } elseif (str_starts_with($mode, 'view-')) {
       allegro_locked($config, function ($v, $k) use ($config, $mode) {
         $status = substr($mode,5);
-        if ($status === 'CLEAR') unset($v['pilot']);
+        if ($status === 'CLEAR') unset($v['offers']['prd_'.str_repeat('a',32)]);
         else {
-          $v['pilot'] = ['productId'=>'prd_'.str_repeat('a',32), 'status'=>$status,
+          $v['offers']['prd_'.str_repeat('a',32)] = ['productId'=>'prd_'.str_repeat('a',32), 'status'=>$status,
             'payload'=>['name'=>'Zapisana figura', 'sellingMode'=>['price'=>['amount'=>'150.00']], 'stock'=>['available'=>1]]];
-          if ($status !== 'UNKNOWN') $v['pilot']['offerId']='789';
-          if ($status === 'PROCESSING') $v['pilot']['operation']='/sale/product-offers/789/operations/op';
+          if ($status !== 'UNKNOWN') $v['offers']['prd_'.str_repeat('a',32)]['offerId']='789';
+          if ($status === 'PROCESSING') $v['offers']['prd_'.str_repeat('a',32)]['operation']='/sale/product-offers/789/operations/op';
         }
+        allegro_write_vault($config,$k,$v);
+      });
+    } elseif ($mode === 'multi') {
+      allegro_locked($config, function ($v, $k) use ($config) {
+        $v['offers']['prd_'.str_repeat('b',32)]=['productId'=>'prd_'.str_repeat('b',32),'offerId'=>'790','status'=>'UNKNOWN','activationAttempted'=>true];
         allegro_write_vault($config,$k,$v);
       });
     } elseif ($mode === 'refresh') {
@@ -270,7 +275,7 @@ try {
   const accountHtml = await response.text();
   assert.match(accountHtml, /&lt;fixture&amp;seller&gt;/, 'escaped account identity');
   assert.match(accountHtml, /123456/);
-  assert.match(accountHtml, /Pierwsza figura/);
+  assert.match(accountHtml, /Figury ogrodowe/);
   assert.match(accountHtml, /name="product_id"/);
   assert.match(accountHtml, /Fixture figura/);
   response = await post({ action: 'connect', csrf }, cookie);
@@ -317,6 +322,15 @@ try {
     else assert(!view.includes('>Opublikuj ofertę<'));
     assert(!view.includes('>Utwórz szkic<'), 'existing record cannot expose draft creation');
   }
+  await worker('multi');
+  const multiBefore = createHash('sha256').update(await readFile(viewVault)).digest('hex');
+  const secondId = `prd_${'b'.repeat(32)}`;
+  const secondHtml = await (await request(`/admin/allegro/?productId=${secondId}`, {headers:{cookie}})).text();
+  assert.match(secondHtml, /data-offer-status>UNKNOWN</);
+  assert(secondHtml.includes('oferta/790'));
+  assert(secondHtml.includes(`name="product_id" value="${secondId}"`));
+  assert(!secondHtml.includes('>Opublikuj ofertę<') && !secondHtml.includes('>Utwórz szkic<'));
+  assert.equal(createHash('sha256').update(await readFile(viewVault)).digest('hex'), multiBefore);
   await worker('view-CLEAR');
   await request('/fixture-preview-clear',{headers:{cookie}});
   if (process.env.HGO_ALLEGRO_PLAYWRIGHT_MODULE) {

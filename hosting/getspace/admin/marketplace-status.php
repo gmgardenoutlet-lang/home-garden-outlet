@@ -15,28 +15,31 @@ function admin_allegro_list_snapshot(?array $config=null): array
     $dir=$config['storage_root'].'/'.strtolower($config['environment']);$file=$dir.'/account.enc';
     if (is_link($dir) || is_link($file)) throw new RuntimeException('Unsafe status source');
     if (!is_file($file)) return ['environment'=>$config['environment'],'pilot'=>[],'updated'=>null];
-    if (!allegro_private_path($file) || @filesize($file)>131072) throw new RuntimeException('Unsafe status source');
-    $bytes=@file_get_contents($file,false,null,0,131073);
-    if (!is_string($bytes) || strlen($bytes)<40 || strlen($bytes)>131072) throw new RuntimeException('Invalid status source');
+    if (!allegro_private_path($file) || @filesize($file)>8388648) throw new RuntimeException('Unsafe status source');
+    $bytes=@file_get_contents($file,false,null,0,8388649);
+    if (!is_string($bytes) || strlen($bytes)<40 || strlen($bytes)>8388648) throw new RuntimeException('Invalid status source');
     $plain=sodium_crypto_secretbox_open(substr($bytes,24),substr($bytes,0,24),$key);
     if ($plain===false) throw new RuntimeException('Invalid status source');
     $vault=json_decode($plain,true,32,JSON_THROW_ON_ERROR);
     if (!is_array($vault)) throw new RuntimeException('Invalid status source');
     foreach (allegro_context($config) as $field=>$expected) if (($vault[$field] ?? null)!==$expected) throw new RuntimeException('Wrong status context');
+    $vault=allegro_offer_migrate($vault);
+    $offers=[];
+    foreach ($vault['offers'] as $pid=>$record) $offers[$pid]=array_intersect_key($record,array_flip(['productId','offerId','status']));
     $pilot=$vault['pilot'] ?? [];
     if (!is_array($pilot)) throw new RuntimeException('Invalid status source');
     // Project only public identifiers/status; credentials, payload and diagnostics never leave this function.
-    return ['environment'=>$config['environment'],'pilot'=>array_intersect_key($pilot,array_flip(['productId','offerId','status'])),
+    return ['environment'=>$config['environment'],'offers'=>$offers,'pilot'=>array_intersect_key($pilot,array_flip(['productId','offerId','status'])),
         'account_hash'=>hash('sha256',(string)($vault['account']['id']??'')),
         'updated'=>@filemtime($file) ?: null];
 }
 function admin_allegro_product_status(string $id, array $snapshot): array
 {
-    $out=admin_marketplace_unknown('allegro');$pilot=$snapshot['pilot'] ?? [];
+    $out=admin_marketplace_unknown('allegro');$pilot=isset($snapshot['offers']) ? ($snapshot['offers'][$id] ?? []) : ($snapshot['pilot'] ?? []);
     if (!preg_match('/^prd_[a-f0-9]{32}$/D',$id)) return $out;
     $out['url']='/admin/allegro/?productId='.rawurlencode($id);
     if (($snapshot['environment'] ?? '')!=='PROD') { $out['detail']='Brak potwierdzenia oferty produkcyjnej (konfiguracja niedostępna lub SANDBOX).';return $out; }
-    if (($pilot['productId'] ?? '')!==$id) {$out['detail']='Brak powiązania w pojedynczym pilocie nie potwierdza braku oferty na koncie.';return $out;}
+    if (($pilot['productId'] ?? '')!==$id) {$out['detail']='Brak powiązania w lokalnym zapisie nie potwierdza braku oferty na koncie.';return $out;}
     $out['updated']=$snapshot['updated'] ?? null;
     $offer=$pilot['offerId'] ?? '';
     $valid=is_string($offer) && preg_match('/^[0-9]{1,32}$/D',$offer)===1;
